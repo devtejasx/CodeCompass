@@ -66,6 +66,10 @@ const config: Config = {
       transitionTimingFunction: {
         "out-expo": "cubic-bezier(0.16, 1, 0.3, 1)",
       },
+      letterSpacing: {
+        /* Shared by every uppercase eyebrow/label on the site. */
+        label: "0.14em",
+      },
       keyframes: {
         "accordion-down": {
           from: { height: "0" },

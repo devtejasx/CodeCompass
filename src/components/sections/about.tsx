@@ -16,9 +16,11 @@ export function About() {
         <Divider className="mb-20" />
 
         <Reveal className="mx-auto max-w-3xl text-center">
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-subtle-foreground">
+          {/* A real heading, not a styled <p>: both the nav and the footer
+              link here, so the section needs to be reachable by heading. */}
+          <h2 className="text-xs font-medium uppercase tracking-label text-subtle-foreground">
             About
-          </p>
+          </h2>
 
           <blockquote className="balance mt-6 text-2xl font-medium leading-snug tracking-tight text-foreground sm:text-3xl">
             &ldquo;{SITE.principle}&rdquo;

@@ -118,7 +118,7 @@ export function DashboardPreview() {
                   <div className="flex flex-col gap-4">
                     {/* Current mission */}
                     <div className="rounded-xl border border-primary/25 bg-primary/[0.07] p-5">
-                      <p className="flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-indigo-300">
+                      <p className="flex items-center gap-2 text-xs uppercase tracking-label text-indigo-300">
                         <Target className="size-3.5" aria-hidden />
                         Current Mission
                       </p>
@@ -131,7 +131,7 @@ export function DashboardPreview() {
                     </div>
 
                     <div className="rounded-xl border border-border bg-surface/60 p-5">
-                      <p className="text-xs uppercase tracking-[0.14em] text-subtle-foreground">
+                      <p className="text-xs uppercase tracking-label text-subtle-foreground">
                         Upcoming
                       </p>
                       <p className="mt-2 text-sm font-medium text-foreground">
@@ -145,7 +145,7 @@ export function DashboardPreview() {
 
                   <div className="flex flex-col gap-4">
                     <div className="rounded-xl border border-border bg-surface/60 p-5">
-                      <p className="text-xs uppercase tracking-[0.14em] text-subtle-foreground">
+                      <p className="text-xs uppercase tracking-label text-subtle-foreground">
                         Projects
                       </p>
                       <div className="mt-3 flex items-center gap-3">
@@ -164,7 +164,7 @@ export function DashboardPreview() {
                     </div>
 
                     <div className="rounded-xl border border-border bg-surface/60 p-5">
-                      <p className="text-xs uppercase tracking-[0.14em] text-subtle-foreground">
+                      <p className="text-xs uppercase tracking-label text-subtle-foreground">
                         Recent Activity
                       </p>
                       <div className="mt-3 flex items-start gap-2.5">
