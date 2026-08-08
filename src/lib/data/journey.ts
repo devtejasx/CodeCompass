@@ -1,88 +1,86 @@
 import {
   Braces,
   Compass,
-  Cpu,
   FolderGit2,
   GitBranch,
   Layers,
+  Lightbulb,
   Rocket,
-  Sparkles,
   Trophy,
 } from "lucide-react";
 
-import type { JourneyStep } from "@/types";
+import type { BeginnerQuestion, JourneyNode, WorkStep } from "@/types";
 
-export const JOURNEY_STEPS: JourneyStep[] = [
+/** The doubts that stall people before they write a line of code. */
+export const BEGINNER_QUESTIONS: BeginnerQuestion[] = [
+  { text: "Should I learn Python or JavaScript?" },
+  { text: "Frontend or Backend?" },
+  { text: "What should I learn first?" },
+  { text: "Which tools actually matter?" },
+  { text: "Am I learning things in the right order?" },
+];
+
+export const WORK_STEPS: WorkStep[] = [
   {
-    step: 1,
-    title: "Career Selection",
-    description:
-      "Answer a short set of questions about your interests, strengths and goals. We match you to the field where you'll actually enjoy the work.",
+    number: "01",
+    title: "Choose Your Path",
+    description: "Explore technology careers and understand what each field involves.",
     icon: Compass,
-    badge: "Week 1",
   },
   {
-    step: 2,
-    title: "Computer Fundamentals",
-    description:
-      "How computers, memory, networks and the internet really work — the mental model everything else hangs from.",
-    icon: Cpu,
-    badge: "Weeks 1–3",
-  },
-  {
-    step: 3,
-    title: "Programming Language",
-    description:
-      "One language, learned properly. Syntax, logic, data structures and the habit of reading code before writing it.",
-    icon: Braces,
-    badge: "Months 1–3",
-  },
-  {
-    step: 4,
-    title: "Git & GitHub",
-    description:
-      "Version control from your first commit to your first pull request review — the skill every job posting quietly assumes.",
-    icon: GitBranch,
-    badge: "Month 3",
-  },
-  {
-    step: 5,
-    title: "Frameworks",
-    description:
-      "The tools your field runs on, introduced only once the fundamentals underneath them make sense.",
-    icon: Layers,
-    badge: "Months 4–6",
-  },
-  {
-    step: 6,
-    title: "Projects",
-    description:
-      "Build real, scoped applications. Each one is chosen to stretch exactly the skill you just picked up.",
-    icon: FolderGit2,
-    badge: "Months 5–8",
-  },
-  {
-    step: 7,
-    title: "AI Developer Tools",
-    description:
-      "Copilot, Cursor, Claude, v0 and the rest — how professionals use them to move faster without losing understanding.",
-    icon: Sparkles,
-    badge: "Month 7",
-  },
-  {
-    step: 8,
-    title: "Advanced Topics",
-    description:
-      "System design, testing, performance, security and deployment. The difference between writing code and shipping software.",
+    number: "02",
+    title: "Follow Your Journey",
+    description: "Get a structured path showing what to learn and what comes next.",
     icon: Rocket,
-    badge: "Months 8–11",
   },
   {
-    step: 9,
-    title: "Become a Techie",
+    number: "03",
+    title: "Keep Moving Forward",
     description:
-      "A portfolio, a workflow, a network and the confidence to interview. You stop asking what to learn next and start choosing.",
+      "Learn, practice, build, and progress through your technology journey.",
     icon: Trophy,
-    badge: "Year 1",
+  },
+];
+
+export const JOURNEY_NODES: JourneyNode[] = [
+  {
+    title: "Choose Your Career",
+    description: "Pick the field that fits how you like to work.",
+    icon: Compass,
+  },
+  {
+    title: "Fundamentals",
+    description: "How computers, networks and the internet actually work.",
+    icon: Lightbulb,
+  },
+  {
+    title: "Programming Language",
+    description: "One language, learned properly rather than three, half-learned.",
+    icon: Braces,
+  },
+  {
+    title: "Git & GitHub",
+    description: "Version control, branches and pull requests.",
+    icon: GitBranch,
+  },
+  {
+    title: "Frameworks & Tools",
+    description: "The stack your field runs on, once the basics hold.",
+    icon: Layers,
+  },
+  {
+    title: "Projects",
+    description: "Build real things that prove what you know.",
+    icon: FolderGit2,
+  },
+  {
+    title: "Advanced Concepts",
+    description: "Testing, architecture, performance and deployment.",
+    icon: Rocket,
+  },
+  {
+    title: "Become a Techie",
+    description: "A portfolio, a workflow, and the confidence to interview.",
+    icon: Trophy,
   },
 ];

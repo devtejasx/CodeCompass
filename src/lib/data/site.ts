@@ -1,65 +1,46 @@
-import type { FooterColumn, NavItem, Stat } from "@/types";
+import { Github, Linkedin, Twitter } from "lucide-react";
+
+import type { FooterGroup, NavLink, SocialLink } from "@/types";
 
 export const SITE = {
   name: "CodeCompass",
   tagline: "Navigate Your Journey Into Tech.",
-  promise: "Never let a beginner wonder what to learn next.",
+  principle: "Never wonder what to learn next.",
   description:
-    "CodeCompass helps beginners discover the right tech career, learn in the correct order, master modern developer tools, and become confident tech professionals.",
+    "CodeCompass helps you discover technology careers, understand what to learn, and navigate your journey into tech.",
+  footerBlurb: "Guiding the next generation of tech professionals.",
 } as const;
 
-export const NAV_ITEMS: NavItem[] = [
-  { label: "Why CodeCompass", href: "#why" },
-  { label: "Career Paths", href: "#careers" },
-  { label: "Roadmap", href: "#journey" },
-  { label: "AI Tools", href: "#ai-tools" },
-  { label: "FAQ", href: "#faq" },
+export const NAV_LINKS: NavLink[] = [
+  { label: "Home", href: "#top" },
+  { label: "Explore Careers", href: "#careers" },
+  { label: "How It Works", href: "#how-it-works" },
+  { label: "About", href: "#about" },
 ];
 
-export const STATS: Stat[] = [
-  { value: "50+", label: "Career Paths" },
-  { value: "1000+", label: "Learning Resources" },
-  { value: "100+", label: "AI Tools Explained" },
-  { value: "1000+", label: "Coding Problems" },
-  { value: "∞", label: "Interactive Roadmaps" },
-];
-
-export const FOOTER_COLUMNS: FooterColumn[] = [
+export const FOOTER_GROUPS: FooterGroup[] = [
   {
     title: "Product",
     links: [
-      { label: "Career Paths", href: "#careers" },
-      { label: "Learning Roadmap", href: "#journey" },
-      { label: "AI Tool Academy", href: "#ai-tools" },
+      { label: "Explore", href: "#careers" },
+      { label: "How It Works", href: "#how-it-works" },
+      { label: "Careers", href: "#careers" },
+      { label: "About", href: "#about" },
+    ],
+  },
+  {
+    title: "Journey",
+    links: [
+      { label: "Roadmap", href: "#journey" },
+      { label: "What You'll Learn", href: "#learn" },
+      { label: "AI Tools", href: "#ai-tools" },
       { label: "Dashboard", href: "#dashboard" },
-      { label: "Features", href: "#features" },
     ],
   },
-  {
-    title: "Learn",
-    links: [
-      { label: "Start From Zero", href: "#why" },
-      { label: "Git & GitHub", href: "#features" },
-      { label: "Coding Practice", href: "#features" },
-      { label: "Project Ideas", href: "#features" },
-      { label: "FAQ", href: "#faq" },
-    ],
-  },
-  {
-    title: "Company",
-    links: [
-      { label: "About", href: "#" },
-      { label: "Blog", href: "#" },
-      { label: "Careers", href: "#" },
-      { label: "Contact", href: "#" },
-    ],
-  },
-  {
-    title: "Legal",
-    links: [
-      { label: "Privacy", href: "#" },
-      { label: "Terms", href: "#" },
-      { label: "Security", href: "#" },
-    ],
-  },
+];
+
+export const SOCIAL_LINKS: SocialLink[] = [
+  { label: "GitHub", href: "#", icon: Github },
+  { label: "LinkedIn", href: "#", icon: Linkedin },
+  { label: "X", href: "#", icon: Twitter },
 ];

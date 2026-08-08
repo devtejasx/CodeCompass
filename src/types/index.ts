@@ -1,69 +1,82 @@
 import type { LucideIcon } from "lucide-react";
 
+/**
+ * Phase 1 types describe *presentation* only — what the marketing page renders.
+ *
+ * Later phases introduce persisted domain entities (Career, Roadmap,
+ * RoadmapPhase, Topic, Lesson, Resource, PracticeProblem, Project, AITool,
+ * UserProgress). Those names are deliberately left free here: the view models
+ * below are suffixed so a real `Career` type can be added alongside
+ * `CareerPathCard` without a rename or a breaking merge.
+ */
+
 export type Difficulty = "Beginner" | "Intermediate" | "Advanced";
 
-/** Brand accent used to tint an individual card's glow, icon and border. */
-export type Accent = "indigo" | "violet" | "cyan" | "emerald" | "amber" | "rose";
+/** Restrained accent set — used for icon tint only, never for large fills. */
+export type Accent = "indigo" | "violet" | "cyan";
 
-export interface NavItem {
+export interface NavLink {
   label: string;
   href: string;
 }
 
-export interface FooterColumn {
+export interface FooterGroup {
   title: string;
-  links: NavItem[];
+  links: NavLink[];
 }
 
-export interface Stat {
-  value: string;
+export interface SocialLink {
   label: string;
-}
-
-export interface Feature {
-  title: string;
-  description: string;
+  href: string;
   icon: LucideIcon;
-  accent: Accent;
 }
 
-export interface CareerPath {
+/** A card in the "Explore the world of technology" grid. Informational only. */
+export interface CareerPathCard {
+  /** Stable key; becomes the route slug when careers get real pages. */
   slug: string;
-  title: string;
+  name: string;
   description: string;
   icon: LucideIcon;
   difficulty: Difficulty;
-  duration: string;
   accent: Accent;
-  stack: string[];
 }
 
-export interface JourneyStep {
-  step: number;
+/** A numbered step in the "How CodeCompass works" section. */
+export interface WorkStep {
+  number: string;
   title: string;
   description: string;
   icon: LucideIcon;
-  badge: string;
 }
 
-export interface AiTool {
-  name: string;
-  category: string;
+/** A node in the journey roadmap visualisation. */
+export interface JourneyNode {
+  title: string;
   description: string;
-  /** Two-stop gradient used for the tool's generated monogram tile. */
-  gradient: [string, string];
-  mark: string;
+  icon: LucideIcon;
 }
 
-export interface Testimonial {
-  quote: string;
-  name: string;
-  role: string;
-  initials: string;
+/** A card in the "What you'll learn" grid. */
+export interface LearningArea {
+  title: string;
+  description: string;
+  icon: LucideIcon;
   accent: Accent;
 }
 
-export interface Faq {
-  question: string;
-  answer: string;
+/**
+ * An AI tool shown in the Phase 1 visual preview.
+ * `mark` + `tint` render a generated monogram — no third-party logo files.
+ */
+export interface AiToolPreview {
+  name: string;
+  category: string;
+  mark: string;
+  tint: string;
+}
+
+/** A question beginners actually ask, shown in the problem section. */
+export interface BeginnerQuestion {
+  text: string;
 }
