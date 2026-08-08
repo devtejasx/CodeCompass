@@ -2,34 +2,45 @@
 
 > Navigate Your Journey Into Tech.
 
-Marketing site for **CodeCompass** — an AI-powered platform that gives complete
-beginners a personalized roadmap from zero knowledge to skilled tech
-professional.
+CodeCompass is a guided technology-learning journey — not a course catalogue.
+It helps beginners work out which tech career to pursue, what to learn, in what
+order, with which tools, and what to build along the way.
 
-The guiding principle behind the product, and this page:
+The principle the whole product is built around:
 
 > **Never let a beginner wonder what to learn next.**
 
 ---
 
-## Stack
+## Phase 1 scope
 
-| Layer      | Choice                                            |
-| ---------- | ------------------------------------------------- |
-| Framework  | Next.js 15 (App Router, React 19)                 |
-| Language   | TypeScript (strict)                               |
-| Styling    | Tailwind CSS 3.4 + CSS custom properties          |
-| Components | shadcn/ui conventions on Radix primitives         |
-| Icons      | lucide-react                                      |
-| Motion     | Framer Motion                                     |
-| Fonts      | Inter + JetBrains Mono via `next/font`            |
+This repository currently contains **Phase 1 only**: a production-ready
+frontend foundation and the landing page. It is intentionally static — there is
+no backend, no database and no user state.
 
-No raster images ship with the site. Every visual — the logo, the product
-mockups, the AI-tool marks, the grid backdrops — is CSS or inline SVG.
+See [What is deliberately not built](#what-is-deliberately-not-built) below.
 
 ---
 
-## Getting started
+## Stack
+
+| Layer      | Choice                                     |
+| ---------- | ------------------------------------------ |
+| Framework  | Next.js 15 (App Router, React 19)          |
+| Language   | TypeScript, strict                         |
+| Styling    | Tailwind CSS 3.4 over CSS custom properties |
+| Components | shadcn/ui conventions on Radix primitives  |
+| Icons      | lucide-react                               |
+| Motion     | Framer Motion                              |
+| Fonts      | Geist Sans + Geist Mono (self-hosted)      |
+| Tooling    | ESLint, Prettier                           |
+
+No image files ship with the site. The logo, favicon, product mockups and
+AI-tool marks are all inline SVG or CSS.
+
+---
+
+## Running it
 
 ```bash
 npm install
@@ -39,17 +50,16 @@ npm install
 npm run dev
 ```
 
-Then open <http://localhost:3000>.
+Open <http://localhost:3000>.
 
-Other scripts:
-
-```bash
-npm run build
-```
-
-```bash
-npm run typecheck
-```
+| Script              | Does                          |
+| ------------------- | ----------------------------- |
+| `npm run dev`       | Dev server                    |
+| `npm run build`     | Production build              |
+| `npm run start`     | Serve the production build    |
+| `npm run lint`      | ESLint                        |
+| `npm run typecheck` | `tsc --noEmit`                |
+| `npm run format`    | Prettier write                |
 
 ---
 
@@ -58,49 +68,95 @@ npm run typecheck
 ```
 src/
 ├── app/
-│   ├── globals.css          # design tokens, glass/grid/gradient utilities
-│   ├── layout.tsx           # fonts, metadata, dark shell, skip link
-│   └── page.tsx             # section composition
+│   ├── globals.css        # design tokens + surface/grid utilities
+│   ├── icon.svg           # favicon (inline SVG)
+│   ├── layout.tsx         # fonts, SEO metadata, dark shell, skip link
+│   └── page.tsx           # section composition only
 ├── components/
-│   ├── layout/              # navbar, footer
-│   ├── sections/            # one file per landing-page section
-│   ├── shared/              # reveal, section, backdrops, logo, mockup
-│   └── ui/                  # button, card, badge, accordion
+│   ├── layout/            # site-footer
+│   ├── navigation/        # site-nav (sticky, blur-on-scroll, mobile sheet)
+│   ├── sections/          # one file per landing-page section
+│   ├── shared/            # container, section, reveal, backdrops, logo, mockup
+│   └── ui/                # button, card, badge
 ├── lib/
-│   ├── data/                # typed content (careers, tools, faqs, …)
-│   ├── accents.ts           # per-accent Tailwind token map
-│   └── utils.ts             # cn()
-└── types/                   # shared domain types
+│   ├── data/              # all copy, as typed objects
+│   ├── accents.ts         # accent → class map
+│   └── utils.ts           # cn()
+└── types/                 # view-model types
 ```
 
-Content lives in `src/lib/data` as typed objects, so copy changes never require
-touching a component.
+**Content never lives in components.** Every string is a typed object in
+`src/lib/data`, so copy edits and future CMS/database wiring touch one layer.
 
 ---
 
 ## Design system
 
-| Token      | Value     |
-| ---------- | --------- |
-| Background | `#09090B` |
-| Primary    | `#4F46E5` |
-| Secondary  | `#7C3AED` |
-| Accent     | `#06B6D4` |
-| Text       | `#FFFFFF` |
-| Muted text | `zinc-400` |
+All colour, radius, easing and duration values are CSS variables in
+`globals.css`; Tailwind tokens map onto them. Components contain no raw hex.
 
-Surfaces use a layered glassmorphism recipe (`.glass`, `.glass-strong`) with a
-1px lit top edge, soft shadows and generous radii.
+| Token             | Value                    |
+| ----------------- | ------------------------ |
+| Background        | `#09090B`                |
+| Primary           | `#4F46E5`                |
+| Secondary         | `#7C3AED`                |
+| Accent            | `#06B6D4`                |
+| Text              | `#FFFFFF`                |
+| Muted text        | `#A1A1AA`                |
+| Borders           | `rgba(255,255,255,0.08)` |
+
+Three surface recipes cover the whole site: `.surface`, `.surface-interactive`
+and `.panel` (mockups only). Gradients and blur are used sparingly and
+deliberately — one gradient headline, two soft glows, blur only on app chrome.
+
+> **Note on Tailwind colour tokens:** every CSS-variable colour must include the
+> `<alpha-value>` placeholder. Without it Tailwind silently emits *no rule* for
+> opacity modifiers like `bg-surface/60`. `border` is the deliberate exception —
+> it bakes in `--border-opacity` so bare `border-border` is already 8%.
+
+---
 
 ## Accessibility
 
-- Semantic landmarks, one `h1`, ordered heading levels
-- Skip-to-content link
-- Visible focus rings on every interactive element
-- Accordion built on Radix (full keyboard + ARIA support)
-- All decorative visuals marked `aria-hidden`
+- Semantic landmarks, one `h1`, no heading-level skips
+- Skip-to-content link as the first focusable element
+- Visible focus ring on every interactive element, never removed
+- Mobile menu: `aria-expanded`, `aria-controls`, Escape to close, scroll lock
+- Progress bars expose `role="progressbar"` with min/max/now
+- Decorative visuals are `aria-hidden`; mockups are not announced as headings
+- All body text meets WCAG AA contrast (verified: muted 7.8:1, subtle 4.9:1)
 - Every animation collapses under `prefers-reduced-motion`
 
 ---
 
-© CodeCompass
+## What is deliberately not built
+
+Phase 1 stops at the frontend foundation. The following belong to later phases
+and are **not** implemented:
+
+authentication · login/signup · AI functionality · personalized roadmaps ·
+learning content · coding compiler · LeetCode integration · GitHub integration ·
+payments · community · admin CMS · database-driven career data · user progress ·
+XP and streak systems
+
+Where the page shows progress, streaks or activity, it is a **static mockup of
+the future product**, not live data.
+
+### Built to extend
+
+Future domain entities — `User`, `Career`, `Roadmap`, `RoadmapPhase`, `Topic`,
+`Lesson`, `Resource`, `PracticeProblem`, `Project`, `AITool`, `UserProgress` —
+are not implemented, and nothing here blocks them:
+
+- View-model types are suffixed (`CareerPathCard`, `AiToolPreview`), leaving the
+  domain names free for real entities.
+- Career cards already carry a `slug`, so they become `/careers/[slug]` without
+  reshaping the data.
+- Sections are self-contained, so one can become data-driven without touching
+  the others or `page.tsx`.
+- Content sits behind `src/lib/data`, which is the natural seam to swap for API
+  or database calls.
+
+---
+
+© 2026 CodeCompass

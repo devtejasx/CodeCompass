@@ -1,35 +1,38 @@
-import { Navbar } from "@/components/layout/navbar";
-import { Footer } from "@/components/layout/footer";
+import { SiteNav } from "@/components/navigation/site-nav";
+import { SiteFooter } from "@/components/layout/site-footer";
 import { Hero } from "@/components/sections/hero";
-import { Stats } from "@/components/sections/stats";
-import { WhyCodeCompass } from "@/components/sections/why-codecompass";
+import { Problem } from "@/components/sections/problem";
+import { HowItWorks } from "@/components/sections/how-it-works";
 import { CareerPaths } from "@/components/sections/career-paths";
-import { JourneyTimeline } from "@/components/sections/journey-timeline";
+import { JourneyPreview } from "@/components/sections/journey-preview";
+import { WhatYouLearn } from "@/components/sections/what-you-learn";
 import { AiTools } from "@/components/sections/ai-tools";
 import { DashboardPreview } from "@/components/sections/dashboard-preview";
-import { FeaturesGrid } from "@/components/sections/features-grid";
-import { Testimonials } from "@/components/sections/testimonials";
-import { Faq } from "@/components/sections/faq";
+import { About } from "@/components/sections/about";
 import { FinalCta } from "@/components/sections/final-cta";
 
+/**
+ * Phase 1 landing page. Each section is a self-contained component so later
+ * phases can replace one in place — e.g. CareerPaths becomes data-driven and
+ * links to /careers/[slug] — without touching this file.
+ */
 export default function HomePage() {
   return (
     <>
-      <Navbar />
-      <main id="main" className="relative">
+      <SiteNav />
+      <main id="main">
         <Hero />
-        <Stats />
-        <WhyCodeCompass />
+        <Problem />
+        <HowItWorks />
         <CareerPaths />
-        <JourneyTimeline />
+        <JourneyPreview />
+        <WhatYouLearn />
         <AiTools />
         <DashboardPreview />
-        <FeaturesGrid />
-        <Testimonials />
-        <Faq />
+        <About />
         <FinalCta />
       </main>
-      <Footer />
+      <SiteFooter />
     </>
   );
 }
