@@ -5,55 +5,46 @@ import { motion, useReducedMotion, type Variants } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 
-type Direction = "up" | "down" | "left" | "right" | "none";
+const EASE = [0.16, 1, 0.3, 1] as const;
 
-const OFFSET: Record<Direction, { x: number; y: number }> = {
-  up: { x: 0, y: 24 },
-  down: { x: 0, y: -24 },
-  left: { x: 24, y: 0 },
-  right: { x: -24, y: 0 },
-  none: { x: 0, y: 0 },
-};
+type Element = "div" | "section" | "ul" | "li" | "p" | "span";
 
-export interface RevealProps extends React.ComponentProps<"div"> {
+export interface RevealProps extends Omit<
+  React.ComponentProps<"div">,
+  "ref" | "style"
+> {
   delay?: number;
-  duration?: number;
-  direction?: Direction;
-  /** Renders children as staggered motion items instead of one block. */
+  /** Set to stagger direct RevealItem children instead of animating as one block. */
   stagger?: number;
-  once?: boolean;
-  as?: "div" | "section" | "ul" | "li" | "span";
+  as?: Element;
 }
 
 /**
- * Scroll-triggered entrance wrapper. Honours `prefers-reduced-motion` by
- * rendering the final state immediately.
+ * Scroll-triggered entrance. Subtle by design: 16px of travel and a short
+ * fade — enough to feel alive, not enough to read as a "gaming" site.
+ *
+ * Under prefers-reduced-motion the final state renders immediately.
  */
 export function Reveal({
   children,
   className,
   delay = 0,
-  duration = 0.7,
-  direction = "up",
   stagger,
-  once = true,
   as = "div",
   ...props
 }: RevealProps) {
   const reduced = useReducedMotion();
-  const offset = reduced ? OFFSET.none : OFFSET[direction];
   const MotionTag = motion[as] as typeof motion.div;
 
   const variants: Variants = {
-    hidden: { opacity: 0, x: offset.x, y: offset.y },
+    hidden: { opacity: 0, y: reduced ? 0 : 16 },
     visible: {
       opacity: 1,
-      x: 0,
       y: 0,
       transition: {
-        duration: reduced ? 0 : duration,
+        duration: reduced ? 0 : 0.5,
         delay: reduced ? 0 : delay,
-        ease: [0.16, 1, 0.3, 1],
+        ease: EASE,
         ...(stagger ? { staggerChildren: stagger, delayChildren: delay } : {}),
       },
     },
@@ -64,7 +55,7 @@ export function Reveal({
       className={cn(className)}
       initial="hidden"
       whileInView="visible"
-      viewport={{ once, margin: "-80px" }}
+      viewport={{ once: true, margin: "-80px" }}
       variants={variants}
       {...(props as React.ComponentProps<typeof motion.div>)}
     >
@@ -73,22 +64,22 @@ export function Reveal({
   );
 }
 
-/** Child of a `Reveal` with `stagger` set. */
+/** Direct child of a `Reveal` that has `stagger` set. */
 export function RevealItem({
   children,
   className,
   as = "div",
   ...props
-}: Omit<RevealProps, "stagger" | "once">) {
+}: Omit<RevealProps, "stagger" | "delay">) {
   const reduced = useReducedMotion();
   const MotionTag = motion[as] as typeof motion.div;
 
   const variants: Variants = {
-    hidden: { opacity: 0, y: reduced ? 0 : 20 },
+    hidden: { opacity: 0, y: reduced ? 0 : 12 },
     visible: {
       opacity: 1,
       y: 0,
-      transition: { duration: reduced ? 0 : 0.6, ease: [0.16, 1, 0.3, 1] },
+      transition: { duration: reduced ? 0 : 0.45, ease: EASE },
     },
   };
 

@@ -5,35 +5,31 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "group inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all duration-300 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "group inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 ease-out-expo disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         primary:
-          "bg-gradient-to-b from-indigo-500 to-indigo-600 text-white shadow-[0_1px_0_0_rgba(255,255,255,0.25)_inset,0_10px_30px_-10px_rgba(79,70,229,0.9)] hover:from-indigo-400 hover:to-indigo-600 hover:shadow-[0_1px_0_0_rgba(255,255,255,0.3)_inset,0_16px_40px_-12px_rgba(79,70,229,1)] active:translate-y-px",
+          "bg-primary text-primary-foreground shadow-[0_1px_0_0_hsl(0_0%_100%/0.16)_inset] hover:bg-primary/90 active:translate-y-px",
         secondary:
-          "glass text-white/90 hover:border-white/20 hover:bg-white/[0.07] hover:text-white active:translate-y-px",
-        ghost: "text-white/70 hover:bg-white/5 hover:text-white",
-        link: "text-indigo-300 underline-offset-4 hover:text-indigo-200 hover:underline",
-        outline:
-          "border border-white/10 bg-transparent text-white/90 hover:border-white/25 hover:bg-white/5",
+          "border border-border bg-surface/60 text-foreground hover:border-border hover:bg-surface-raised active:translate-y-px",
+        ghost: "text-muted-foreground hover:bg-surface hover:text-foreground",
+        link: "text-foreground underline-offset-4 hover:underline",
       },
       size: {
-        sm: "h-9 px-4",
-        md: "h-11 px-5",
-        lg: "h-12 px-7 text-[0.95rem]",
+        sm: "h-8 px-3",
+        md: "h-10 px-4",
+        lg: "h-11 px-5 text-[0.9375rem]",
         icon: "size-10",
       },
     },
-    defaultVariants: {
-      variant: "primary",
-      size: "md",
-    },
+    defaultVariants: { variant: "primary", size: "md" },
   },
 );
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+  extends
+    React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
 }

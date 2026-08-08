@@ -3,17 +3,14 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Reveal } from "@/components/shared/reveal";
 
-interface SectionProps extends React.ComponentProps<"section"> {
-  id?: string;
-}
-
-/** Consistent vertical rhythm for every block on the page. */
-export function Section({ className, children, ...props }: SectionProps) {
+/** Consistent vertical rhythm across every block on the page. */
+export function Section({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<"section">) {
   return (
-    <section
-      className={cn("relative py-24 sm:py-28 lg:py-36", className)}
-      {...props}
-    >
+    <section className={cn("relative py-20 sm:py-24 lg:py-32", className)} {...props}>
       {children}
     </section>
   );
@@ -25,6 +22,8 @@ interface SectionHeadingProps {
   description?: React.ReactNode;
   align?: "center" | "left";
   className?: string;
+  /** Heading level, so the page keeps a correct outline. */
+  as?: "h2" | "h3";
 }
 
 export function SectionHeading({
@@ -33,28 +32,28 @@ export function SectionHeading({
   description,
   align = "center",
   className,
+  as: Tag = "h2",
 }: SectionHeadingProps) {
   return (
     <Reveal
       className={cn(
-        "flex flex-col gap-5",
-        align === "center" ? "mx-auto max-w-3xl text-center items-center" : "max-w-2xl",
+        "flex flex-col gap-4",
+        align === "center" ? "mx-auto max-w-2xl items-center text-center" : "max-w-2xl",
         className,
       )}
     >
       {eyebrow ? (
-        <span className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-medium uppercase tracking-[0.14em] text-white/55">
-          <span className="size-1.5 rounded-full bg-gradient-to-r from-indigo-400 to-cyan-400" />
+        <span className="text-xs font-medium uppercase tracking-[0.16em] text-subtle-foreground">
           {eyebrow}
         </span>
       ) : null}
 
-      <h2 className="text-balance text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-[2.75rem] lg:leading-[1.1]">
+      <Tag className="balance text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
         {title}
-      </h2>
+      </Tag>
 
       {description ? (
-        <p className="text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
+        <p className="pretty text-base leading-relaxed text-muted-foreground sm:text-lg">
           {description}
         </p>
       ) : null}
