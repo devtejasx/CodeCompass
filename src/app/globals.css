@@ -2,67 +2,78 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * CodeCompass design system.
+ *
+ * Every colour, radius, duration and easing used by the product lives here as
+ * a CSS variable. Components reference the Tailwind tokens that map onto these
+ * variables — no raw hex values in component files.
+ */
+
 @layer base {
   :root {
-    /* CodeCompass is a dark-first product surface — the light values exist so
-       the tokens stay valid, but `.dark` is what ships on the marketing site. */
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 100%;
+    /* ── Surface ─────────────────────────────────────────── */
+    --background: 240 10% 3.9%; /* #09090B */
+    --surface: 240 6% 7%;
+    --surface-raised: 240 6% 9%;
 
-    --card: 240 8% 6%;
-    --card-foreground: 0 0% 100%;
-
+    /* ── Brand ───────────────────────────────────────────── */
     --primary: 243 75% 59%; /* #4F46E5 */
     --primary-foreground: 0 0% 100%;
-
     --secondary: 262 83% 58%; /* #7C3AED */
     --secondary-foreground: 0 0% 100%;
-
     --accent: 189 94% 43%; /* #06B6D4 */
     --accent-foreground: 240 10% 3.9%;
 
-    --muted: 240 5% 12%;
-    --muted-foreground: 240 5% 65%;
+    /* ── Type ────────────────────────────────────────────── */
+    --foreground: 0 0% 100%; /* #FFFFFF */
+    --muted-foreground: 240 5% 65%; /* #A1A1AA */
+    /* Lightest tier still allowed on the background: measured at 4.9:1,
+       clearing WCAG AA (4.5:1) for normal-size text. Do not darken. */
+    --subtle-foreground: 240 5% 56%;
 
-    --border: 240 6% 16%;
-    --input: 240 6% 16%;
+    /* ── Lines ───────────────────────────────────────────── */
+    --border: 0 0% 100%;
+    --border-opacity: 0.08; /* rgba(255,255,255,0.08) */
     --ring: 243 75% 59%;
 
-    --radius: 0.85rem;
-  }
+    /* ── Shape ───────────────────────────────────────────── */
+    --radius: 0.75rem;
 
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 100%;
-    --card: 240 8% 6%;
-    --card-foreground: 0 0% 100%;
-    --muted: 240 5% 12%;
-    --muted-foreground: 240 5% 65%;
-    --border: 240 6% 16%;
-    --input: 240 6% 16%;
+    /* ── Motion ──────────────────────────────────────────── */
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    --duration-fast: 150ms;
+    --duration-base: 250ms;
+    --duration-slow: 400ms;
   }
 
   * {
-    @apply border-border;
+    border-color: hsl(var(--border) / var(--border-opacity));
   }
 
   html {
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
+    /* Sticky nav must not cover anchored section headings. */
+    scroll-padding-top: 6rem;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     text-rendering: optimizeLegibility;
   }
 
   ::selection {
     background-color: hsl(var(--primary) / 0.35);
-    color: #fff;
+    color: hsl(var(--foreground));
   }
 
-  /* A restrained scrollbar keeps the dark canvas uninterrupted. */
+  /* Focus is always visible and always the brand ring — never removed. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
   ::-webkit-scrollbar {
     width: 10px;
     height: 10px;
@@ -71,125 +82,103 @@
     background: hsl(var(--background));
   }
   ::-webkit-scrollbar-thumb {
-    background: hsl(240 6% 18%);
+    background: hsl(240 5% 18%);
     border: 3px solid hsl(var(--background));
     border-radius: 999px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(240 6% 26%);
-  }
-
-  :focus-visible {
-    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+    background: hsl(240 5% 26%);
   }
 }
 
 @layer components {
-  /* Frosted panel used by every card surface on the page. */
-  .glass {
-    background: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.055) 0%,
-      rgba(255, 255, 255, 0.02) 100%
-    );
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+  /*
+   * The single card surface for the whole site. One recipe, used everywhere,
+   * so cards never drift apart visually.
+   */
+  .surface {
+    background-color: hsl(var(--surface) / 0.7);
+    border: 1px solid hsl(var(--border) / var(--border-opacity));
   }
 
-  .glass-strong {
-    background: linear-gradient(
-      180deg,
-      rgba(24, 24, 30, 0.92) 0%,
-      rgba(12, 12, 16, 0.92) 100%
-    );
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+  .surface-interactive {
+    background-color: hsl(var(--surface) / 0.7);
+    border: 1px solid hsl(var(--border) / var(--border-opacity));
+    transition:
+      border-color var(--duration-base) var(--ease-out-expo),
+      background-color var(--duration-base) var(--ease-out-expo),
+      transform var(--duration-base) var(--ease-out-expo);
   }
 
-  /* 1px gradient hairline that reads as a lit edge on dark surfaces. */
-  .hairline-top::before {
-    content: "";
-    position: absolute;
-    inset-inline: 15%;
-    top: 0;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(255, 255, 255, 0.35),
-      transparent
-    );
+  .surface-interactive:hover {
+    background-color: hsl(var(--surface-raised) / 0.9);
+    border-color: hsl(var(--border) / 0.16);
+  }
+
+  /*
+   * Reserved for the product mockups only — the one place a frosted panel
+   * genuinely reads as "app chrome" rather than decoration.
+   */
+  .panel {
+    background-color: hsl(var(--surface) / 0.85);
+    border: 1px solid hsl(var(--border) / 0.1);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
   }
 }
 
 @layer utilities {
-  .text-gradient {
-    @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(
-      120deg,
-      #ffffff 0%,
-      #c7d2fe 40%,
-      #a5b4fc 60%,
-      #ffffff 100%
-    );
-  }
-
-  .text-gradient-brand {
-    @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(120deg, #818cf8 0%, #a78bfa 50%, #22d3ee 100%);
-  }
-
+  /* Faint blueprint grid. Always paired with a mask so it never hard-edges. */
   .bg-grid {
     background-image:
-      linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
-    background-size: 64px 64px;
+      linear-gradient(to right, hsl(var(--border) / 0.055) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.055) 1px, transparent 1px);
+    background-size: 72px 72px;
   }
 
-  .bg-grid-sm {
-    background-image:
-      linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
-    background-size: 28px 28px;
-  }
-
-  .bg-dots {
-    background-image: radial-gradient(
-      rgba(255, 255, 255, 0.08) 1px,
-      transparent 1px
+  .mask-radial {
+    -webkit-mask-image: radial-gradient(
+      ellipse 60% 55% at 50% 0%,
+      #000 30%,
+      transparent 100%
     );
-    background-size: 22px 22px;
-  }
-
-  .mask-radial-fade {
-    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 40%, transparent 100%);
-    mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 40%, transparent 100%);
+    mask-image: radial-gradient(ellipse 60% 55% at 50% 0%, #000 30%, transparent 100%);
   }
 
   .mask-fade-b {
-    -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
-    mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, #000 50%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 50%, transparent 100%);
   }
 
-  .mask-fade-x {
-    -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
-    mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+  /* Used once, on the hero headline. */
+  .text-gradient {
+    background-image: linear-gradient(
+      100deg,
+      hsl(var(--foreground)) 0%,
+      hsl(228 100% 86%) 45%,
+      hsl(var(--accent) / 0.95) 100%
+    );
+    @apply bg-clip-text text-transparent;
   }
 
   .balance {
     text-wrap: balance;
   }
+  .pretty {
+    text-wrap: pretty;
+  }
 }
 
+/* Motion is a progressive enhancement, never a requirement. */
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
   *,
   *::before,
   *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
   }
 }

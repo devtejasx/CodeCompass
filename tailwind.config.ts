@@ -1,66 +1,70 @@
 import type { Config } from "tailwindcss";
 
+/**
+ * Tokens map onto the CSS variables declared in globals.css. Adding a colour
+ * here without a matching variable is a mistake — the variable is the source
+ * of truth so themes can be swapped in one place later.
+ */
 const config: Config = {
   darkMode: ["class"],
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     container: {
       center: true,
-      padding: {
-        DEFAULT: "1.25rem",
-        sm: "1.5rem",
-        lg: "2rem",
-      },
-      screens: {
-        "2xl": "1200px",
-      },
+      padding: { DEFAULT: "1.25rem", sm: "1.5rem", lg: "2rem" },
+      screens: { "2xl": "1180px" },
     },
     extend: {
+      /*
+       * The `<alpha-value>` placeholder is required for Tailwind opacity
+       * modifiers (bg-surface/60, bg-primary/15) to work against CSS-variable
+       * colours. Without it those utilities silently emit nothing.
+       *
+       * `border` is the deliberate exception: it bakes in --border-opacity so
+       * that a bare `border-border` is already rgba(255,255,255,0.08).
+       */
       colors: {
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
+        background: "hsl(var(--background) / <alpha-value>)",
+        foreground: "hsl(var(--foreground) / <alpha-value>)",
+        surface: {
+          DEFAULT: "hsl(var(--surface) / <alpha-value>)",
+          raised: "hsl(var(--surface-raised) / <alpha-value>)",
+        },
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: "hsl(var(--primary) / <alpha-value>)",
+          foreground: "hsl(var(--primary-foreground) / <alpha-value>)",
         },
         secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
+          DEFAULT: "hsl(var(--secondary) / <alpha-value>)",
+          foreground: "hsl(var(--secondary-foreground) / <alpha-value>)",
         },
         accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
+          DEFAULT: "hsl(var(--accent) / <alpha-value>)",
+          foreground: "hsl(var(--accent-foreground) / <alpha-value>)",
         },
         muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
+          foreground: "hsl(var(--muted-foreground) / <alpha-value>)",
         },
-        card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
+        subtle: {
+          foreground: "hsl(var(--subtle-foreground) / <alpha-value>)",
         },
+        border: "hsl(var(--border) / var(--border-opacity))",
+        ring: "hsl(var(--ring) / <alpha-value>)",
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
-        "4xl": "2rem",
+        md: "calc(var(--radius) - 2px)",
+        lg: "var(--radius)",
+        xl: "calc(var(--radius) + 4px)",
+        "2xl": "calc(var(--radius) + 8px)",
+        "3xl": "calc(var(--radius) + 16px)",
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
-        mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
+        sans: ["var(--font-geist-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: ["var(--font-geist-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
       },
-      boxShadow: {
-        glow: "0 0 0 1px rgba(255,255,255,0.04), 0 20px 60px -20px rgba(79,70,229,0.45)",
-        "glow-sm": "0 0 0 1px rgba(255,255,255,0.05), 0 10px 30px -12px rgba(79,70,229,0.4)",
-        card: "0 1px 0 0 rgba(255,255,255,0.05) inset, 0 24px 60px -30px rgba(0,0,0,0.9)",
-      },
-      backgroundImage: {
-        "grid-fade":
-          "linear-gradient(to bottom, transparent, hsl(var(--background)))",
+      transitionTimingFunction: {
+        "out-expo": "cubic-bezier(0.16, 1, 0.3, 1)",
       },
       keyframes: {
         "accordion-down": {
@@ -71,39 +75,19 @@ const config: Config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        "fade-up": {
-          from: { opacity: "0", transform: "translateY(12px)" },
-          to: { opacity: "1", transform: "translateY(0)" },
-        },
-        marquee: {
-          from: { transform: "translateX(0)" },
-          to: { transform: "translateX(-50%)" },
-        },
-        shimmer: {
-          "100%": { transform: "translateX(100%)" },
-        },
-        float: {
-          "0%, 100%": { transform: "translateY(0)" },
-          "50%": { transform: "translateY(-8px)" },
-        },
-        "pulse-ring": {
-          "0%": { opacity: "0.6", transform: "scale(0.9)" },
-          "70%": { opacity: "0", transform: "scale(1.6)" },
-          "100%": { opacity: "0", transform: "scale(1.6)" },
+        pulse: {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.45" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.24s ease-out",
         "accordion-up": "accordion-up 0.24s ease-out",
-        "fade-up": "fade-up 0.6s cubic-bezier(0.16,1,0.3,1) both",
-        marquee: "marquee 40s linear infinite",
-        shimmer: "shimmer 2.5s infinite",
-        float: "float 6s ease-in-out infinite",
-        "pulse-ring": "pulse-ring 2.4s cubic-bezier(0.4,0,0.6,1) infinite",
+        pulse: "pulse 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite",
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [],
 };
 
 export default config;
