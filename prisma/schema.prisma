@@ -92,10 +92,22 @@ model Profile {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  experienceLevel   ExperienceLevel?
-  selectedCareer    CareerInterest?
+  experienceLevel ExperienceLevel?
+
+  /// The *interest* stated during onboarding — a first instinct, not a
+  /// commitment. Kept separate from selectedCareerId on purpose: comparing the
+  /// two is what lets the explorer say "based on what you told us…" while
+  /// still letting the user pick something else.
+  selectedCareer CareerInterest?
+
   dailyLearningTime DailyLearningTime?
   selectedLanguage  ProgrammingLanguage?
+
+  /// The career the user has actually committed to, chosen in the explorer.
+  /// A relation rather than copied fields, so career content stays in one
+  /// place. Nullable because "I'm not sure yet" is a valid, persistent state.
+  selectedCareerId String?
+  chosenCareer     Career? @relation(fields: [selectedCareerId], references: [id], onDelete: SetNull)
 
   /// Reserved: the Phase 2 flow deliberately asks only four questions, so
   /// nothing writes this yet. Kept nullable so a later step can fill it in
@@ -107,5 +119,124 @@ model Profile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([selectedCareerId])
   @@map("profiles")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Career Explorer (Phase 3)
+//
+// Careers are database-backed rather than hardcoded so the catalog can grow
+// without a frontend change, and so Phase 4 can hang a Roadmap off a Career
+// via a foreign key. Roadmap/RoadmapPhase/Topic/Lesson are NOT modelled here.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum CareerCategory {
+  SOFTWARE_DEVELOPMENT
+  DATA_AND_AI
+  INFRASTRUCTURE_AND_CLOUD
+  SECURITY
+  DESIGN_AND_PRODUCT
+  OTHER_TECHNOLOGY
+}
+
+enum CareerDifficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum DemandLevel {
+  MODERATE
+  HIGH
+  VERY_HIGH
+}
+
+model Career {
+  id   String @id @default(cuid())
+  slug String @unique
+  name String
+
+  /// One line for the card.
+  shortDescription String
+  /// Beginner-facing explanation of what the person actually does all day.
+  description String
+  /// One short phrase used by the comparison table ("User interface", …).
+  mainFocus String
+
+  /// Lucide icon name, resolved through a registry at render time. A database
+  /// row cannot carry a React component, so the name is what is stored.
+  icon String
+
+  category              CareerCategory
+  difficulty            CareerDifficulty
+  /// Human-readable range, e.g. "6–9 months". Deliberately not a number:
+  /// we are describing a journey, not promising a completion date.
+  estimatedLearningTime String
+  demandLevel           DemandLevel
+
+  /// Narrative lists. Plain string arrays because nothing else references
+  /// them — promoting these to tables would be structure without a payoff.
+  builds        String[]
+  learningAreas String[]
+  suitedFor     String[]
+  challenges    String[]
+
+  technologies CareerTechnology[]
+  /// Outgoing "related career" edges; see CareerRelation.
+  relatedTo   CareerRelation[] @relation("CareerRelationsFrom")
+  relatedFrom CareerRelation[] @relation("CareerRelationsTo")
+
+  /// Users who have chosen this path.
+  profiles Profile[]
+
+  /// Controls catalog ordering without relying on insertion order.
+  sortOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@index([difficulty])
+  @@map("careers")
+}
+
+/// A technology is its own row so the same "React" is shared across careers
+/// and can be filtered on later without string matching.
+model Technology {
+  id   String @id @default(cuid())
+  slug String @unique
+  name String
+
+  careers CareerTechnology[]
+
+  @@map("technologies")
+}
+
+model CareerTechnology {
+  careerId     String
+  technologyId String
+
+  career     Career     @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  technology Technology @relation(fields: [technologyId], references: [id], onDelete: Cascade)
+
+  sortOrder Int @default(0)
+
+  @@id([careerId, technologyId])
+  @@map("career_technologies")
+}
+
+/// Directed edge between careers. Stored one way per pair as authored by the
+/// seed; the seed writes both directions where the relationship is mutual.
+model CareerRelation {
+  careerId        String
+  relatedCareerId String
+
+  career        Career @relation("CareerRelationsFrom", fields: [careerId], references: [id], onDelete: Cascade)
+  relatedCareer Career @relation("CareerRelationsTo", fields: [relatedCareerId], references: [id], onDelete: Cascade)
+
+  sortOrder Int @default(0)
+
+  @@id([careerId, relatedCareerId])
+  @@map("career_relations")
 }
