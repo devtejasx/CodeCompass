@@ -20,7 +20,8 @@ The principle the whole product is built around:
 | 2 | Authentication, session management, onboarding, protected routes | Complete |
 | 3 | Career explorer, comparison, career selection | Complete |
 | 4 | Roadmap engine — phases, topics, prerequisites | Complete |
-| 5 | Lessons and learning content | Not started |
+| 5 | Learning system — lessons, progress, knowledge checks | Complete |
+| 6 | Coding practice | Not started |
 
 See [What is deliberately not built](#what-is-deliberately-not-built) below.
 
@@ -209,6 +210,34 @@ join table so an edge can later carry its own metadata.
 
 Careers without an authored roadmap (17 of the 20) render an honest empty
 state rather than generated filler.
+
+## Learning System
+
+`Topic → Lesson → LessonSection`, plus `KnowledgeCheck` and per-user progress.
+
+- **Content is data, not JSX.** Lessons live in `prisma/seed/lessons/` and are
+  rendered by switching on section type, so adding a lesson is a seed change.
+  `validateLesson` rejects a CODE section with no code, a question without
+  exactly one correct answer, a question with no explanation, and any resource
+  URL that isn't https.
+- **The answer key never reaches the browser.** `isCorrect` and the explanation
+  are excluded from the page query and returned only in the graded response.
+  Grading happens in the server action.
+- **The database is authoritative.** Section ticks and quiz results are written
+  immediately; client state is an optimistic mirror that rolls back if a write
+  fails. Nothing is stored in localStorage.
+- **Failing is not punished.** 70% to pass, best score is kept, retries are
+  unlimited, and a later failed attempt never un-completes a topic.
+- **One progress calculation.** The dashboard, roadmap and topic page all use
+  `lib/learn/progress.ts`, so they cannot disagree. Roadmap percentage counts
+  *required* topics only.
+
+Twelve of 154 topics have authored lessons; the rest show "learning content
+coming soon" rather than an empty page.
+
+> **Note on `"use server"` files:** they may export *only* async functions.
+> Re-exporting a constant from one type-checks and builds cleanly, then fails
+> every action in that file at runtime with a 500. This bit once already.
 
 ## What is deliberately not built
 

@@ -8,12 +8,17 @@ import { TopicList } from "@/components/roadmap/topic-list";
 import { PhaseMarker, PhaseStateBadge } from "@/components/roadmap/phase-state-badge";
 import { cn } from "@/lib/utils";
 import type { PhaseStatus } from "@/lib/roadmap/progress";
+import type { TopicState } from "@/lib/learn/progress";
 import type { RoadmapPhaseDetail } from "@/lib/roadmap/queries";
 
 interface PhaseTimelineProps {
   phases: RoadmapPhaseDetail[];
   /** Keyed by phase id. Derived on the server; see lib/roadmap/progress.ts. */
   states: Record<string, PhaseStatus>;
+  /** Keyed by topic id; derived from real learner progress. */
+  topicStates: Record<string, TopicState>;
+  /** Topic ids that have an authored lesson. */
+  topicsWithLessons: string[];
 }
 
 /**
@@ -26,7 +31,12 @@ interface PhaseTimelineProps {
  * the page, which is to let someone understand the whole journey before
  * starting it; "locked" here communicates sequence, not secrecy.
  */
-export function PhaseTimeline({ phases, states }: PhaseTimelineProps) {
+export function PhaseTimeline({
+  phases,
+  states,
+  topicStates,
+  topicsWithLessons,
+}: PhaseTimelineProps) {
   const reduced = useReducedMotion();
 
   // The phase the learner starts on opens by default; the rest stay collapsed
@@ -159,7 +169,11 @@ export function PhaseTimeline({ phases, states }: PhaseTimelineProps) {
                           </div>
                         </div>
 
-                        <TopicList topics={phase.topics} />
+                        <TopicList
+                          topics={phase.topics}
+                          states={topicStates}
+                          topicsWithLessons={topicsWithLessons}
+                        />
 
                         {status.state === "LOCKED" ? (
                           <p className="mt-4 flex items-center gap-2 text-xs text-subtle-foreground">

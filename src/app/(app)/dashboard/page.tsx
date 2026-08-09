@@ -10,6 +10,8 @@ import { requireOnboardedUser } from "@/lib/session";
 import { careerIcon } from "@/lib/careers/icons";
 import { getActiveRoadmapForCareer } from "@/lib/roadmap/queries";
 import { summariseProgress } from "@/lib/roadmap/progress";
+import { completedPhaseOrders, roadmapPercent } from "@/lib/learn/progress";
+import { getCompletedTopicIds, getResumeTopic } from "@/lib/learn/queries";
 import {
   CAREER_LABEL,
   EXPERIENCE_LABEL,
@@ -56,7 +58,30 @@ export default async function DashboardPage() {
   const roadmap = chosenCareer
     ? await getActiveRoadmapForCareer(chosenCareer.id)
     : null;
-  const progress = roadmap ? summariseProgress(roadmap) : null;
+
+  // Real learning progress, computed with the same helpers the roadmap page
+  // uses, so the two views can never report different numbers.
+  const completedTopicIds = roadmap
+    ? await getCompletedTopicIds(user.id, roadmap.id)
+    : [];
+  const resume = roadmap ? await getResumeTopic(user.id, roadmap.id) : null;
+
+  const progress = roadmap
+    ? {
+        ...summariseProgress(
+          roadmap,
+          completedPhaseOrders(roadmap.phases, completedTopicIds),
+        ),
+        percentComplete: roadmapPercent({
+          requiredTopicIds: roadmap.phases
+            .flatMap((phase) => phase.topics)
+            .filter((topic) => topic.isRequired)
+            .map((topic) => topic.id),
+          completedTopicIds,
+        }),
+        topicsCompleted: completedTopicIds.length,
+      }
+    : null;
 
   const summary = [
     {
@@ -172,14 +197,36 @@ export default async function DashboardPage() {
                     </div>
                   </div>
 
-                  {progress.currentPhaseTitle ? (
-                    <p className="mt-4 text-sm text-muted-foreground">
-                      Current phase:{" "}
-                      <span className="font-medium text-foreground">
-                        {progress.currentPhaseTitle}
-                      </span>
-                    </p>
-                  ) : null}
+                  <dl className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-sm">
+                    {progress.currentPhaseTitle ? (
+                      <div>
+                        <dt className="text-xs text-subtle-foreground">
+                          Current phase
+                        </dt>
+                        <dd className="mt-0.5 font-medium text-foreground">
+                          {progress.currentPhaseTitle}
+                        </dd>
+                      </div>
+                    ) : null}
+                    <div>
+                      <dt className="text-xs text-subtle-foreground">
+                        Topics completed
+                      </dt>
+                      <dd className="mt-0.5 font-medium text-foreground">
+                        {progress.topicsCompleted}
+                      </dd>
+                    </div>
+                    {resume ? (
+                      <div>
+                        <dt className="text-xs text-subtle-foreground">
+                          Current topic
+                        </dt>
+                        <dd className="mt-0.5 font-medium text-foreground">
+                          {resume.topic.title}
+                        </dd>
+                      </div>
+                    ) : null}
+                  </dl>
                 </>
               ) : (
                 <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
@@ -191,7 +238,7 @@ export default async function DashboardPage() {
               <div className="mt-6 flex flex-wrap gap-2">
                 {progress ? (
                   <Button asChild>
-                    <Link href="/roadmap">
+                    <Link href={resume ? `/learn/${resume.topic.slug}` : "/roadmap"}>
                       Continue Your Journey
                       <ArrowRight aria-hidden />
                     </Link>

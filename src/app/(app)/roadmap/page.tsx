@@ -13,6 +13,13 @@ import { db } from "@/lib/db";
 import { requireOnboardedUser } from "@/lib/session";
 import { getActiveRoadmapForCareer } from "@/lib/roadmap/queries";
 import { derivePhaseStates, summariseProgress } from "@/lib/roadmap/progress";
+import {
+  completedPhaseOrders,
+  deriveTopicStates,
+  roadmapPercent,
+  type TopicState,
+} from "@/lib/learn/progress";
+import { getCompletedTopicIds, getResumeTopic } from "@/lib/learn/queries";
 import type { PhaseStatus } from "@/lib/roadmap/progress";
 
 export const metadata: Metadata = {
@@ -43,11 +50,42 @@ export default async function RoadmapPage() {
     return <MissingRoadmap careerName={career.name} careerSlug={career.slug} />;
   }
 
-  // No learner progress exists yet, so states are derived: first phase open,
-  // the rest locked. Phase 5 passes real completed orders in here.
-  const stateMap = derivePhaseStates(roadmap.phases);
+  // Real progress now: completed topics drive phase and topic state, and the
+  // same helpers feed the dashboard so the two can never disagree.
+  const completedTopicIds = await getCompletedTopicIds(user.id, roadmap.id);
+
+  const topicsInOrder = roadmap.phases.flatMap((phase) =>
+    phase.topics.map((topic) => ({
+      id: topic.id,
+      isRequired: topic.isRequired,
+      prerequisiteIds: topic.prerequisites.map((edge) => edge.prerequisite.id),
+    })),
+  );
+
+  const donePhaseOrders = completedPhaseOrders(roadmap.phases, completedTopicIds);
+  const stateMap = derivePhaseStates(roadmap.phases, donePhaseOrders);
   const states: Record<string, PhaseStatus> = Object.fromEntries(stateMap);
-  const progress = summariseProgress(roadmap);
+
+  const topicStates: Record<string, TopicState> = Object.fromEntries(
+    deriveTopicStates(topicsInOrder, completedTopicIds),
+  );
+
+  const topicsWithLessons = roadmap.phases
+    .flatMap((phase) => phase.topics)
+    .filter((topic) => topic.lesson !== null)
+    .map((topic) => topic.id);
+
+  const requiredTopicIds = roadmap.phases
+    .flatMap((phase) => phase.topics)
+    .filter((topic) => topic.isRequired)
+    .map((topic) => topic.id);
+
+  const progress = {
+    ...summariseProgress(roadmap, donePhaseOrders),
+    percentComplete: roadmapPercent({ requiredTopicIds, completedTopicIds }),
+  };
+
+  const resume = await getResumeTopic(user.id, roadmap.id);
 
   const CareerIcon = careerIcon(career.icon);
 
@@ -99,13 +137,39 @@ export default async function RoadmapPage() {
           </dl>
         </header>
 
+        {/* Resume prompt — only when something is genuinely half-finished. */}
+        {resume ? (
+          <div className="mt-8 flex max-w-3xl flex-wrap items-center justify-between gap-4 rounded-xl border border-primary/25 bg-primary/[0.07] p-5">
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-label text-indigo-300">
+                Continue where you left off
+              </p>
+              <p className="mt-1.5 text-sm text-muted-foreground">
+                You were learning{" "}
+                <span className="font-medium text-foreground">
+                  {resume.topic.title}
+                </span>{" "}
+                · {resume.percentComplete}% through
+              </p>
+            </div>
+            <Button size="sm" asChild>
+              <Link href={`/learn/${resume.topic.slug}`}>Continue learning</Link>
+            </Button>
+          </div>
+        ) : null}
+
         {/* ── Roadmap + summary ────────────────────────────────── */}
         <div className="mt-12 grid gap-10 lg:grid-cols-[1fr_20rem] lg:gap-12">
           <section aria-labelledby="phases-heading" className="min-w-0">
             <h2 id="phases-heading" className="sr-only">
               Roadmap phases
             </h2>
-            <PhaseTimeline phases={roadmap.phases} states={states} />
+            <PhaseTimeline
+              phases={roadmap.phases}
+              states={states}
+              topicStates={topicStates}
+              topicsWithLessons={topicsWithLessons}
+            />
           </section>
 
           <RoadmapSidebar

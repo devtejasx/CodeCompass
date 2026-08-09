@@ -46,6 +46,9 @@ export async function getActiveRoadmapForCareer(careerId: string) {
               difficulty: true,
               estimatedTime: true,
               isRequired: true,
+              /// Whether an authored lesson exists, so the roadmap can link only where
+              /// there is something to open.
+              lesson: { select: { id: true } },
               prerequisites: {
                 select: {
                   prerequisite: { select: { id: true, slug: true, title: true } },
