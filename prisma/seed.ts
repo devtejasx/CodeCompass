@@ -7,6 +7,10 @@ import { ROADMAPS } from "./seed/roadmaps";
 import { assertValidRoadmaps } from "./seed/roadmaps/validate";
 import { LESSONS } from "./seed/lessons";
 import { assertValidLessons } from "./seed/lessons/validate";
+import { PROBLEMS } from "./seed/problems";
+import { assertValidProblems } from "./seed/problems/validate";
+import { renderSource, renderStarter } from "./seed/problems/starter";
+import type { SeedLanguage } from "./seed/problems/types";
 
 /**
  * Seeds the career catalog.
@@ -127,6 +131,7 @@ async function main() {
 
   await seedRoadmaps();
   await seedLessons();
+  await seedProblems();
 
   const [careers, roadmaps, phases, topics, lessons, sections, checks] =
     await Promise.all([
@@ -139,11 +144,139 @@ async function main() {
       db.knowledgeCheck.count(),
     ]);
 
+  const [problems, testCases, problemLanguages, problemTopics] = await Promise.all([
+    db.practiceProblem.count(),
+    db.practiceTestCase.count(),
+    db.practiceLanguage.count(),
+    db.problemTopic.count(),
+  ]);
+
   console.log(
     `Seeded ${careers} careers, ${roadmaps} roadmaps, ${phases} phases, ` +
       `${topics} topics, ${lessons} lessons, ${sections} sections, ` +
       `${checks} knowledge checks.`,
   );
+  console.log(
+    `Seeded ${problems} practice problems, ${problemLanguages} language configs, ` +
+      `${testCases} test cases, ${problemTopics} problem→topic links.`,
+  );
+}
+
+/**
+ * Replaces each authored problem wholesale.
+ *
+ * Same reasoning as lessons: examples and test cases derive their `order` from
+ * array position, so a reordering has to be able to drop the old rows or the
+ * unique (problemId, order) constraints would fight it. Deleting the problem
+ * cascades to examples, test cases, language configs and topic links.
+ *
+ * Learner data is NOT wiped: UserProblemProgress and Submission cascade from
+ * PracticeProblem, so a problem whose slug survives keeps its progress. Removing
+ * a problem from the catalog does remove the progress that pointed at it, which
+ * is the correct behaviour — there is nothing left to have solved.
+ */
+async function seedProblems() {
+  assertValidProblems(PROBLEMS);
+
+  for (const [index, problem] of PROBLEMS.entries()) {
+    const topicIds: string[] = [];
+
+    for (const topicSlug of problem.topicSlugs) {
+      const topic = await db.topic.findUnique({
+        where: { slug: topicSlug },
+        select: { id: true },
+      });
+
+      // A typo in topicSlugs would silently make the problem unrecommendable.
+      if (!topic) {
+        throw new Error(
+          `Problem "${problem.slug}" targets topic "${topicSlug}", which is not in any roadmap.`,
+        );
+      }
+
+      topicIds.push(topic.id);
+    }
+
+    const existing = await db.practiceProblem.findUnique({
+      where: { slug: problem.slug },
+      select: { id: true },
+    });
+
+    if (existing) {
+      // Content is replaced; progress and submissions survive because the
+      // problem row itself is updated rather than deleted.
+      await db.practiceExample.deleteMany({ where: { problemId: existing.id } });
+      await db.practiceTestCase.deleteMany({ where: { problemId: existing.id } });
+      await db.practiceLanguage.deleteMany({ where: { problemId: existing.id } });
+      await db.problemTopic.deleteMany({ where: { problemId: existing.id } });
+    }
+
+    const data = {
+      title: problem.title,
+      description: problem.description,
+      difficulty: problem.difficulty,
+      explanation: problem.explanation,
+      constraints: problem.constraints,
+      hints: problem.hints,
+      functionName: problem.signature.name,
+      timeLimitMs: problem.timeLimitMs ?? 2000,
+      memoryLimitMb: problem.memoryLimitMb ?? 128,
+      estimatedTime: problem.estimatedTime,
+      sortOrder: index,
+    };
+
+    const row = await db.practiceProblem.upsert({
+      where: { slug: problem.slug },
+      create: { slug: problem.slug, ...data },
+      update: data,
+      select: { id: true },
+    });
+
+    for (const [order, example] of problem.examples.entries()) {
+      await db.practiceExample.create({
+        data: {
+          problemId: row.id,
+          input: example.input,
+          output: example.output,
+          explanation: example.explanation ?? null,
+          order: order + 1,
+        },
+      });
+    }
+
+    for (const [order, test] of problem.tests.entries()) {
+      await db.practiceTestCase.create({
+        data: {
+          problemId: row.id,
+          // The harness contract: arguments as a JSON array, expected as a
+          // JSON value. Language-agnostic on purpose.
+          input: JSON.stringify(test.args),
+          expectedOutput: JSON.stringify(test.expected),
+          isHidden: test.hidden ?? false,
+          order: order + 1,
+        },
+      });
+    }
+
+    for (const language of Object.keys(problem.solutions) as SeedLanguage[]) {
+      await db.practiceLanguage.create({
+        data: {
+          problemId: row.id,
+          language,
+          starterCode: renderStarter(problem.signature, language),
+          solutionTemplate: renderSource(
+            problem.signature,
+            language,
+            problem.solutions[language]!,
+          ),
+        },
+      });
+    }
+
+    for (const topicId of topicIds) {
+      await db.problemTopic.create({ data: { problemId: row.id, topicId } });
+    }
+  }
 }
 
 /**
