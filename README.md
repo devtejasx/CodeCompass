@@ -12,13 +12,35 @@ The principle the whole product is built around:
 
 ---
 
-## Phase 1 scope
+## Phases
 
-This repository currently contains **Phase 1 only**: a production-ready
-frontend foundation and the landing page. It is intentionally static — there is
-no backend, no database and no user state.
+| Phase | Scope | Status |
+| ----- | ----- | ------ |
+| 1 | Landing page + frontend foundation | Complete |
+| 2 | Authentication, session management, onboarding, protected routes | Complete |
+| 3 | Career explorer, roadmaps, learning | Not started |
 
 See [What is deliberately not built](#what-is-deliberately-not-built) below.
+
+---
+
+## Setup
+
+You need a PostgreSQL database.
+
+```bash
+cp .env.example .env
+```
+
+Fill in `DATABASE_URL`, `TEST_DATABASE_URL` and `AUTH_SECRET` (generate one with
+`npx auth secret`), then:
+
+```bash
+npm install && npm run db:migrate && npm run dev
+```
+
+`TEST_DATABASE_URL` must point at a **separate** database — the test suite
+truncates it between tests.
 
 ---
 
@@ -129,18 +151,34 @@ deliberately — one gradient headline, two soft glows, blur only on app chrome.
 
 ---
 
+## Authentication
+
+Auth.js (NextAuth v5) with a Credentials provider over Prisma/PostgreSQL.
+
+- Passwords are hashed with bcrypt (cost 12) and never logged or returned.
+- Sessions are **JWTs** — required by the Credentials provider — so there is no
+  session table. Adding OAuth later means adding the Auth.js `Account` model and
+  the Prisma adapter at that point.
+- Edge middleware gates *authentication*; whether onboarding is complete is
+  re-read from Postgres on every protected render, so it can never go stale
+  against the token.
+- Unknown-email and wrong-password produce an identical message and take the
+  same time (a dummy bcrypt compare runs when the email doesn't exist), so the
+  login form can't be used to enumerate accounts.
+
 ## What is deliberately not built
 
-Phase 1 stops at the frontend foundation. The following belong to later phases
-and are **not** implemented:
+The following belong to later phases and are **not** implemented:
 
-authentication · login/signup · AI functionality · personalized roadmaps ·
-learning content · coding compiler · LeetCode integration · GitHub integration ·
-payments · community · admin CMS · database-driven career data · user progress ·
-XP and streak systems
+career explorer · real roadmaps · roadmap generation · learning content ·
+coding problems · compiler · projects · GitHub/Git integration · AI mentor ·
+AI APIs · progress tracking · XP · streaks · leaderboards · community ·
+payments · subscriptions · admin dashboard · job and resume features
 
-Where the page shows progress, streaks or activity, it is a **static mockup of
-the future product**, not live data.
+On the landing page, where progress, streaks or activity appear, they are a
+**static mockup of the future product**, not live data. The Phase 2 dashboard is
+a placeholder whose only job is to prove auth and onboarding round-trip through
+the database.
 
 ### Built to extend
 
