@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Compass, LayoutDashboard, Route } from "lucide-react";
+import { Code2, Compass, LayoutDashboard, Route } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const LINKS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/roadmap", label: "My Roadmap", icon: Route },
+  { href: "/practice", label: "Practice", icon: Code2 },
   { href: "/careers", label: "Explore Careers", icon: Compass },
 ];
 
