@@ -84,6 +84,10 @@ model User {
 
   profile Profile?
 
+  /// Learning progress (Phase 5).
+  topicProgress   UserTopicProgress[]
+  sectionProgress UserSectionProgress[]
+
   @@map("users")
 }
 
@@ -330,9 +334,9 @@ model Topic {
   phaseId String
   phase   RoadmapPhase @relation(fields: [phaseId], references: [id], onDelete: Cascade)
 
-  /// Unique within a roadmap, not globally: "Functions" appears in more than
-  /// one career's roadmap and each is its own topic.
-  slug        String
+  /// Globally unique so /learn/[slug] can resolve a topic on its own. Roadmaps
+  /// prefix where they would otherwise collide (fs-git vs git-fundamentals).
+  slug        String @unique
   title       String
   description String
 
@@ -350,6 +354,13 @@ model Topic {
   /// Edges pointing at what must come first, and back-edges for "unlocks".
   prerequisites TopicPrerequisite[] @relation("TopicNeeds")
   requiredBy    TopicPrerequisite[] @relation("TopicUnlocks")
+
+  /// The learning content for this topic. Optional: a topic without a lesson
+  /// renders "content coming soon" rather than a broken page.
+  lesson Lesson?
+
+  /// Per-user learning progress.
+  progress UserTopicProgress[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -374,4 +385,203 @@ model TopicPrerequisite {
   @@id([topicId, prerequisiteId])
   @@index([prerequisiteId])
   @@map("topic_prerequisites")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Learning System (Phase 5)
+//
+//   Topic → Lesson → LessonSection
+//                  → KnowledgeCheck → KnowledgeCheckOption
+//                  → Resource
+//
+// Plus per-user progress. Practice, coding problems and projects hang off
+// Topic in Phase 6; nothing here forecloses that.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// How a lesson section is rendered. Content is data, not JSX, so new lessons
+/// are a seed change rather than a frontend change.
+enum SectionType {
+  /// Explanatory prose.
+  TEXT
+  /// A sub-heading inside the lesson.
+  HEADING
+  /// Bullet points; uses `items`.
+  LIST
+  /// Something worth remembering.
+  CALLOUT
+  /// A common mistake to avoid.
+  WARNING
+  /// A code sample; uses `code` and `language`. Never executed in Phase 5.
+  CODE
+  /// A worked example combining prose and code.
+  EXAMPLE
+}
+
+enum ResourceType {
+  ARTICLE
+  DOCUMENTATION
+  VIDEO
+  REFERENCE
+}
+
+enum TopicProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+model Lesson {
+  id      String @id @default(cuid())
+  /// One lesson per topic. A second lesson would be a new topic.
+  topicId String @unique
+  topic   Topic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String
+  /// Display string ("45 minutes"), mirroring Topic.estimatedTime.
+  estimatedTime String
+
+  /// Lets content be revised without losing the ability to describe which
+  /// version a learner saw. Not surfaced in the UI yet.
+  version Int @default(1)
+
+  sections        LessonSection[]
+  knowledgeChecks KnowledgeCheck[]
+  resources       Resource[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("lessons")
+}
+
+model LessonSection {
+  id       String @id @default(cuid())
+  lessonId String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  /// Optional: a CODE or CALLOUT block often needs no title of its own.
+  title   String?
+  type    SectionType @default(TEXT)
+  /// Prose for TEXT/HEADING/CALLOUT/WARNING/EXAMPLE; the lead-in for CODE.
+  content String
+
+  /// LIST items. Empty for every other type.
+  items String[]
+
+  /// CODE only.
+  code     String?
+  language String?
+
+  order Int
+
+  progress UserSectionProgress[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([lessonId, order])
+  @@index([lessonId])
+  @@map("lesson_sections")
+}
+
+model KnowledgeCheck {
+  id       String @id @default(cuid())
+  lessonId String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  question String
+  /// Shown after answering — the feedback is meant to teach, not just score.
+  explanation String
+  order       Int
+
+  options KnowledgeCheckOption[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([lessonId, order])
+  @@index([lessonId])
+  @@map("knowledge_checks")
+}
+
+model KnowledgeCheckOption {
+  id               String         @id @default(cuid())
+  knowledgeCheckId String
+  knowledgeCheck   KnowledgeCheck @relation(fields: [knowledgeCheckId], references: [id], onDelete: Cascade)
+
+  text String
+  /// Never selected when sending options to the browser — grading is server-side.
+  isCorrect Boolean @default(false)
+  order     Int
+
+  @@unique([knowledgeCheckId, order])
+  @@index([knowledgeCheckId])
+  @@map("knowledge_check_options")
+}
+
+/// Curated external links. Never scraped, never embedded — displayed with their
+/// source and opened in a new tab.
+model Resource {
+  id       String @id @default(cuid())
+  lessonId String
+  lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  title       String
+  url         String
+  type        ResourceType @default(ARTICLE)
+  description String?
+  /// Shown to the reader so they know where a link goes before clicking.
+  source String
+  order  Int
+
+  @@unique([lessonId, order])
+  @@index([lessonId])
+  @@map("resources")
+}
+
+model UserTopicProgress {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  topicId String
+  topic   Topic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  status TopicProgressStatus @default(NOT_STARTED)
+  /// 0–100, derived from completed sections plus the knowledge check.
+  percentComplete Int @default(0)
+
+  /// Best knowledge-check result so far, as a percentage. Null until attempted.
+  bestScore Int?
+  attempts  Int @default(0)
+
+  startedAt      DateTime?
+  completedAt    DateTime?
+  lastAccessedAt DateTime  @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, topicId])
+  @@index([userId])
+  @@index([topicId])
+  @@map("user_topic_progress")
+}
+
+/// Which sections a learner has ticked off, so leaving mid-lesson and coming
+/// back lands them in the right place.
+model UserSectionProgress {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  sectionId String
+  section   LessonSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  completedAt DateTime @default(now())
+
+  @@unique([userId, sectionId])
+  @@index([userId])
+  @@map("user_section_progress")
 }

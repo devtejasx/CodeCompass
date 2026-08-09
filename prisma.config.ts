@@ -18,5 +18,12 @@ export default defineConfig({
   },
   datasource: {
     url: env("DATABASE_URL"),
+    /**
+     * Throwaway database Prisma replays migrations into when diffing. Optional
+     * for `migrate deploy`; required by `migrate diff --from-migrations`, which
+     * is how migrations are generated here since the CLI's interactive
+     * `migrate dev` cannot run in this environment.
+     */
+    shadowDatabaseUrl: env("SHADOW_DATABASE_URL"),
   },
 });
