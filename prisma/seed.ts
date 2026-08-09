@@ -3,6 +3,8 @@ import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../src/generated/prisma/client";
 import { CAREERS } from "./seed/careers";
+import { ROADMAPS } from "./seed/roadmaps";
+import { assertValidRoadmaps } from "./seed/roadmaps/validate";
 
 /**
  * Seeds the career catalog.
@@ -121,12 +123,123 @@ async function main() {
     }
   }
 
-  const [careers, technologies] = await Promise.all([
-    db.career.count(),
-    db.technology.count(),
-  ]);
+  await seedRoadmaps();
 
-  console.log(`Seeded ${careers} careers and ${technologies} technologies.`);
+  const [careers, technologies, roadmaps, phases, topics, prerequisites] =
+    await Promise.all([
+      db.career.count(),
+      db.technology.count(),
+      db.roadmap.count(),
+      db.roadmapPhase.count(),
+      db.topic.count(),
+      db.topicPrerequisite.count(),
+    ]);
+
+  console.log(
+    `Seeded ${careers} careers, ${technologies} technologies, ` +
+      `${roadmaps} roadmaps, ${phases} phases, ${topics} topics, ` +
+      `${prerequisites} prerequisite links.`,
+  );
+}
+
+/**
+ * Roadmaps are validated as a set before anything is written, then each one is
+ * replaced wholesale.
+ *
+ * Phases and topics are deleted and recreated rather than merged: `order` is
+ * derived from array position, so a reordering in the source has to be able to
+ * remove the old rows or the unique (roadmapId, order) constraint would fight
+ * it. The cascade from Roadmap → Phase → Topic → Prerequisite makes that one
+ * delete. User data is never touched — profiles reference Career, not Roadmap.
+ */
+async function seedRoadmaps() {
+  assertValidRoadmaps(ROADMAPS);
+
+  for (const roadmap of ROADMAPS) {
+    const career = await db.career.findUnique({
+      where: { slug: roadmap.careerSlug },
+      select: { id: true },
+    });
+
+    if (!career) {
+      throw new Error(
+        `Roadmap "${roadmap.title}" targets career "${roadmap.careerSlug}", which is not in the catalog.`,
+      );
+    }
+
+    const version = roadmap.version ?? 1;
+
+    // Replacing the whole version keeps ordering authoritative.
+    await db.roadmap.deleteMany({ where: { careerId: career.id, version } });
+
+    const created = await db.roadmap.create({
+      data: {
+        careerId: career.id,
+        title: roadmap.title,
+        description: roadmap.description,
+        version,
+        isActive: true,
+        estimatedDuration: roadmap.estimatedDuration,
+      },
+      select: { id: true },
+    });
+
+    // Any other version for this career stands down, so exactly one is active.
+    await db.roadmap.updateMany({
+      where: { careerId: career.id, id: { not: created.id } },
+      data: { isActive: false },
+    });
+
+    /** Topic slug → database id, for wiring prerequisites afterwards. */
+    const topicIds = new Map<string, string>();
+
+    for (const [phaseIndex, phase] of roadmap.phases.entries()) {
+      const createdPhase = await db.roadmapPhase.create({
+        data: {
+          roadmapId: created.id,
+          title: phase.title,
+          description: phase.description,
+          order: phaseIndex + 1,
+          estimatedDuration: phase.estimatedDuration,
+          kind: phase.kind ?? "LEARNING",
+          whyThisComesNext: phase.whyThisComesNext,
+        },
+        select: { id: true },
+      });
+
+      for (const [topicIndex, topic] of phase.topics.entries()) {
+        const createdTopic = await db.topic.create({
+          data: {
+            phaseId: createdPhase.id,
+            slug: topic.slug,
+            title: topic.title,
+            description: topic.description,
+            order: topicIndex + 1,
+            difficulty: topic.difficulty,
+            estimatedTime: topic.estimatedTime,
+            isRequired: topic.isRequired ?? true,
+          },
+          select: { id: true },
+        });
+
+        topicIds.set(topic.slug, createdTopic.id);
+      }
+    }
+
+    // Prerequisites last: every topic in the roadmap now exists.
+    for (const phase of roadmap.phases) {
+      for (const topic of phase.topics) {
+        for (const prerequisiteSlug of topic.prerequisites ?? []) {
+          await db.topicPrerequisite.create({
+            data: {
+              topicId: topicIds.get(topic.slug)!,
+              prerequisiteId: topicIds.get(prerequisiteSlug)!,
+            },
+          });
+        }
+      }
+    }
+  }
 }
 
 main()
