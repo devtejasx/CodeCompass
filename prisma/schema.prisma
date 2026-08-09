@@ -190,6 +190,10 @@ model Career {
   /// Users who have chosen this path.
   profiles Profile[]
 
+  /// Every roadmap version authored for this career. Not every career has one
+  /// yet — the explorer ships 20 careers, Phase 4 ships 3 roadmaps.
+  roadmaps Roadmap[]
+
   /// Controls catalog ordering without relying on insertion order.
   sortOrder Int @default(0)
 
@@ -239,4 +243,135 @@ model CareerRelation {
 
   @@id([careerId, relatedCareerId])
   @@map("career_relations")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Roadmap Engine (Phase 4)
+//
+//   Career → Roadmap → RoadmapPhase → Topic
+//
+// Lesson, Resource, Practice, Quiz and Project are NOT modelled here. Topic is
+// the attachment point for all of them in Phase 5, which is why it carries its
+// own id and slug rather than being a bare string on the phase.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// How a phase is presented. Phase 4 has no real learner progress, so state is
+/// derived (first phase available, rest locked) rather than stored per user.
+enum PhaseKind {
+  /// Ordinary learning phase.
+  LEARNING
+  /// A build-something milestone. Projects themselves are a later phase.
+  PROJECT_MILESTONE
+}
+
+model Roadmap {
+  id       String @id @default(cuid())
+  careerId String
+  career   Career @relation(fields: [careerId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String
+
+  /// Monotonically increasing per career. Versioning is supported by the data
+  /// model on purpose — a v2 roadmap can be seeded alongside v1 and swapped by
+  /// flipping isActive, without migrating or deleting anything.
+  version Int @default(1)
+
+  /// Exactly one active version per career is expected; the partial-unique
+  /// constraint that would enforce it needs raw SQL, so the seed asserts it and
+  /// queries always filter on it.
+  isActive Boolean @default(true)
+
+  /// Free text ("8–12 months"). Same reasoning as Career.estimatedLearningTime:
+  /// this describes a journey, it is not a promise of a completion date.
+  estimatedDuration String
+
+  phases RoadmapPhase[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([careerId, version])
+  @@index([careerId, isActive])
+  @@map("roadmaps")
+}
+
+model RoadmapPhase {
+  id        String  @id @default(cuid())
+  roadmapId String
+  roadmap   Roadmap @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String
+
+  /// 1-based position. Unique per roadmap so two phases can never claim the
+  /// same slot and silently render in arbitrary order.
+  order Int
+
+  estimatedDuration String
+  kind              PhaseKind @default(LEARNING)
+
+  /// The CodeCompass differentiator: why this phase comes where it does.
+  /// Explaining the ordering is what separates this from a list of tech.
+  whyThisComesNext String
+
+  topics Topic[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([roadmapId, order])
+  @@index([roadmapId])
+  @@map("roadmap_phases")
+}
+
+model Topic {
+  id      String       @id @default(cuid())
+  phaseId String
+  phase   RoadmapPhase @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+
+  /// Unique within a roadmap, not globally: "Functions" appears in more than
+  /// one career's roadmap and each is its own topic.
+  slug        String
+  title       String
+  description String
+
+  order Int
+
+  difficulty CareerDifficulty
+  /// Human-readable ("45 minutes"). Phase 5 can add a numeric field for
+  /// scheduling; this one is for display.
+  estimatedTime String
+
+  /// Optional topics are enrichment — a learner can skip them and still be
+  /// ready for the next phase.
+  isRequired Boolean @default(true)
+
+  /// Edges pointing at what must come first, and back-edges for "unlocks".
+  prerequisites TopicPrerequisite[] @relation("TopicNeeds")
+  requiredBy    TopicPrerequisite[] @relation("TopicUnlocks")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([phaseId, order])
+  @@index([phaseId])
+  @@map("topics")
+}
+
+/// Explicit join table rather than a self-referencing many-to-many, so an edge
+/// can later carry its own metadata (strength, "recommended" vs "required")
+/// without a migration.
+model TopicPrerequisite {
+  topicId        String
+  prerequisiteId String
+
+  topic        Topic @relation("TopicNeeds", fields: [topicId], references: [id], onDelete: Cascade)
+  prerequisite Topic @relation("TopicUnlocks", fields: [prerequisiteId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([topicId, prerequisiteId])
+  @@index([prerequisiteId])
+  @@map("topic_prerequisites")
 }
