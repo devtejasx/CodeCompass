@@ -19,7 +19,8 @@ The principle the whole product is built around:
 | 1 | Landing page + frontend foundation | Complete |
 | 2 | Authentication, session management, onboarding, protected routes | Complete |
 | 3 | Career explorer, comparison, career selection | Complete |
-| 4 | Roadmap engine | Not started |
+| 4 | Roadmap engine — phases, topics, prerequisites | Complete |
+| 5 | Lessons and learning content | Not started |
 
 See [What is deliberately not built](#what-is-deliberately-not-built) below.
 
@@ -185,6 +186,29 @@ means adding an entry to `prisma/seed/careers.ts` and re-running the seed.
   `Profile.selectedCareerId` (the *committed* choice) are deliberately separate.
   Comparing them is what lets the explorer suggest a starting point without
   locking anyone into it, and clearing the choice is always allowed.
+
+## Roadmap Engine
+
+`Career → Roadmap → RoadmapPhase → Topic`, with prerequisites as an explicit
+join table so an edge can later carry its own metadata.
+
+- **Ordering is the product.** Every phase stores `whyThisComesNext`, and the
+  field is *required* by the validator — a roadmap that can't explain its own
+  sequence is just a list of technologies.
+- **Content is seeded and validated.** `prisma/seed/roadmaps/` holds three
+  authored roadmaps; `validateRoadmap` rejects duplicate slugs, prerequisites
+  that don't exist, prerequisites that appear *later* than the topic needing
+  them, and cycles — before anything is written.
+- **Versioning is in the data model.** `Roadmap.version` is unique per career
+  and `isActive` selects the live one, so a v2 can be seeded alongside v1 and
+  swapped without a migration. There is no version-management UI yet.
+- **Phase state is derived, not stored.** No learner progress exists yet, so
+  `derivePhaseStates` marks the first phase available and the rest locked.
+  Phase 5 passes real completion data into the same function; no consumer
+  changes.
+
+Careers without an authored roadmap (17 of the 20) render an honest empty
+state rather than generated filler.
 
 ## What is deliberately not built
 

@@ -8,6 +8,8 @@ import { Glow, GridBackdrop } from "@/components/shared/backdrops";
 import { db } from "@/lib/db";
 import { requireOnboardedUser } from "@/lib/session";
 import { careerIcon } from "@/lib/careers/icons";
+import { getActiveRoadmapForCareer } from "@/lib/roadmap/queries";
+import { summariseProgress } from "@/lib/roadmap/progress";
 import {
   CAREER_LABEL,
   EXPERIENCE_LABEL,
@@ -36,13 +38,25 @@ export default async function DashboardPage() {
       dailyLearningTime: true,
       selectedLanguage: true,
       chosenCareer: {
-        select: { slug: true, name: true, shortDescription: true, icon: true },
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          shortDescription: true,
+          icon: true,
+        },
       },
     },
   });
 
   const chosenCareer = profile?.chosenCareer ?? null;
   const ChosenIcon = chosenCareer ? careerIcon(chosenCareer.icon) : null;
+
+  // Only the shape needed for the summary — not the whole roadmap tree.
+  const roadmap = chosenCareer
+    ? await getActiveRoadmapForCareer(chosenCareer.id)
+    : null;
+  const progress = roadmap ? summariseProgress(roadmap) : null;
 
   const summary = [
     {
@@ -132,17 +146,62 @@ export default async function DashboardPage() {
                 </div>
               </div>
 
-              <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
-                Your roadmap — what to learn, and in what order — is what we&apos;re
-                building next.
-              </p>
+              {progress ? (
+                <>
+                  <div className="mt-6">
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-sm text-muted-foreground">
+                        Roadmap progress
+                      </span>
+                      <span className="font-mono text-sm text-foreground">
+                        {progress.percentComplete}%
+                      </span>
+                    </div>
+                    <div
+                      className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-raised"
+                      role="progressbar"
+                      aria-valuenow={progress.percentComplete}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label={`${chosenCareer.name} roadmap progress`}
+                    >
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{ width: `${progress.percentComplete}%` }}
+                      />
+                    </div>
+                  </div>
 
-              <div className="mt-5 flex flex-wrap gap-2">
+                  {progress.currentPhaseTitle ? (
+                    <p className="mt-4 text-sm text-muted-foreground">
+                      Current phase:{" "}
+                      <span className="font-medium text-foreground">
+                        {progress.currentPhaseTitle}
+                      </span>
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
+                  We&apos;re still building the roadmap for this path. Your choice is
+                  saved — check back soon.
+                </p>
+              )}
+
+              <div className="mt-6 flex flex-wrap gap-2">
+                {progress ? (
+                  <Button asChild>
+                    <Link href="/roadmap">
+                      Continue Your Journey
+                      <ArrowRight aria-hidden />
+                    </Link>
+                  </Button>
+                ) : null}
                 <Button variant="secondary" asChild>
                   <Link href={`/careers/${chosenCareer.slug}`}>View this path</Link>
                 </Button>
                 <Button variant="ghost" asChild>
-                  <Link href="/careers">Change path</Link>
+                  <Link href="/careers">Change Career</Link>
                 </Button>
               </div>
             </div>
