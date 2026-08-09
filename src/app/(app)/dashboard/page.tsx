@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ArrowRight, Clock3, Code2, Compass, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -6,6 +7,7 @@ import { Container } from "@/components/shared/container";
 import { Glow, GridBackdrop } from "@/components/shared/backdrops";
 import { db } from "@/lib/db";
 import { requireOnboardedUser } from "@/lib/session";
+import { careerIcon } from "@/lib/careers/icons";
 import {
   CAREER_LABEL,
   EXPERIENCE_LABEL,
@@ -33,8 +35,14 @@ export default async function DashboardPage() {
       selectedCareer: true,
       dailyLearningTime: true,
       selectedLanguage: true,
+      chosenCareer: {
+        select: { slug: true, name: true, shortDescription: true, icon: true },
+      },
     },
   });
+
+  const chosenCareer = profile?.chosenCareer ?? null;
+  const ChosenIcon = chosenCareer ? careerIcon(chosenCareer.icon) : null;
 
   const summary = [
     {
@@ -101,24 +109,61 @@ export default async function DashboardPage() {
             ))}
           </dl>
 
-          <div className="surface mt-8 rounded-xl p-6">
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              Your personalized journey is coming next. We&apos;re building the career
-              explorer and your roadmap — this is where they&apos;ll appear.
-            </p>
+          {chosenCareer && ChosenIcon ? (
+            <div className="surface mt-8 rounded-xl p-6">
+              <h2 className="text-xs font-medium uppercase tracking-label text-subtle-foreground">
+                Your path
+              </h2>
 
-            <div className="mt-5">
-              {/*
-                Intentionally inert: the career explorer is a later phase, and a
-                button that navigated nowhere would be worse than one that is
-                honestly not ready yet.
-              */}
-              <Button disabled title="Coming in a future phase">
-                Explore your path
-                <ArrowRight aria-hidden />
-              </Button>
+              <div className="mt-4 flex items-start gap-3">
+                <span
+                  aria-hidden
+                  className="grid size-10 shrink-0 place-items-center rounded-lg border border-border bg-surface text-indigo-400"
+                >
+                  <ChosenIcon className="size-[18px]" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-base font-medium text-foreground">
+                    {chosenCareer.name}
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                    {chosenCareer.shortDescription}
+                  </p>
+                </div>
+              </div>
+
+              <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
+                Your roadmap — what to learn, and in what order — is what we&apos;re
+                building next.
+              </p>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                <Button variant="secondary" asChild>
+                  <Link href={`/careers/${chosenCareer.slug}`}>View this path</Link>
+                </Button>
+                <Button variant="ghost" asChild>
+                  <Link href="/careers">Change path</Link>
+                </Button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="surface mt-8 rounded-xl p-6">
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                You haven&apos;t chosen a path yet — and there&apos;s no rush. Explore
+                what different careers actually involve, compare a couple, and pick one
+                when it feels right.
+              </p>
+
+              <div className="mt-5">
+                <Button asChild>
+                  <Link href="/careers">
+                    Explore your path
+                    <ArrowRight aria-hidden />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </Container>
     </div>

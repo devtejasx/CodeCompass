@@ -55,7 +55,14 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    // data-scroll-behavior tells Next this smooth scrolling is intentional, so
+    // it keeps suppressing it during route transitions in future versions.
+    <html
+      lang="en"
+      className="dark"
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+    >
       <body
         className={cn(
           GeistSans.variable,

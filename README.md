@@ -18,7 +18,8 @@ The principle the whole product is built around:
 | ----- | ----- | ------ |
 | 1 | Landing page + frontend foundation | Complete |
 | 2 | Authentication, session management, onboarding, protected routes | Complete |
-| 3 | Career explorer, roadmaps, learning | Not started |
+| 3 | Career explorer, comparison, career selection | Complete |
+| 4 | Roadmap engine | Not started |
 
 See [What is deliberately not built](#what-is-deliberately-not-built) below.
 
@@ -36,8 +37,11 @@ Fill in `DATABASE_URL`, `TEST_DATABASE_URL` and `AUTH_SECRET` (generate one with
 `npx auth secret`), then:
 
 ```bash
-npm install && npm run db:migrate && npm run dev
+npm install && npm run db:migrate && npm run db:seed && npm run dev
 ```
+
+`db:seed` loads the career catalog. It is idempotent — running it again always
+converges on exactly the catalog declared in `prisma/seed/careers.ts`.
 
 `TEST_DATABASE_URL` must point at a **separate** database — the test suite
 truncates it between tests.
@@ -165,6 +169,22 @@ Auth.js (NextAuth v5) with a Credentials provider over Prisma/PostgreSQL.
 - Unknown-email and wrong-password produce an identical message and take the
   same time (a dummy bcrypt compare runs when the email doesn't exist), so the
   login form can't be used to enumerate accounts.
+
+## Career Explorer
+
+Careers live in the database, not in components: `/careers` reads the catalog
+server-side and the frontend never needs editing to add one. Adding a career
+means adding an entry to `prisma/seed/careers.ts` and re-running the seed.
+
+- **Search and filtering** run in memory over the 20-career catalog — no request
+  per keystroke. The matching rules live in `src/lib/careers/filter.ts` so they
+  are unit-testable and could move server-side unchanged if the catalog grows.
+- **Career selection** takes the user from the session and validates the career
+  id against the database. A client cannot name whose profile to update.
+- `Profile.selectedCareer` (the onboarding *interest*) and
+  `Profile.selectedCareerId` (the *committed* choice) are deliberately separate.
+  Comparing them is what lets the explorer suggest a starting point without
+  locking anyone into it, and clearing the choice is always allowed.
 
 ## What is deliberately not built
 

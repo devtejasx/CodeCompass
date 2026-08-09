@@ -13,7 +13,7 @@ export const SITE = {
 
 export const NAV_LINKS: NavLink[] = [
   { label: "Home", href: "#top" },
-  { label: "Explore Careers", href: "#careers" },
+  { label: "Explore Careers", href: "/careers" },
   { label: "How It Works", href: "#how-it-works" },
   { label: "About", href: "#about" },
 ];

@@ -16,8 +16,11 @@ export default function globalSetup() {
     );
   }
 
-  execSync("npx prisma migrate deploy", {
-    stdio: "inherit",
-    env: { ...process.env, DATABASE_URL: url },
-  });
+  const env = { ...process.env, DATABASE_URL: url };
+
+  execSync("npx prisma migrate deploy", { stdio: "inherit", env });
+
+  // The career catalog is reference data, not user data: tests read it but
+  // never mutate it, so it is seeded once here rather than per test.
+  execSync("npx tsx prisma/seed.ts", { stdio: "inherit", env });
 }
