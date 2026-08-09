@@ -61,7 +61,7 @@ export function Hero() {
               className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row"
             >
               <Button size="lg" asChild>
-                <a href="#cta">
+                <a href="/signup">
                   Start Your Journey
                   <ArrowRight className="transition-transform duration-200 group-hover:translate-x-0.5" />
                 </a>

@@ -69,10 +69,10 @@ export function SiteNav() {
 
           <div className="hidden items-center gap-2 md:flex">
             <Button variant="ghost" size="sm" asChild>
-              <a href="#cta">Log in</a>
+              <a href="/login">Log in</a>
             </Button>
             <Button size="sm" asChild>
-              <a href="#cta">Start Your Journey</a>
+              <a href="/signup">Start Your Journey</a>
             </Button>
           </div>
 
@@ -121,10 +121,10 @@ export function SiteNav() {
               </nav>
               <div className="mt-3 flex flex-col gap-2 border-t border-border pt-4">
                 <Button variant="secondary" asChild onClick={() => setOpen(false)}>
-                  <a href="#cta">Log in</a>
+                  <a href="/login">Log in</a>
                 </Button>
                 <Button asChild onClick={() => setOpen(false)}>
-                  <a href="#cta">Start Your Journey</a>
+                  <a href="/signup">Start Your Journey</a>
                 </Button>
               </div>
             </Container>

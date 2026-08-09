@@ -1,0 +1,126 @@
+import type { Metadata } from "next";
+import { ArrowRight, Clock3, Code2, Compass, Sparkles } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Container } from "@/components/shared/container";
+import { Glow, GridBackdrop } from "@/components/shared/backdrops";
+import { db } from "@/lib/db";
+import { requireOnboardedUser } from "@/lib/session";
+import {
+  CAREER_LABEL,
+  EXPERIENCE_LABEL,
+  LANGUAGE_LABEL,
+  TIME_LABEL,
+} from "@/lib/onboarding/options";
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+  robots: { index: false, follow: false },
+};
+
+/**
+ * Phase 2 placeholder. Its only job is to prove that authentication and
+ * onboarding actually worked and that the answers came back out of Postgres.
+ * The real dashboard is a later phase.
+ */
+export default async function DashboardPage() {
+  const user = await requireOnboardedUser();
+
+  const profile = await db.profile.findUnique({
+    where: { userId: user.id },
+    select: {
+      experienceLevel: true,
+      selectedCareer: true,
+      dailyLearningTime: true,
+      selectedLanguage: true,
+    },
+  });
+
+  const summary = [
+    {
+      label: "Experience",
+      value: profile?.experienceLevel ? EXPERIENCE_LABEL[profile.experienceLevel] : "—",
+      icon: Compass,
+    },
+    {
+      label: "Career interest",
+      value: profile?.selectedCareer ? CAREER_LABEL[profile.selectedCareer] : "—",
+      icon: Sparkles,
+    },
+    {
+      label: "Learning time",
+      value: profile?.dailyLearningTime ? TIME_LABEL[profile.dailyLearningTime] : "—",
+      icon: Clock3,
+    },
+    {
+      label: "Language",
+      value: profile?.selectedLanguage ? LANGUAGE_LABEL[profile.selectedLanguage] : "—",
+      icon: Code2,
+    },
+  ];
+
+  const firstName = user.name.split(/\s+/)[0] || user.name;
+
+  return (
+    <div className="relative flex-1 overflow-hidden py-14 sm:py-20">
+      <GridBackdrop className="mask-fade-b opacity-60" />
+      <Glow className="-top-40 left-1/2 size-[30rem] -translate-x-1/2" />
+
+      <Container>
+        <div className="mx-auto max-w-3xl">
+          <h1 className="balance text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+            Welcome to CodeCompass, {firstName}.
+          </h1>
+          <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+            Your journey starts here.
+          </p>
+
+          <h2 className="mt-12 text-xs font-medium uppercase tracking-label text-subtle-foreground">
+            What you told us
+          </h2>
+
+          <dl className="mt-4 grid gap-3 sm:grid-cols-2">
+            {summary.map((item) => (
+              <div
+                key={item.label}
+                className="surface flex items-start gap-3 rounded-xl p-4"
+              >
+                <span
+                  aria-hidden
+                  className="grid size-9 shrink-0 place-items-center rounded-lg border border-border bg-surface text-muted-foreground"
+                >
+                  <item.icon className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <dt className="text-xs text-subtle-foreground">{item.label}</dt>
+                  <dd className="mt-0.5 text-sm font-medium text-foreground">
+                    {item.value}
+                  </dd>
+                </div>
+              </div>
+            ))}
+          </dl>
+
+          <div className="surface mt-8 rounded-xl p-6">
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Your personalized journey is coming next. We&apos;re building the career
+              explorer and your roadmap — this is where they&apos;ll appear.
+            </p>
+
+            <div className="mt-5">
+              {/*
+                Intentionally inert: the career explorer is a later phase, and a
+                button that navigated nowhere would be worse than one that is
+                honestly not ready yet.
+              */}
+              <Button disabled title="Coming in a future phase">
+                Explore your path
+                <ArrowRight aria-hidden />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Container>
+    </div>
+  );
+}
