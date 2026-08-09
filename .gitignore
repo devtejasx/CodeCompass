@@ -32,3 +32,6 @@ yarn-error.log*
 
 # personal profile readme that lives in this folder - not part of the project
 PROFILE_README.md
+
+# prisma generated client
+/src/generated

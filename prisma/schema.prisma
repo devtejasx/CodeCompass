@@ -1,0 +1,111 @@
+// CodeCompass — Phase 2 schema (authentication + onboarding only).
+//
+// Deliberately minimal. Roadmap, Topic, Lesson, Project, PracticeProblem,
+// AITool and UserProgress belong to later phases and are NOT modelled here.
+//
+// Sessions are JWTs, which is what Auth.js requires for the Credentials
+// provider, so there is no Session table to store. Adding an OAuth provider in
+// a later phase means adding the Auth.js Account/Session models and the Prisma
+// adapter at that point.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+// Prisma 7 moved the connection URL out of the schema: Migrate reads it from
+// prisma.config.ts, and the client gets it through a driver adapter.
+datasource db {
+  provider = "postgresql"
+}
+
+/// Where someone is starting from. Drives nothing yet — collected in onboarding.
+enum ExperienceLevel {
+  NEW_TO_TECH
+  STARTED_LEARNING
+  KNOWS_FUNDAMENTALS
+  BUILDING_PROJECTS
+}
+
+/// A stated interest, not a commitment. NOT_SURE is a first-class answer:
+/// a beginner must never be forced to pretend they already know.
+enum CareerInterest {
+  FRONTEND
+  BACKEND
+  FULL_STACK
+  AI_ENGINEERING
+  MACHINE_LEARNING
+  DATA_SCIENCE
+  DATA_ANALYTICS
+  CYBERSECURITY
+  DEVOPS
+  CLOUD
+  MOBILE
+  GAME_DEV
+  OTHER
+  NOT_SURE
+}
+
+/// Realistic daily capacity. Used to understand the learner, not to promise dates.
+enum DailyLearningTime {
+  MINUTES_15_30
+  MINUTES_30_60
+  HOURS_1_2
+  HOURS_2_4
+  HOURS_4_PLUS
+}
+
+/// Language preference only. No recommendation logic exists in Phase 2.
+enum ProgrammingLanguage {
+  JAVASCRIPT_TYPESCRIPT
+  PYTHON
+  JAVA
+  CSHARP
+  GO
+  RUST
+  SWIFT
+  KOTLIN
+  CPP
+  SOLIDITY
+  OTHER
+  NOT_SURE
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  emailVerified DateTime?
+  image        String?
+  /// bcrypt hash. Never a plaintext password, never returned to the client.
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  profile Profile?
+
+  @@map("users")
+}
+
+model Profile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  experienceLevel   ExperienceLevel?
+  selectedCareer    CareerInterest?
+  dailyLearningTime DailyLearningTime?
+  selectedLanguage  ProgrammingLanguage?
+
+  /// Reserved: the Phase 2 flow deliberately asks only four questions, so
+  /// nothing writes this yet. Kept nullable so a later step can fill it in
+  /// without a destructive migration.
+  primaryGoal String?
+
+  onboardingCompleted Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("profiles")
+}
