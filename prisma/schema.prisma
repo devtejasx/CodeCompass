@@ -1,7 +1,9 @@
-// CodeCompass — Phase 2 schema (authentication + onboarding only).
+// CodeCompass schema.
 //
-// Deliberately minimal. Roadmap, Topic, Lesson, Project, PracticeProblem,
-// AITool and UserProgress belong to later phases and are NOT modelled here.
+// Grown one phase at a time: auth + onboarding (2), career explorer (3),
+// roadmap engine (4), learning system (5), coding practice (6). Project,
+// AITool and the Git/GitHub academy belong to later phases and are NOT
+// modelled here.
 //
 // Sessions are JWTs, which is what Auth.js requires for the Credentials
 // provider, so there is no Session table to store. Adding an OAuth provider in
@@ -72,21 +74,25 @@ enum ProgrammingLanguage {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
   emailVerified DateTime?
-  image        String?
+  image         String?
   /// bcrypt hash. Never a plaintext password, never returned to the client.
-  passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  passwordHash  String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   profile Profile?
 
   /// Learning progress (Phase 5).
   topicProgress   UserTopicProgress[]
   sectionProgress UserSectionProgress[]
+
+  /// Coding practice (Phase 6).
+  problemProgress UserProblemProgress[]
+  submissions     Submission[]
 
   @@map("users")
 }
@@ -164,9 +170,9 @@ model Career {
   /// One line for the card.
   shortDescription String
   /// Beginner-facing explanation of what the person actually does all day.
-  description String
+  description      String
   /// One short phrase used by the comparison table ("User interface", …).
-  mainFocus String
+  mainFocus        String
 
   /// Lucide icon name, resolved through a registry at render time. A database
   /// row cannot carry a React component, so the name is what is stored.
@@ -188,8 +194,8 @@ model Career {
 
   technologies CareerTechnology[]
   /// Outgoing "related career" edges; see CareerRelation.
-  relatedTo   CareerRelation[] @relation("CareerRelationsFrom")
-  relatedFrom CareerRelation[] @relation("CareerRelationsTo")
+  relatedTo    CareerRelation[]   @relation("CareerRelationsFrom")
+  relatedFrom  CareerRelation[]   @relation("CareerRelationsTo")
 
   /// Users who have chosen this path.
   profiles Profile[]
@@ -342,7 +348,7 @@ model Topic {
 
   order Int
 
-  difficulty CareerDifficulty
+  difficulty    CareerDifficulty
   /// Human-readable ("45 minutes"). Phase 5 can add a numeric field for
   /// scheduling; this one is for display.
   estimatedTime String
@@ -361,6 +367,10 @@ model Topic {
 
   /// Per-user learning progress.
   progress UserTopicProgress[]
+
+  /// Coding problems that practise this topic (Phase 6). The join carries no
+  /// data of its own yet, but exists as a table so it can later.
+  problems ProblemTopic[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -436,8 +446,8 @@ model Lesson {
   topicId String @unique
   topic   Topic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
 
-  title       String
-  description String
+  title         String
+  description   String
   /// Display string ("45 minutes"), mirroring Topic.estimatedTime.
   estimatedTime String
 
@@ -490,7 +500,7 @@ model KnowledgeCheck {
   lessonId String
   lesson   Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
 
-  question String
+  question    String
   /// Shown after answering — the feedback is meant to teach, not just score.
   explanation String
   order       Int
@@ -510,7 +520,7 @@ model KnowledgeCheckOption {
   knowledgeCheckId String
   knowledgeCheck   KnowledgeCheck @relation(fields: [knowledgeCheckId], references: [id], onDelete: Cascade)
 
-  text String
+  text      String
   /// Never selected when sending options to the browser — grading is server-side.
   isCorrect Boolean @default(false)
   order     Int
@@ -532,8 +542,8 @@ model Resource {
   type        ResourceType @default(ARTICLE)
   description String?
   /// Shown to the reader so they know where a link goes before clicking.
-  source String
-  order  Int
+  source      String
+  order       Int
 
   @@unique([lessonId, order])
   @@index([lessonId])
@@ -548,13 +558,13 @@ model UserTopicProgress {
   topicId String
   topic   Topic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
 
-  status TopicProgressStatus @default(NOT_STARTED)
+  status          TopicProgressStatus @default(NOT_STARTED)
   /// 0–100, derived from completed sections plus the knowledge check.
-  percentComplete Int @default(0)
+  percentComplete Int                 @default(0)
 
   /// Best knowledge-check result so far, as a percentage. Null until attempted.
   bestScore Int?
-  attempts  Int @default(0)
+  attempts  Int  @default(0)
 
   startedAt      DateTime?
   completedAt    DateTime?
@@ -584,4 +594,264 @@ model UserSectionProgress {
   @@unique([userId, sectionId])
   @@index([userId])
   @@map("user_section_progress")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Coding Practice Engine (Phase 6)
+//
+//   Topic → ProblemTopic → PracticeProblem → PracticeExample
+//                                          → PracticeTestCase
+//                                          → PracticeLanguage
+//
+// Plus per-user progress and a submission log. Problem content is
+// application-owned: nothing in the app writes to a problem, only reads.
+//
+// User code is NEVER executed by this application. Submissions are handed to an
+// external, isolated execution service — see src/lib/practice/execution.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Separate from CareerDifficulty on purpose: a problem's difficulty and a
+/// career's difficulty are different scales that happen to share three words.
+enum ProblemDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum ProblemStatus {
+  NOT_STARTED
+  ATTEMPTED
+  SOLVED
+}
+
+/// Languages the practice engine can offer. A language is only shown when the
+/// configured execution service reports that it supports it AND the problem has
+/// starter code for it, so this enum growing does not by itself expose a
+/// language that cannot run.
+enum CodeLanguage {
+  JAVASCRIPT
+  TYPESCRIPT
+  PYTHON
+  JAVA
+  CPP
+}
+
+/// "Run" checks the visible sample tests only; "Submit" runs everything,
+/// including hidden tests, and is what can mark a problem solved.
+enum SubmissionKind {
+  RUN
+  SUBMIT
+}
+
+enum SubmissionStatus {
+  QUEUED
+  RUNNING
+  ACCEPTED
+  WRONG_ANSWER
+  TIME_LIMIT
+  MEMORY_LIMIT
+  COMPILE_ERROR
+  RUNTIME_ERROR
+  SYSTEM_ERROR
+}
+
+model PracticeProblem {
+  id   String @id @default(cuid())
+  slug String @unique
+
+  title       String
+  /// The problem statement, in plain prose. Original content — never copied
+  /// from LeetCode, CodeChef or any other platform.
+  description String
+  difficulty  ProblemDifficulty
+
+  /// Taught after an attempt: why the intended approach works. Stored rather
+  /// than generated, because Phase 6 has no AI.
+  explanation String
+
+  constraints String[]
+  /// Progressive nudges. Revealed one at a time, never all at once.
+  hints       String[]
+
+  /// The function the learner implements. The execution harness calls it by
+  /// this name, so it belongs to the problem definition, not to the UI.
+  functionName String
+
+  /// Per-problem limits, enforced by the sandbox. Stored per problem so a
+  /// heavier problem can be given more room without a global change.
+  timeLimitMs   Int @default(2000)
+  memoryLimitMb Int @default(128)
+
+  /// Display only ("~10 min"), mirroring Topic.estimatedTime.
+  estimatedTime String @default("10 min")
+
+  /// Stable catalog ordering, independent of insertion order.
+  sortOrder Int @default(0)
+
+  examples  PracticeExample[]
+  testCases PracticeTestCase[]
+  languages PracticeLanguage[]
+  topics    ProblemTopic[]
+
+  progress    UserProblemProgress[]
+  submissions Submission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([difficulty])
+  @@map("practice_problems")
+}
+
+/// A worked example shown in the problem statement. Distinct from a test case:
+/// examples teach, test cases grade. They are authored to agree, but editing an
+/// example must never silently change what is graded.
+model PracticeExample {
+  id        String          @id @default(cuid())
+  problemId String
+  problem   PracticeProblem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  input       String
+  output      String
+  explanation String?
+  order       Int
+
+  @@unique([problemId, order])
+  @@index([problemId])
+  @@map("practice_examples")
+}
+
+/// One graded case.
+///
+/// `input` is a JSON array of arguments and `expectedOutput` a JSON value, so
+/// the same case runs under any language harness without being re-authored.
+/// Hidden cases are never selected by any query that feeds the browser.
+model PracticeTestCase {
+  id        String          @id @default(cuid())
+  problemId String
+  problem   PracticeProblem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  input          String
+  expectedOutput String
+  isHidden       Boolean @default(false)
+  order          Int
+
+  @@unique([problemId, order])
+  @@index([problemId, isHidden])
+  @@map("practice_test_cases")
+}
+
+/// Per-language configuration for a problem. A language a problem has no row
+/// for is simply not offered for it.
+model PracticeLanguage {
+  id        String          @id @default(cuid())
+  problemId String
+  problem   PracticeProblem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  language         CodeLanguage
+  /// What the editor opens with. Generated from the problem's signature at seed
+  /// time — never hardcoded in a React component.
+  starterCode      String
+  /// Reference solution. Server-side only: it is an answer key, and no query
+  /// that feeds the browser selects it.
+  solutionTemplate String?
+
+  @@unique([problemId, language])
+  @@index([problemId])
+  @@map("practice_languages")
+}
+
+/// Connects practice to learning. This edge is what lets CodeCompass say "you
+/// just studied X, now practise it" instead of showing a random problem library.
+model ProblemTopic {
+  problemId String
+  topicId   String
+
+  problem PracticeProblem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  topic   Topic           @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([problemId, topicId])
+  @@index([topicId])
+  @@map("problem_topics")
+}
+
+model UserProblemProgress {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  problemId String
+  problem   PracticeProblem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  status   ProblemStatus @default(NOT_STARTED)
+  /// Counts graded submissions, not editor keystrokes.
+  attempts Int           @default(0)
+
+  /// Set once, by the first accepted submission. A later failed attempt never
+  /// clears it — solved stays solved.
+  solvedAt DateTime?
+
+  /// Which language the accepted solution used, for "solved in Python".
+  solvedLanguage CodeLanguage?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, problemId])
+  @@index([userId, status])
+  @@index([problemId])
+  @@map("user_problem_progress")
+}
+
+/// One graded execution. Owned by the user who created it: every read is scoped
+/// by userId, and nothing joins across users.
+model Submission {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  problemId String
+  problem   PracticeProblem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  language CodeLanguage
+  /// The learner's own source. Never shown to anybody else.
+  code     String
+
+  kind   SubmissionKind   @default(SUBMIT)
+  status SubmissionStatus @default(QUEUED)
+
+  passedTests Int @default(0)
+  totalTests  Int @default(0)
+
+  /// Milliseconds and kilobytes as reported by the sandbox. Null when the
+  /// provider cannot measure them.
+  executionTime Int?
+  memoryUsed    Int?
+
+  /// Sanitised compiler or runtime message. The execution layer strips paths,
+  /// hostnames and stack frames before anything is stored here.
+  message  String?
+  /// Deterministic teaching note about the first failure. Rule-based, not AI.
+  feedback String?
+
+  /// Failure detail. Only ever written when the failing case is a *visible*
+  /// one — a hidden case reports its number and nothing else, so the answer key
+  /// cannot be reconstructed by submitting repeatedly.
+  failedTestOrder Int?
+  failedInput     String?
+  expectedOutput  String?
+  actualOutput    String?
+
+  /// True when the verdict came from the development provider rather than a
+  /// real sandbox, so a simulated result is never mistaken for a real one.
+  simulated Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, problemId, createdAt])
+  @@index([userId, status])
+  @@map("submissions")
 }
