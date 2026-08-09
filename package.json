@@ -13,6 +13,7 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",
+    "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{ts,json,mjs}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\""
