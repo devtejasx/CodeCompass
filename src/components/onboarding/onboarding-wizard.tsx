@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Loader2, Sparkles } from "lucide-react";
 
-import { completeOnboarding } from "@/app/actions/onboarding";
+import { finishOnboarding, saveOnboardingAnswers } from "@/app/actions/onboarding";
 import { Button } from "@/components/ui/button";
 import { OptionCard } from "@/components/onboarding/option-card";
 import { StepProgress } from "@/components/onboarding/step-progress";
@@ -126,7 +126,9 @@ export function OnboardingWizard({ firstName }: { firstName: string }) {
     setSubmitting(true);
     setError(null);
 
-    const result = await completeOnboarding(answers);
+    // Answers are saved here; the profile is only marked complete when the
+    // user clicks through from the success screen.
+    const result = await saveOnboardingAnswers(answers);
 
     setSubmitting(false);
 
@@ -137,6 +139,22 @@ export function OnboardingWizard({ firstName }: { firstName: string }) {
 
     setDirection(1);
     setDone(true);
+  };
+
+  const enterApp = async () => {
+    setSubmitting(true);
+    setError(null);
+
+    const result = await finishOnboarding();
+
+    if (!result.ok) {
+      setSubmitting(false);
+      setError(result.error ?? "Something went wrong. Please try again.");
+      return;
+    }
+
+    // Left pending through navigation so it can't be double-submitted.
+    router.push("/dashboard");
   };
 
   const enter = { opacity: 0, x: reduced ? 0 : direction * 24 };
@@ -171,10 +189,28 @@ export function OnboardingWizard({ firstName }: { firstName: string }) {
           </p>
         </div>
 
-        <Button size="lg" onClick={() => router.push("/dashboard")}>
-          Enter CodeCompass
-          <ArrowRight aria-hidden />
+        <Button size="lg" onClick={enterApp} disabled={submitting}>
+          {submitting ? (
+            <>
+              <Loader2 className="animate-spin" aria-hidden />
+              Setting things up…
+            </>
+          ) : (
+            <>
+              Enter CodeCompass
+              <ArrowRight aria-hidden />
+            </>
+          )}
         </Button>
+
+        {error ? (
+          <p
+            role="alert"
+            className="rounded-lg border border-rose-500/30 bg-rose-500/[0.08] px-4 py-3 text-sm text-rose-300"
+          >
+            {error}
+          </p>
+        ) : null}
       </motion.div>
     );
   }

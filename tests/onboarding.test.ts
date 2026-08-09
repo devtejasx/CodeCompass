@@ -5,7 +5,15 @@ const auth = vi.fn();
 vi.mock("@/auth", () => ({ auth, signIn: vi.fn(), signOut: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-const { completeOnboarding } = await import("@/app/actions/onboarding");
+const { saveOnboardingAnswers, finishOnboarding } =
+  await import("@/app/actions/onboarding");
+
+/** The two-step flow the wizard performs: save answers, then confirm. */
+async function completeOnboarding(input: unknown) {
+  const saved = await saveOnboardingAnswers(input);
+  if (!saved.ok) return saved;
+  return finishOnboarding();
+}
 const { db } = await import("@/lib/db");
 
 const ANSWERS = {
@@ -133,5 +141,60 @@ describe("onboarding submission", () => {
 
     const bobProfile = await db.profile.findUnique({ where: { userId: bob.id } });
     expect(bobProfile!.onboardingCompleted).toBe(false);
+  });
+});
+
+/**
+ * Saving and completing are separate steps so the "You're all set" screen
+ * actually gets shown. If saving also completed the profile, the server
+ * action's re-render of /onboarding would hit the page guard and redirect
+ * straight to /dashboard, skipping that screen for every user.
+ */
+describe("two-step completion", () => {
+  it("saves the answers without marking onboarding complete", async () => {
+    const user = await makeUser();
+    signedInAs(user.id);
+
+    const result = await saveOnboardingAnswers(ANSWERS);
+    expect(result.ok).toBe(true);
+
+    const profile = await db.profile.findUnique({ where: { userId: user.id } });
+
+    // Answers are safe…
+    expect(profile!.selectedCareer).toBe("FRONTEND");
+    // …but the guard must not fire yet, or the success screen is skipped.
+    expect(profile!.onboardingCompleted).toBe(false);
+  });
+
+  it("completes only once the user confirms", async () => {
+    const user = await makeUser();
+    signedInAs(user.id);
+
+    await saveOnboardingAnswers(ANSWERS);
+    const result = await finishOnboarding();
+
+    expect(result.ok).toBe(true);
+
+    const profile = await db.profile.findUnique({ where: { userId: user.id } });
+    expect(profile!.onboardingCompleted).toBe(true);
+  });
+
+  it("refuses to complete when answers are missing", async () => {
+    const user = await makeUser();
+    signedInAs(user.id);
+
+    // Straight to confirmation without ever saving answers.
+    const result = await finishOnboarding();
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/missing/i);
+
+    const profile = await db.profile.findUnique({ where: { userId: user.id } });
+    expect(profile!.onboardingCompleted).toBe(false);
+  });
+
+  it("refuses to complete for an unauthenticated caller", async () => {
+    auth.mockResolvedValue(null);
+    expect((await finishOnboarding()).ok).toBe(false);
   });
 });

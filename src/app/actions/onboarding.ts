@@ -12,13 +12,19 @@ export interface OnboardingResult {
 }
 
 /**
- * Persists the four onboarding answers and marks onboarding complete.
+ * Onboarding completes in two steps, and the split is deliberate.
  *
- * Answers arrive as a plain object from the client wizard, but nothing is
- * trusted: the session is re-read server-side and every value is re-parsed
- * against the database enums.
+ * A server action re-renders the route it was called from. If the final answer
+ * also set onboardingCompleted, that re-render would hit the /onboarding page
+ * guard, see a completed profile, and redirect straight to /dashboard — the
+ * "You're all set" screen would never be shown to anyone.
+ *
+ * So the answers are saved first (nothing is lost if the user wanders off) and
+ * the profile is only marked complete when they actually click through.
  */
-export async function completeOnboarding(input: unknown): Promise<OnboardingResult> {
+
+/** Persists the four answers. Does NOT mark onboarding complete. */
+export async function saveOnboardingAnswers(input: unknown): Promise<OnboardingResult> {
   const user = await getCurrentUser();
   if (!user) {
     return { ok: false, error: "Your session has expired. Please sign in again." };
@@ -35,14 +41,57 @@ export async function completeOnboarding(input: unknown): Promise<OnboardingResu
   try {
     await db.profile.upsert({
       where: { userId: user.id },
-      create: { userId: user.id, ...parsed.data, onboardingCompleted: true },
-      update: { ...parsed.data, onboardingCompleted: true },
+      create: { userId: user.id, ...parsed.data },
+      update: parsed.data,
     });
   } catch {
-    console.error("[completeOnboarding] failed to persist profile");
+    console.error("[saveOnboardingAnswers] failed to persist profile");
     return {
       ok: false,
       error: "We couldn't save your answers. Please try again in a moment.",
+    };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Marks onboarding complete. Refuses if the answers aren't all there, so the
+ * flag can never claim more than the profile actually holds.
+ */
+export async function finishOnboarding(): Promise<OnboardingResult> {
+  const user = await getCurrentUser();
+  if (!user) {
+    return { ok: false, error: "Your session has expired. Please sign in again." };
+  }
+
+  try {
+    const profile = await db.profile.findUnique({
+      where: { userId: user.id },
+      select: {
+        experienceLevel: true,
+        selectedCareer: true,
+        dailyLearningTime: true,
+        selectedLanguage: true,
+      },
+    });
+
+    if (!profile || !onboardingSchema.safeParse(profile).success) {
+      return {
+        ok: false,
+        error: "Some answers are still missing. Please complete every step.",
+      };
+    }
+
+    await db.profile.update({
+      where: { userId: user.id },
+      data: { onboardingCompleted: true },
+    });
+  } catch {
+    console.error("[finishOnboarding] failed to complete onboarding");
+    return {
+      ok: false,
+      error: "We couldn't finish setting up your account. Please try again.",
     };
   }
 
