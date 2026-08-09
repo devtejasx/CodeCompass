@@ -5,6 +5,8 @@ import { PrismaClient } from "../src/generated/prisma/client";
 import { CAREERS } from "./seed/careers";
 import { ROADMAPS } from "./seed/roadmaps";
 import { assertValidRoadmaps } from "./seed/roadmaps/validate";
+import { LESSONS } from "./seed/lessons";
+import { assertValidLessons } from "./seed/lessons/validate";
 
 /**
  * Seeds the career catalog.
@@ -124,22 +126,118 @@ async function main() {
   }
 
   await seedRoadmaps();
+  await seedLessons();
 
-  const [careers, technologies, roadmaps, phases, topics, prerequisites] =
+  const [careers, roadmaps, phases, topics, lessons, sections, checks] =
     await Promise.all([
       db.career.count(),
-      db.technology.count(),
       db.roadmap.count(),
       db.roadmapPhase.count(),
       db.topic.count(),
-      db.topicPrerequisite.count(),
+      db.lesson.count(),
+      db.lessonSection.count(),
+      db.knowledgeCheck.count(),
     ]);
 
   console.log(
-    `Seeded ${careers} careers, ${technologies} technologies, ` +
-      `${roadmaps} roadmaps, ${phases} phases, ${topics} topics, ` +
-      `${prerequisites} prerequisite links.`,
+    `Seeded ${careers} careers, ${roadmaps} roadmaps, ${phases} phases, ` +
+      `${topics} topics, ${lessons} lessons, ${sections} sections, ` +
+      `${checks} knowledge checks.`,
   );
+}
+
+/**
+ * Replaces each authored lesson wholesale.
+ *
+ * Section and question order come from array position, so a reordering has to
+ * be able to drop the old rows — the unique (lessonId, order) constraints
+ * would otherwise collide. Deleting the Lesson cascades to sections, checks,
+ * options and resources, making that one statement.
+ *
+ * Learner progress is NOT touched by content reseeding: UserTopicProgress
+ * points at Topic, which survives. UserSectionProgress does reference sections,
+ * so re-seeding clears section ticks — acceptable while content is still being
+ * authored, and noted in the README as debt.
+ */
+async function seedLessons() {
+  assertValidLessons(LESSONS);
+
+  for (const lesson of LESSONS) {
+    const topic = await db.topic.findUnique({
+      where: { slug: lesson.topicSlug },
+      select: { id: true },
+    });
+
+    if (!topic) {
+      throw new Error(
+        `Lesson "${lesson.title}" targets topic "${lesson.topicSlug}", which is not in any roadmap.`,
+      );
+    }
+
+    await db.lesson.deleteMany({ where: { topicId: topic.id } });
+
+    const created = await db.lesson.create({
+      data: {
+        topicId: topic.id,
+        title: lesson.title,
+        description: lesson.description,
+        estimatedTime: lesson.estimatedTime,
+      },
+      select: { id: true },
+    });
+
+    for (const [index, section] of lesson.sections.entries()) {
+      await db.lessonSection.create({
+        data: {
+          lessonId: created.id,
+          title: section.title ?? null,
+          type: section.type,
+          content: section.content,
+          items: section.items ?? [],
+          code: section.code ?? null,
+          language: section.language ?? null,
+          order: index + 1,
+        },
+      });
+    }
+
+    for (const [index, check] of lesson.knowledgeChecks.entries()) {
+      const createdCheck = await db.knowledgeCheck.create({
+        data: {
+          lessonId: created.id,
+          question: check.question,
+          explanation: check.explanation,
+          order: index + 1,
+        },
+        select: { id: true },
+      });
+
+      for (const [optionIndex, option] of check.options.entries()) {
+        await db.knowledgeCheckOption.create({
+          data: {
+            knowledgeCheckId: createdCheck.id,
+            text: option.text,
+            isCorrect: option.isCorrect ?? false,
+            order: optionIndex + 1,
+          },
+        });
+      }
+    }
+
+    for (const [index, resource] of (lesson.resources ?? []).entries()) {
+      await db.resource.create({
+        data: {
+          lessonId: created.id,
+          title: resource.title,
+          url: resource.url,
+          source: resource.source,
+          type: resource.type,
+          description: resource.description ?? null,
+          order: index + 1,
+        },
+      });
+    }
+  }
 }
 
 /**
