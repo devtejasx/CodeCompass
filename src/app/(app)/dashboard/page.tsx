@@ -12,6 +12,7 @@ import { getActiveRoadmapForCareer } from "@/lib/roadmap/queries";
 import { summariseProgress } from "@/lib/roadmap/progress";
 import { completedPhaseOrders, roadmapPercent } from "@/lib/learn/progress";
 import { getCompletedTopicIds, getResumeTopic } from "@/lib/learn/queries";
+import { getPracticeSummary, getRecommendedProblems } from "@/lib/practice/queries";
 import {
   CAREER_LABEL,
   EXPERIENCE_LABEL,
@@ -82,6 +83,16 @@ export default async function DashboardPage() {
         topicsCompleted: completedTopicIds.length,
       }
     : null;
+
+  // Practice, kept to two numbers and one next action. The dashboard is a
+  // starting point, not a statistics page.
+  const [practice, recommended] = await Promise.all([
+    getPracticeSummary(user.id),
+    getRecommendedProblems(user.id, 1),
+  ]);
+
+  const nextPractice =
+    practice.inFlight?.problem ?? recommended.recommendations[0]?.problem ?? null;
 
   const summary = [
     {
@@ -252,8 +263,55 @@ export default async function DashboardPage() {
                 </Button>
               </div>
             </div>
-          ) : (
-            <div className="surface mt-8 rounded-xl p-6">
+          ) : null}
+
+          {/* ── Practice ───────────────────────────────────────── */}
+          <div className="surface mt-4 rounded-xl p-6">
+            <h2 className="text-xs font-medium uppercase tracking-label text-subtle-foreground">
+              Coding practice
+            </h2>
+
+            <p className="mt-4 font-mono text-2xl font-medium text-foreground">
+              {practice.solved}
+              <span className="ml-2 font-sans text-sm font-normal text-muted-foreground">
+                {practice.solved === 1 ? "problem solved" : "problems solved"}
+              </span>
+            </p>
+
+            {nextPractice ? (
+              <>
+                <p className="mt-4 text-sm text-muted-foreground">
+                  {practice.inFlight ? "Current practice" : "Next up"}:{" "}
+                  <span className="font-medium text-foreground">
+                    {nextPractice.title}
+                  </span>
+                </p>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <Button asChild>
+                    <Link href={`/practice/${nextPractice.slug}`}>
+                      {practice.inFlight ? "Continue Practice" : "Start Practice"}
+                      <ArrowRight aria-hidden />
+                    </Link>
+                  </Button>
+                  <Button variant="ghost" asChild>
+                    <Link href="/practice">All problems</Link>
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="mt-5">
+                <Button variant="secondary" asChild>
+                  <Link href="/practice">
+                    Browse practice problems
+                    <ArrowRight aria-hidden />
+                  </Link>
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {!chosenCareer || !ChosenIcon ? (
+            <div className="surface mt-4 rounded-xl p-6">
               <p className="text-sm leading-relaxed text-muted-foreground">
                 You haven&apos;t chosen a path yet — and there&apos;s no rush. Explore
                 what different careers actually involve, compare a couple, and pick one
@@ -269,7 +327,7 @@ export default async function DashboardPage() {
                 </Button>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </Container>
     </div>

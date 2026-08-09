@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Container } from "@/components/shared/container";
 import { GridBackdrop } from "@/components/shared/backdrops";
 import { LessonExperience } from "@/components/learn/lesson-experience";
+import { TopicPracticeCard } from "@/components/practice/topic-practice-card";
 import { DIFFICULTY_BADGE, DIFFICULTY_SHORT } from "@/lib/careers/labels";
 import { requireUser } from "@/lib/session";
 import { PASSING_SCORE } from "@/lib/learn/progress";
@@ -17,6 +18,7 @@ import {
   getTopicForLearning,
   getTopicProgress,
 } from "@/lib/learn/queries";
+import { getProblemsForTopic } from "@/lib/practice/queries";
 
 export async function generateMetadata({
   params,
@@ -47,9 +49,12 @@ export default async function LearnTopicPage({
 
   const career = topic.phase.roadmap.career;
 
-  const [progress, nextTopic] = await Promise.all([
+  const [progress, nextTopic, practiceProblems] = await Promise.all([
     getTopicProgress(user.id, topic.id),
     getNextTopic(topic.id),
+    // Practice for this topic comes from the ProblemTopic join, never from a
+    // hardcoded list in this component.
+    getProblemsForTopic(topic.id, user.id),
   ]);
 
   const completedSectionIds = topic.lesson
@@ -57,6 +62,11 @@ export default async function LearnTopicPage({
     : [];
 
   const isCompleted = progress?.status === "COMPLETED";
+
+  const firstUnsolved =
+    practiceProblems.find((problem) => problem.status !== "SOLVED") ??
+    practiceProblems[0] ??
+    null;
 
   return (
     <div className="relative flex-1 overflow-hidden pb-24">
@@ -127,11 +137,26 @@ export default async function LearnTopicPage({
               initiallyCompleted={isCompleted}
               passingScore={PASSING_SCORE}
               nextTopic={nextTopic}
+              practice={
+                firstUnsolved
+                  ? { count: practiceProblems.length, firstSlug: firstUnsolved.slug }
+                  : null
+              }
             />
           ) : (
             <ComingSoon nextSlug={nextTopic?.slug ?? null} />
           )}
         </div>
+
+        {practiceProblems.length > 0 ? (
+          <div className="mt-14 max-w-[68ch]">
+            <TopicPracticeCard
+              topicTitle={topic.title}
+              problems={practiceProblems}
+              learningComplete={isCompleted}
+            />
+          </div>
+        ) : null}
       </Container>
     </div>
   );

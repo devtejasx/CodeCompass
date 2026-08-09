@@ -21,7 +21,13 @@ The principle the whole product is built around:
 | 3 | Career explorer, comparison, career selection | Complete |
 | 4 | Roadmap engine — phases, topics, prerequisites | Complete |
 | 5 | Learning system — lessons, progress, knowledge checks | Complete |
-| 6 | Coding practice | Not started |
+| 6 | Coding practice — problems, editor, submissions, progress | Complete\* |
+| 7 | Projects | Not started |
+
+\* The practice engine is complete. **Production code execution is not** — it
+ships with a development provider that returns clearly-labelled *simulated*
+verdicts and never runs anything. See [Coding Practice](#coding-practice) and
+[docs/code-execution.md](docs/code-execution.md).
 
 See [What is deliberately not built](#what-is-deliberately-not-built) below.
 
@@ -235,6 +241,55 @@ state rather than generated filler.
 Twelve of 154 topics have authored lessons; the rest show "learning content
 coming soon" rather than an empty page.
 
+## Coding Practice
+
+`Topic → ProblemTopic → PracticeProblem`, plus per-user progress and a
+submission log. 32 authored problems — 20 easy, 12 medium — across five
+languages.
+
+> **CodeCompass never executes learner code.** No file in this repository uses
+> `eval`, `new Function`, `vm`, `child_process` or any equivalent to run a
+> submission. Code goes to an external, isolated execution service behind the
+> `CodeExecutionService` interface, and only a verdict comes back.
+>
+> **That service does not exist yet.** The shipped default (`none`) runs
+> nothing and says so; the development provider (`mock`) returns deterministic
+> *simulated* verdicts, is refused when `NODE_ENV=production`, and marks every
+> result it produces so the UI can label it. **A real sandbox is required before
+> production** — [docs/code-execution.md](docs/code-execution.md) specifies
+> exactly what it must guarantee.
+
+- **Practice is connected to learning, not a problem library.** The recommended
+  section reads the learner's current roadmap topic and their completed topics,
+  and shows problems for *those*. When a topic has nothing authored it says
+  "coming soon" rather than padding the row — a recommendation the learner can
+  see is irrelevant teaches them to ignore recommendations.
+- **Starter code is generated, not authored per language.** A problem declares
+  one `signature`; `prisma/seed/problems/starter.ts` renders the idiomatic shell
+  for each language, including the snake_case name a Python developer expects.
+  Adding a sixth language is one template, not thirty-two edits.
+- **Test cases are language-agnostic.** `input` is a JSON array of arguments and
+  `expectedOutput` a JSON value, so one authored case runs under every harness.
+- **Answer keys never reach the browser.** Hidden test cases, reference
+  solutions and the explanation are excluded from every query that feeds a page.
+  The explanation is withheld by *not being fetched* until the learner has
+  attempted the problem, so "unlocks after your first submission" is true of the
+  payload and not just of the UI. A failure on a hidden case reports its number
+  and nothing else.
+- **Failure teaches.** Feedback is rule-based, not AI: it compares the shape of
+  what came back with what was expected and names the difference — values right
+  but ordered wrong, one element short, off by exactly one, differs only in
+  capitalisation. Anything it cannot classify produces no sentence rather than a
+  guess.
+- **Everything crossing the execution boundary is scrubbed.** Paths, URLs, IP
+  addresses, container ids and anything shaped like a secret are stripped from
+  compiler and runtime messages before they are stored, let alone rendered.
+- **Solved is permanent.** A later failed attempt never un-solves a problem, and
+  `solvedAt` keeps the moment they *first* solved it.
+- **Monaco loads only on a problem page**, via `next/dynamic` with `ssr: false`,
+  behind a textarea fallback. No other route pays for it, and it is not in any
+  bundle.
+
 > **Note on `"use server"` files:** they may export *only* async functions.
 > Re-exporting a constant from one type-checks and builds cleanly, then fails
 > every action in that file at runtime with a 500. This bit once already.
@@ -243,30 +298,39 @@ coming soon" rather than an empty page.
 
 The following belong to later phases and are **not** implemented:
 
-career explorer · real roadmaps · roadmap generation · learning content ·
-coding problems · compiler · projects · GitHub/Git integration · AI mentor ·
-AI APIs · progress tracking · XP · streaks · leaderboards · community ·
-payments · subscriptions · admin dashboard · job and resume features
+projects · project workspace · GitHub/Git integration · Git & GitHub Academy ·
+AI mentor · AI hints · AI code review · AI-generated solutions · AI APIs ·
+community · leaderboards · XP · streaks · competitions · payments ·
+subscriptions · admin CMS · job and resume features · interview preparation ·
+LeetCode/CodeChef/HackerRank synchronisation
+
+Also not implemented, and load-bearing: **a real code-execution sandbox**. The
+interface, the submission lifecycle, the limits and the scrubbing are all in
+place; the thing that safely runs code is not. See
+[docs/code-execution.md](docs/code-execution.md).
 
 On the landing page, where progress, streaks or activity appear, they are a
-**static mockup of the future product**, not live data. The Phase 2 dashboard is
-a placeholder whose only job is to prove auth and onboarding round-trip through
-the database.
+**static mockup of the future product**, not live data. The dashboard itself is
+real: roadmap percentage, topics completed and problems solved all come from
+Postgres.
 
 ### Built to extend
 
-Future domain entities — `User`, `Career`, `Roadmap`, `RoadmapPhase`, `Topic`,
-`Lesson`, `Resource`, `PracticeProblem`, `Project`, `AITool`, `UserProgress` —
-are not implemented, and nothing here blocks them:
+The chain is `Career → Roadmap → RoadmapPhase → Topic → Lesson → Problem`, and
+Phase 7 hangs `Project` off `Topic` the same way `PracticeProblem` does today.
+Nothing here blocks it:
 
-- View-model types are suffixed (`CareerPathCard`, `AiToolPreview`), leaving the
-  domain names free for real entities.
-- Career cards already carry a `slug`, so they become `/careers/[slug]` without
-  reshaping the data.
-- Sections are self-contained, so one can become data-driven without touching
-  the others or `page.tsx`.
-- Content sits behind `src/lib/data`, which is the natural seam to swap for API
-  or database calls.
+- `ProblemTopic` is an explicit join table, so a `ProjectTopic` alongside it is
+  additive. A future project can reuse the practice engine wholesale — a project
+  step that has to pass tests is a `PracticeProblem` with a different parent.
+- `CodeExecutionService` is the only thing that knows how code runs. Swapping a
+  mock for a container pool, or a container pool for a queue and workers, is a
+  change behind that interface and nothing above it moves.
+- Starter code is generated from a `signature`, so a sixth language is one
+  template rather than an edit to every problem.
+- `Roadmap.version` and `isActive` already support seeding a v2 alongside v1.
+- Content sits behind `prisma/seed/`, validated before it is written, so
+  authoring is never a frontend change.
 
 ---
 

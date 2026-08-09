@@ -8,6 +8,7 @@ import {
   BookOpen,
   Check,
   CheckCircle2,
+  Code2,
   ExternalLink,
   Menu,
   X,
@@ -27,6 +28,12 @@ interface LessonExperienceProps {
   initiallyCompleted: boolean;
   passingScore: number;
   nextTopic: { slug: string; title: string } | null;
+  /**
+   * Practice for this topic, when any exists. Null means no problems are
+   * authored for it yet — the completion panel then says nothing about
+   * practice rather than linking somewhere empty.
+   */
+  practice: { count: number; firstSlug: string } | null;
 }
 
 /**
@@ -45,6 +52,7 @@ export function LessonExperience({
   initiallyCompleted,
   passingScore,
   nextTopic,
+  practice,
 }: LessonExperienceProps) {
   const router = useRouter();
 
@@ -241,31 +249,54 @@ export function LessonExperience({
               You completed {topic.title}
             </h2>
 
-            {nextTopic ? (
-              <>
-                <p className="mt-2 text-sm text-muted-foreground">
+            {/*
+              Practice comes first when it exists: writing the code is what
+              makes the reading stick. It is offered, never enforced — the
+              learner can go straight on to the next topic.
+            */}
+            <p className="mt-2 text-sm text-muted-foreground">
+              {practice ? (
+                <>
+                  Next:{" "}
+                  <span className="font-medium text-foreground">
+                    practise what you learned
+                  </span>{" "}
+                  — {practice.count} problem{practice.count === 1 ? "" : "s"} for this
+                  topic.
+                </>
+              ) : nextTopic ? (
+                <>
                   Next up:{" "}
                   <span className="font-medium text-foreground">{nextTopic.title}</span>
-                </p>
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <Button asChild>
-                    <Link href={`/learn/${nextTopic.slug}`}>
-                      Continue to {nextTopic.title}
-                      <ArrowRight aria-hidden />
-                    </Link>
-                  </Button>
-                  <Button variant="secondary" asChild>
-                    <Link href="/roadmap">Back to roadmap</Link>
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="mt-5">
+                </>
+              ) : (
+                "You've reached the end of this path for now."
+              )}
+            </p>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              {practice ? (
                 <Button asChild>
-                  <Link href="/roadmap">Back to roadmap</Link>
+                  <Link href={`/practice/${practice.firstSlug}`}>
+                    Practice Now
+                    <Code2 aria-hidden />
+                  </Link>
                 </Button>
-              </div>
-            )}
+              ) : null}
+
+              {nextTopic ? (
+                <Button variant={practice ? "secondary" : "primary"} asChild>
+                  <Link href={`/learn/${nextTopic.slug}`}>
+                    Continue to {nextTopic.title}
+                    <ArrowRight aria-hidden />
+                  </Link>
+                </Button>
+              ) : null}
+
+              <Button variant="ghost" asChild>
+                <Link href="/roadmap">Back to roadmap</Link>
+              </Button>
+            </div>
           </section>
         ) : null}
       </div>
