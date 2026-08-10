@@ -94,6 +94,9 @@ model User {
   problemProgress UserProblemProgress[]
   submissions     Submission[]
 
+  /// Projects (Phase 7).
+  projects UserProject[]
+
   @@map("users")
 }
 
@@ -371,6 +374,9 @@ model Topic {
   /// Coding problems that practise this topic (Phase 6). The join carries no
   /// data of its own yet, but exists as a table so it can later.
   problems ProblemTopic[]
+
+  /// Projects that build on this topic (Phase 7).
+  projects ProjectConcept[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -854,4 +860,304 @@ model Submission {
   @@index([userId, problemId, createdAt])
   @@index([userId, status])
   @@map("submissions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Project-Based Learning (Phase 7)
+//
+//   Topic → ProjectConcept → Project → ProjectRequirement
+//                                    → ProjectMilestone
+//                                    → ProjectTechnology
+//                                    → ProjectHint
+//                                    → ProjectResource
+//
+// Plus per-user progress: UserProject, its milestone ticks and its
+// self-evaluation ticks.
+//
+// The split that matters: project *definitions* are application-owned and are
+// only ever read by the app, while UserProject and everything hanging off it is
+// user-owned and only ever written through the session user. Nothing in the
+// app writes a Project row outside the seed.
+//
+// CodeCompass does not build the project for the learner. There is deliberately
+// no model here for source code, no generated scaffold and no solution — hints
+// guide thinking, requirements define done, and the learner writes the code.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Reflects actual complexity, not encouragement. A project is BEGINNER because
+/// it needs few concepts and little architecture, not because it sounds easy.
+enum ProjectDifficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+/// Only the three types with seeded careers are used today. The rest exist so
+/// adding a data or mobile roadmap later is a seed change, not a migration.
+enum ProjectType {
+  FRONTEND
+  BACKEND
+  FULL_STACK
+  DATA
+  AI
+  MOBILE
+  OTHER
+}
+
+enum ProjectStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+/// LOCKED means "this project hasn't been started", not "you may not do this
+/// step yet". Real building is not linear: once a project is started every
+/// milestone is AVAILABLE, and the learner ticks them off in whatever order
+/// they actually worked.
+enum MilestoneStatus {
+  LOCKED
+  AVAILABLE
+  COMPLETED
+}
+
+/// Splits the self-evaluation checklist into "does it work?" and "is it built
+/// well?", which are different questions and worth asking separately.
+enum RequirementCategory {
+  FUNCTIONAL
+  TECHNICAL
+}
+
+enum TechnologyCategory {
+  LANGUAGE
+  FRAMEWORK
+  LIBRARY
+  STYLING
+  DATABASE
+  TOOL
+  PLATFORM
+}
+
+model Project {
+  id   String @id @default(cuid())
+  slug String @unique
+
+  title            String
+  /// One line for the card.
+  shortDescription String
+  /// What the project is, in prose.
+  description      String
+
+  difficulty ProjectDifficulty
+  type       ProjectType
+
+  /// Human-readable ("4–6 hours"). Same reasoning as everywhere else in this
+  /// schema: we are describing effort, not promising a completion time.
+  estimatedDuration String
+
+  /// Section 1 of the detail page — what the learner gains, and why this
+  /// project is worth their evening.
+  whyBuildThis String
+  /// Section 2 — the outcome, described so they can picture the finished thing.
+  whatYouBuild String
+
+  sortOrder Int @default(0)
+
+  requirements ProjectRequirement[]
+  milestones   ProjectMilestone[]
+  technologies ProjectTechnology[]
+  concepts     ProjectConcept[]
+  hints        ProjectHint[]
+  resources    ProjectResource[]
+
+  userProjects UserProject[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([difficulty])
+  @@index([type])
+  @@map("projects")
+}
+
+/// One acceptance criterion. Doubles as the self-evaluation checklist: the
+/// question "is it finished?" should be answered against the same list that
+/// defined "what should it do?", not a second list invented at the end.
+model ProjectRequirement {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String
+  category    RequirementCategory @default(FUNCTIONAL)
+  /// Optional requirements are stretch goals; they never block completion.
+  isRequired  Boolean             @default(true)
+  order       Int
+
+  confirmations UserProjectRequirement[]
+
+  @@unique([projectId, order])
+  @@index([projectId])
+  @@map("project_requirements")
+}
+
+model ProjectMilestone {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  title         String
+  description   String
+  order         Int
+  /// Display string ("45 minutes").
+  estimatedTime String
+  /// Concepts this step exercises. A plain array: nothing joins on these, and
+  /// promoting them to rows would be structure without a payoff.
+  concepts      String[]
+
+  progress UserProjectMilestone[]
+
+  @@unique([projectId, order])
+  @@index([projectId])
+  @@map("project_milestones")
+}
+
+model ProjectTechnology {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  name     String
+  category TechnologyCategory @default(TOOL)
+  order    Int
+
+  @@unique([projectId, order])
+  @@index([projectId])
+  @@map("project_technologies")
+}
+
+/// Connects a project to the learning it reinforces. This edge is what lets the
+/// system answer "why is this recommended to me?" with something true, and what
+/// stops a project being suggested to someone who hasn't learned its parts yet.
+model ProjectConcept {
+  projectId String
+  topicId   String
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  topic   Topic   @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  /// True when the topic must be completed before the project is recommended.
+  /// False for a concept the project touches but does not depend on, so a
+  /// project can advertise what it practises without gating on all of it.
+  isPrerequisite Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@id([projectId, topicId])
+  @@index([topicId])
+  @@map("project_concepts")
+}
+
+/// Progressive nudges, revealed one at a time. A hint points at the next
+/// question to ask; it never contains the implementation.
+model ProjectHint {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  title   String
+  content String
+  order   Int
+
+  @@unique([projectId, order])
+  @@index([projectId])
+  @@map("project_hints")
+}
+
+/// Curated external documentation. Never scraped, never embedded — shown with
+/// its source and opened in a new tab, same as lesson resources.
+model ProjectResource {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  title  String
+  url    String
+  source String
+  type   ResourceType @default(DOCUMENTATION)
+  order  Int
+
+  @@unique([projectId, order])
+  @@index([projectId])
+  @@map("project_resources")
+}
+
+/// One learner's run at one project. User-owned: every read and write is scoped
+/// by the session user id.
+model UserProject {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  status ProjectStatus @default(NOT_STARTED)
+
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  /// Stored, never fetched. CodeCompass does not visit these URLs and does not
+  /// claim they work — Phase 8 is where GitHub actually gets involved.
+  repositoryUrl String?
+  deployedUrl   String?
+
+  /// The learner's own notes on what they built and what they'd change.
+  notes String?
+
+  milestones    UserProjectMilestone[]
+  confirmations UserProjectRequirement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, projectId])
+  @@index([userId, status])
+  @@index([projectId])
+  @@map("user_projects")
+}
+
+model UserProjectMilestone {
+  id            String      @id @default(cuid())
+  userProjectId String
+  userProject   UserProject @relation(fields: [userProjectId], references: [id], onDelete: Cascade)
+
+  milestoneId String
+  milestone   ProjectMilestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+
+  status      MilestoneStatus @default(AVAILABLE)
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userProjectId, milestoneId])
+  @@index([userProjectId])
+  @@map("user_project_milestones")
+}
+
+/// A self-evaluation tick. The learner asserting a requirement is met — not the
+/// application verifying it, and the UI never claims otherwise.
+model UserProjectRequirement {
+  userProjectId String
+  userProject   UserProject @relation(fields: [userProjectId], references: [id], onDelete: Cascade)
+
+  requirementId String
+  requirement   ProjectRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  confirmedAt DateTime @default(now())
+
+  @@id([userProjectId, requirementId])
+  @@index([requirementId])
+  @@map("user_project_requirements")
 }
