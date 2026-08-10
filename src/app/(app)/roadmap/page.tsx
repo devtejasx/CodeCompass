@@ -20,7 +20,9 @@ import {
   type TopicState,
 } from "@/lib/learn/progress";
 import { getCompletedTopicIds, getResumeTopic } from "@/lib/learn/queries";
+import { getProjectsByPhase } from "@/lib/projects/queries";
 import type { PhaseStatus } from "@/lib/roadmap/progress";
+import type { ProjectListItem } from "@/lib/projects/queries";
 
 export const metadata: Metadata = {
   title: "My Roadmap",
@@ -86,6 +88,12 @@ export default async function RoadmapPage() {
   };
 
   const resume = await getResumeTopic(user.id, roadmap.id);
+
+  // Projects sit inside the phase containing the last topic they build on, so
+  // the roadmap reads learn → practise → build in sequence.
+  const phaseProjects: Record<string, ProjectListItem[]> = Object.fromEntries(
+    await getProjectsByPhase(user.id, roadmap.id),
+  );
 
   const CareerIcon = careerIcon(career.icon);
 
@@ -169,6 +177,7 @@ export default async function RoadmapPage() {
               states={states}
               topicStates={topicStates}
               topicsWithLessons={topicsWithLessons}
+              phaseProjects={phaseProjects}
             />
           </section>
 

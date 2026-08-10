@@ -13,6 +13,7 @@ import { summariseProgress } from "@/lib/roadmap/progress";
 import { completedPhaseOrders, roadmapPercent } from "@/lib/learn/progress";
 import { getCompletedTopicIds, getResumeTopic } from "@/lib/learn/queries";
 import { getPracticeSummary, getRecommendedProblems } from "@/lib/practice/queries";
+import { getProjectRecommendations, getProjectSummary } from "@/lib/projects/queries";
 import {
   CAREER_LABEL,
   EXPERIENCE_LABEL,
@@ -86,13 +87,17 @@ export default async function DashboardPage() {
 
   // Practice, kept to two numbers and one next action. The dashboard is a
   // starting point, not a statistics page.
-  const [practice, recommended] = await Promise.all([
+  const [practice, recommended, projects, projectRecommendations] = await Promise.all([
     getPracticeSummary(user.id),
     getRecommendedProblems(user.id, 1),
+    getProjectSummary(user.id),
+    getProjectRecommendations(user.id, 1),
   ]);
 
   const nextPractice =
     practice.inFlight?.problem ?? recommended.recommendations[0]?.problem ?? null;
+
+  const nextProject = projectRecommendations.recommendations[0]?.project ?? null;
 
   const summary = [
     {
@@ -303,6 +308,104 @@ export default async function DashboardPage() {
                 <Button variant="secondary" asChild>
                   <Link href="/practice">
                     Browse practice problems
+                    <ArrowRight aria-hidden />
+                  </Link>
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* ── Projects ───────────────────────────────────────── */}
+          <div className="surface mt-4 rounded-xl p-6">
+            <h2 className="text-xs font-medium uppercase tracking-label text-subtle-foreground">
+              Projects
+            </h2>
+
+            <dl className="mt-4 flex flex-wrap gap-x-10 gap-y-3">
+              <div>
+                <dt className="text-xs text-subtle-foreground">Completed</dt>
+                <dd className="mt-0.5 font-mono text-2xl font-medium text-foreground">
+                  {projects.completed}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-subtle-foreground">In progress</dt>
+                <dd className="mt-0.5 font-mono text-2xl font-medium text-foreground">
+                  {projects.inProgress}
+                </dd>
+              </div>
+            </dl>
+
+            {projects.current ? (
+              <>
+                <div className="mt-5">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm text-muted-foreground">
+                      Current project ·{" "}
+                      <span className="font-medium text-foreground">
+                        {projects.current.title}
+                      </span>
+                    </span>
+                    <span className="font-mono text-sm text-foreground">
+                      {projects.current.percentComplete}%
+                    </span>
+                  </div>
+                  <div
+                    className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-raised"
+                    role="progressbar"
+                    aria-valuenow={projects.current.percentComplete}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label={`${projects.current.title} progress`}
+                  >
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{ width: `${projects.current.percentComplete}%` }}
+                    />
+                  </div>
+                  <p className="mt-1.5 font-mono text-xs text-subtle-foreground">
+                    {projects.current.completedMilestones}/
+                    {projects.current.totalMilestones} milestones
+                  </p>
+                </div>
+
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <Button asChild>
+                    <Link href={`/projects/${projects.current.slug}/workspace`}>
+                      Continue Project
+                      <ArrowRight aria-hidden />
+                    </Link>
+                  </Button>
+                  <Button variant="ghost" asChild>
+                    <Link href="/projects">All projects</Link>
+                  </Button>
+                </div>
+              </>
+            ) : nextProject ? (
+              <>
+                <p className="mt-5 text-sm text-muted-foreground">
+                  Ready to build:{" "}
+                  <span className="font-medium text-foreground">
+                    {nextProject.title}
+                  </span>
+                </p>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <Button asChild>
+                    <Link href={`/projects/${nextProject.slug}`}>
+                      Start a project
+                      <ArrowRight aria-hidden />
+                    </Link>
+                  </Button>
+                  <Button variant="ghost" asChild>
+                    <Link href="/projects">All projects</Link>
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <div className="mt-5">
+                <Button variant="secondary" asChild>
+                  <Link href="/projects">
+                    Browse projects
                     <ArrowRight aria-hidden />
                   </Link>
                 </Button>

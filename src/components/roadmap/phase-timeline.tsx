@@ -6,10 +6,12 @@ import { ChevronDown, Clock3, Compass, Hammer, Lock } from "lucide-react";
 
 import { TopicList } from "@/components/roadmap/topic-list";
 import { PhaseMarker, PhaseStateBadge } from "@/components/roadmap/phase-state-badge";
+import { PhaseProjects } from "@/components/projects/phase-projects";
 import { cn } from "@/lib/utils";
 import type { PhaseStatus } from "@/lib/roadmap/progress";
 import type { TopicState } from "@/lib/learn/progress";
 import type { RoadmapPhaseDetail } from "@/lib/roadmap/queries";
+import type { ProjectListItem } from "@/lib/projects/queries";
 
 interface PhaseTimelineProps {
   phases: RoadmapPhaseDetail[];
@@ -19,6 +21,8 @@ interface PhaseTimelineProps {
   topicStates: Record<string, TopicState>;
   /** Topic ids that have an authored lesson. */
   topicsWithLessons: string[];
+  /** Keyed by phase id. Projects whose last prerequisite lands in that phase. */
+  phaseProjects?: Record<string, ProjectListItem[]>;
 }
 
 /**
@@ -36,6 +40,7 @@ export function PhaseTimeline({
   states,
   topicStates,
   topicsWithLessons,
+  phaseProjects = {},
 }: PhaseTimelineProps) {
   const reduced = useReducedMotion();
 
@@ -174,6 +179,9 @@ export function PhaseTimeline({
                           states={topicStates}
                           topicsWithLessons={topicsWithLessons}
                         />
+
+                        {/* Learn the topics, then build with them. */}
+                        <PhaseProjects projects={phaseProjects[phase.id] ?? []} />
 
                         {status.state === "LOCKED" ? (
                           <p className="mt-4 flex items-center gap-2 text-xs text-subtle-foreground">

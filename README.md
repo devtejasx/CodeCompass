@@ -22,7 +22,8 @@ The principle the whole product is built around:
 | 4 | Roadmap engine — phases, topics, prerequisites | Complete |
 | 5 | Learning system — lessons, progress, knowledge checks | Complete |
 | 6 | Coding practice — problems, editor, submissions, progress | Complete\* |
-| 7 | Projects | Not started |
+| 7 | Projects — catalog, milestones, submission, self-evaluation | Complete |
+| 8 | Git & GitHub | Not started |
 
 \* The practice engine is complete. **Production code execution is not** — it
 ships with a development provider that returns clearly-labelled *simulated*
@@ -294,15 +295,53 @@ languages.
 > Re-exporting a constant from one type-checks and builds cleanly, then fails
 > every action in that file at runtime with a 500. This bit once already.
 
+## Projects
+
+`Topic → ProjectConcept → Project`, plus per-user progress: `UserProject`, its
+milestone ticks and its self-evaluation ticks. 24 authored projects across the
+three seeded careers — 9 beginner, 11 intermediate, 4 advanced.
+
+> **CodeCompass does not build the project for the learner.** There is no
+> generated scaffold, no starter repository, no solution, and no model in the
+> schema for any of those. What it ships is a clear definition of *done*, a
+> suggested order, and hints that point at the next question rather than the
+> answer. The learner writes the code, in their own editor, on their own machine.
+
+- **Recommendation is gated, not decorative.** A project is only ever
+  recommended once every topic it builds on is complete. Because prerequisites
+  are topics and topics belong to exactly one roadmap, career filtering falls
+  out for free. When nothing is ready, the page says what is missing under a
+  heading that admits it — a "recommendation" the learner cannot act on teaches
+  them to ignore recommendations.
+- **Milestones never tick themselves.** CodeCompass cannot see the learner's
+  editor, so progress is what they say it is. Every milestone is available from
+  the moment the project starts: real building is not linear, and locking step
+  five behind step four would force people to misreport the order they worked in.
+- **Self-evaluation is attestation, not verification.** The checklist *is* the
+  requirements list, so "is it finished?" is answered against the same list that
+  defined "what should it do?". The wording never claims the app checked
+  anything, because it did not.
+- **Submission URLs are stored, never fetched.** Asking the server to request an
+  address a user supplied is request forgery — it would let someone probe our
+  internal network and learn from the timing. They are validated as https text
+  and displayed as "provided by you". Phase 8 is where GitHub genuinely enters.
+- **Starting is idempotent.** A second click, or a stale tab, returns the
+  existing record rather than creating a duplicate or resetting milestones.
+- **Un-ticking a milestone reopens a completed project.** The learner saying a
+  step is not actually done should make the status agree with them.
+- **Lists load summaries, details load details.** The catalog query never
+  touches requirements, milestones, hints or resources.
+
 ## What is deliberately not built
 
 The following belong to later phases and are **not** implemented:
 
-projects · project workspace · GitHub/Git integration · Git & GitHub Academy ·
-AI mentor · AI hints · AI code review · AI-generated solutions · AI APIs ·
-community · leaderboards · XP · streaks · competitions · payments ·
+GitHub OAuth · GitHub API · automatic repository creation · deployment
+automation · Git & GitHub Academy · AI mentor · AI hints · AI code review ·
+AI project generation · AI APIs · community · project marketplace ·
+leaderboards · XP · streaks · competitions · payments · freelancing ·
 subscriptions · admin CMS · job and resume features · interview preparation ·
-LeetCode/CodeChef/HackerRank synchronisation
+cloud development environments · LeetCode/CodeChef/HackerRank synchronisation
 
 Also not implemented, and load-bearing: **a real code-execution sandbox**. The
 interface, the submission lifecycle, the limits and the scrubbing are all in
@@ -311,18 +350,26 @@ place; the thing that safely runs code is not. See
 
 On the landing page, where progress, streaks or activity appear, they are a
 **static mockup of the future product**, not live data. The dashboard itself is
-real: roadmap percentage, topics completed and problems solved all come from
-Postgres.
+real: roadmap percentage, topics completed, problems solved and project progress
+all come from Postgres.
+
+Project repository and demo URLs are **stored, not verified**. Nothing visits
+them, and the UI says so wherever they appear.
 
 ### Built to extend
 
-The chain is `Career → Roadmap → RoadmapPhase → Topic → Lesson → Problem`, and
-Phase 7 hangs `Project` off `Topic` the same way `PracticeProblem` does today.
-Nothing here blocks it:
+The chain is `Career → Roadmap → RoadmapPhase → Topic → Lesson → Problem →
+Project`. Phase 8 adds Git and GitHub, and nothing here blocks it:
 
-- `ProblemTopic` is an explicit join table, so a `ProjectTopic` alongside it is
-  additive. A future project can reuse the practice engine wholesale — a project
-  step that has to pass tests is a `PracticeProblem` with a different parent.
+- `UserProject.repositoryUrl` already exists and is already populated. Phase 8
+  can read it, and can add `githubRepoId`, commits and pull requests alongside
+  it without reshaping anything — the seam is deliberately a plain URL column
+  rather than an integration.
+- Nothing fetches those URLs today, so introducing GitHub means introducing the
+  *first* outbound call, through GitHub's API with the learner's own
+  authorisation. There is no home-grown fetching to unpick first.
+- `ProjectConcept` and `ProblemTopic` are explicit join tables, so a third edge
+  off `Topic` is additive.
 - `CodeExecutionService` is the only thing that knows how code runs. Swapping a
   mock for a container pool, or a container pool for a queue and workers, is a
   change behind that interface and nothing above it moves.

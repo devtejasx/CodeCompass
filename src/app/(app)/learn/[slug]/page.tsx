@@ -9,6 +9,7 @@ import { Container } from "@/components/shared/container";
 import { GridBackdrop } from "@/components/shared/backdrops";
 import { LessonExperience } from "@/components/learn/lesson-experience";
 import { TopicPracticeCard } from "@/components/practice/topic-practice-card";
+import { TopicProjectCard } from "@/components/projects/topic-project-card";
 import { DIFFICULTY_BADGE, DIFFICULTY_SHORT } from "@/lib/careers/labels";
 import { requireUser } from "@/lib/session";
 import { PASSING_SCORE } from "@/lib/learn/progress";
@@ -19,6 +20,7 @@ import {
   getTopicProgress,
 } from "@/lib/learn/queries";
 import { getProblemsForTopic } from "@/lib/practice/queries";
+import { getProjectsForTopic } from "@/lib/projects/queries";
 
 export async function generateMetadata({
   params,
@@ -49,12 +51,13 @@ export default async function LearnTopicPage({
 
   const career = topic.phase.roadmap.career;
 
-  const [progress, nextTopic, practiceProblems] = await Promise.all([
+  const [progress, nextTopic, practiceProblems, topicProjects] = await Promise.all([
     getTopicProgress(user.id, topic.id),
     getNextTopic(topic.id),
-    // Practice for this topic comes from the ProblemTopic join, never from a
-    // hardcoded list in this component.
+    // Practice and projects for this topic come from their join tables, never
+    // from a hardcoded list in this component.
     getProblemsForTopic(topic.id, user.id),
+    getProjectsForTopic(topic.id, user.id),
   ]);
 
   const completedSectionIds = topic.lesson
@@ -148,13 +151,27 @@ export default async function LearnTopicPage({
           )}
         </div>
 
-        {practiceProblems.length > 0 ? (
-          <div className="mt-14 max-w-[68ch]">
-            <TopicPracticeCard
-              topicTitle={topic.title}
-              problems={practiceProblems}
-              learningComplete={isCompleted}
-            />
+        {/*
+          Learn → practise → build, in that order. A problem exercises one idea;
+          a project combines several, so it comes second.
+        */}
+        {practiceProblems.length > 0 || topicProjects.length > 0 ? (
+          <div className="mt-14 flex max-w-[68ch] flex-col gap-4">
+            {practiceProblems.length > 0 ? (
+              <TopicPracticeCard
+                topicTitle={topic.title}
+                problems={practiceProblems}
+                learningComplete={isCompleted}
+              />
+            ) : null}
+
+            {topicProjects.length > 0 ? (
+              <TopicProjectCard
+                topicTitle={topic.title}
+                projects={topicProjects}
+                learningComplete={isCompleted}
+              />
+            ) : null}
           </div>
         ) : null}
       </Container>
