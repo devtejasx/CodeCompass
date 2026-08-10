@@ -11,6 +11,8 @@ import { PROBLEMS } from "./seed/problems";
 import { assertValidProblems } from "./seed/problems/validate";
 import { renderSource, renderStarter } from "./seed/problems/starter";
 import type { SeedLanguage } from "./seed/problems/types";
+import { PROJECTS } from "./seed/projects";
+import { assertValidProjects } from "./seed/projects/validate";
 
 /**
  * Seeds the career catalog.
@@ -132,6 +134,7 @@ async function main() {
   await seedRoadmaps();
   await seedLessons();
   await seedProblems();
+  await seedProjects();
 
   const [careers, roadmaps, phases, topics, lessons, sections, checks] =
     await Promise.all([
@@ -160,6 +163,170 @@ async function main() {
     `Seeded ${problems} practice problems, ${problemLanguages} language configs, ` +
       `${testCases} test cases, ${problemTopics} problem→topic links.`,
   );
+
+  const [projects, requirements, milestones, projectConcepts] = await Promise.all([
+    db.project.count(),
+    db.projectRequirement.count(),
+    db.projectMilestone.count(),
+    db.projectConcept.count(),
+  ]);
+
+  console.log(
+    `Seeded ${projects} projects, ${requirements} requirements, ` +
+      `${milestones} milestones, ${projectConcepts} project→topic links.`,
+  );
+}
+
+/**
+ * Replaces each authored project's content wholesale.
+ *
+ * Same reasoning as lessons and problems: requirements, milestones and the rest
+ * derive their `order` from array position, so a reordering has to be able to
+ * drop the old rows or the unique (projectId, order) constraints would fight it.
+ *
+ * The Project row itself is updated rather than deleted, so learner data
+ * survives a content edit — UserProject cascades from Project, and blowing it
+ * away because a description was reworded would be indefensible.
+ *
+ * Milestone ticks are the exception: UserProjectMilestone references
+ * ProjectMilestone, which is replaced. Re-seeding therefore clears milestone
+ * progress, which is acceptable while content is still being authored and is
+ * recorded as debt in the README.
+ */
+async function seedProjects() {
+  assertValidProjects(PROJECTS);
+
+  for (const [index, project] of PROJECTS.entries()) {
+    /** Topic slug → id, resolved before any write so a typo fails loudly. */
+    const conceptIds = new Map<string, boolean>();
+
+    for (const slug of project.prerequisiteTopicSlugs) {
+      conceptIds.set(slug, true);
+    }
+    for (const slug of project.relatedTopicSlugs ?? []) {
+      conceptIds.set(slug, false);
+    }
+
+    const topics = new Map<string, string>();
+    for (const slug of conceptIds.keys()) {
+      const topic = await db.topic.findUnique({
+        where: { slug },
+        select: { id: true },
+      });
+
+      if (!topic) {
+        throw new Error(
+          `Project "${project.slug}" targets topic "${slug}", which is not in any roadmap.`,
+        );
+      }
+
+      topics.set(slug, topic.id);
+    }
+
+    const existing = await db.project.findUnique({
+      where: { slug: project.slug },
+      select: { id: true },
+    });
+
+    if (existing) {
+      await db.projectRequirement.deleteMany({ where: { projectId: existing.id } });
+      await db.projectMilestone.deleteMany({ where: { projectId: existing.id } });
+      await db.projectTechnology.deleteMany({ where: { projectId: existing.id } });
+      await db.projectHint.deleteMany({ where: { projectId: existing.id } });
+      await db.projectResource.deleteMany({ where: { projectId: existing.id } });
+      await db.projectConcept.deleteMany({ where: { projectId: existing.id } });
+    }
+
+    const data = {
+      title: project.title,
+      shortDescription: project.shortDescription,
+      description: project.description,
+      difficulty: project.difficulty,
+      type: project.type,
+      estimatedDuration: project.estimatedDuration,
+      whyBuildThis: project.whyBuildThis,
+      whatYouBuild: project.whatYouBuild,
+      sortOrder: index,
+    };
+
+    const row = await db.project.upsert({
+      where: { slug: project.slug },
+      create: { slug: project.slug, ...data },
+      update: data,
+      select: { id: true },
+    });
+
+    for (const [order, requirement] of project.requirements.entries()) {
+      await db.projectRequirement.create({
+        data: {
+          projectId: row.id,
+          title: requirement.title,
+          description: requirement.description,
+          category: requirement.category ?? "FUNCTIONAL",
+          isRequired: requirement.isRequired ?? true,
+          order: order + 1,
+        },
+      });
+    }
+
+    for (const [order, milestone] of project.milestones.entries()) {
+      await db.projectMilestone.create({
+        data: {
+          projectId: row.id,
+          title: milestone.title,
+          description: milestone.description,
+          estimatedTime: milestone.estimatedTime,
+          concepts: milestone.concepts ?? [],
+          order: order + 1,
+        },
+      });
+    }
+
+    for (const [order, technology] of project.technologies.entries()) {
+      await db.projectTechnology.create({
+        data: {
+          projectId: row.id,
+          name: technology.name,
+          category: technology.category,
+          order: order + 1,
+        },
+      });
+    }
+
+    for (const [order, hint] of project.hints.entries()) {
+      await db.projectHint.create({
+        data: {
+          projectId: row.id,
+          title: hint.title,
+          content: hint.content,
+          order: order + 1,
+        },
+      });
+    }
+
+    for (const [order, resource] of project.resources.entries()) {
+      await db.projectResource.create({
+        data: {
+          projectId: row.id,
+          title: resource.title,
+          url: resource.url,
+          source: resource.source,
+          type: resource.type ?? "DOCUMENTATION",
+          order: order + 1,
+        },
+      });
+    }
+
+    for (const [slug, isPrerequisite] of conceptIds) {
+      await db.projectConcept.create({
+        data: {
+          projectId: row.id,
+          topicId: topics.get(slug)!,
+          isPrerequisite,
+        },
+      });
+    }
+  }
 }
 
 /**
