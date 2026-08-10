@@ -67,7 +67,10 @@ export async function getProblemForPractice(slug: string) {
               phase: {
                 select: {
                   title: true,
-                  roadmap: { select: { career: { select: { name: true } } } },
+                  // career is null for an ACADEMY roadmap; the title stands in.
+                  roadmap: {
+                    select: { title: true, career: { select: { name: true } } },
+                  },
                 },
               },
             },

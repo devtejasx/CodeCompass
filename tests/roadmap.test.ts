@@ -53,7 +53,7 @@ describe("roadmap loading", () => {
     const roadmap = await getActiveRoadmapForCareer(career.id);
 
     expect(roadmap).not.toBeNull();
-    expect(roadmap!.career.id).toBe(career.id);
+    expect(roadmap!.career!.id).toBe(career.id);
     expect(roadmap!.title).toBe("Frontend Developer Roadmap");
     expect(roadmap!.version).toBe(1);
     expect(roadmap!.phases.length).toBeGreaterThan(5);
@@ -85,8 +85,8 @@ describe("roadmap loading", () => {
     const frontendRoadmap = await getActiveRoadmapForCareer(frontend.id);
     const backendRoadmap = await getActiveRoadmapForCareer(backend.id);
 
-    expect(frontendRoadmap!.career.slug).toBe("frontend-developer");
-    expect(backendRoadmap!.career.slug).toBe("backend-developer");
+    expect(frontendRoadmap!.career!.slug).toBe("frontend-developer");
+    expect(backendRoadmap!.career!.slug).toBe("backend-developer");
     expect(frontendRoadmap!.id).not.toBe(backendRoadmap!.id);
   });
 });
@@ -467,7 +467,7 @@ describe("career change", () => {
       select: { selectedCareerId: true },
     });
     let roadmap = await getActiveRoadmapForCareer(profile!.selectedCareerId!);
-    expect(roadmap!.career.slug).toBe("frontend-developer");
+    expect(roadmap!.career!.slug).toBe("frontend-developer");
 
     await selectCareer({ careerId: backend.id });
     profile = await db.profile.findUnique({
@@ -475,7 +475,7 @@ describe("career change", () => {
       select: { selectedCareerId: true },
     });
     roadmap = await getActiveRoadmapForCareer(profile!.selectedCareerId!);
-    expect(roadmap!.career.slug).toBe("backend-developer");
+    expect(roadmap!.career!.slug).toBe("backend-developer");
   });
 
   it("does not delete roadmap content when a user changes career", async () => {

@@ -97,6 +97,10 @@ model User {
   /// Projects (Phase 7).
   projects UserProject[]
 
+  /// Git & GitHub (Phase 8).
+  githubConnection GitHubConnection?
+  gitExercises     UserGitExercise[]
+
   @@map("users")
 }
 
@@ -277,10 +281,29 @@ enum PhaseKind {
   PROJECT_MILESTONE
 }
 
+/// What a roadmap *is*. CAREER roadmaps belong to a career and drive the
+/// explorer; ACADEMY roadmaps are career-independent curricula every learner
+/// needs whatever path they picked — Git being the first of them.
+enum RoadmapKind {
+  CAREER
+  ACADEMY
+}
+
 model Roadmap {
-  id       String @id @default(cuid())
-  careerId String
-  career   Career @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  id String @id @default(cuid())
+
+  /// Null for an ACADEMY roadmap. Git and GitHub are not one career's concern,
+  /// so the Academy hangs off no career — which is also what lets it reuse
+  /// Topic, Lesson and UserTopicProgress unchanged rather than growing a
+  /// parallel content and progress system of its own.
+  careerId String?
+  career   Career? @relation(fields: [careerId], references: [id], onDelete: Cascade)
+
+  kind RoadmapKind @default(CAREER)
+
+  /// Stable identifier for a roadmap that has no career to look it up by.
+  /// Null for career roadmaps, which are found through their career.
+  slug String? @unique
 
   title       String
   description String
@@ -304,8 +327,11 @@ model Roadmap {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  /// Postgres treats NULLs as distinct, so this constrains career roadmaps
+  /// only — exactly the ones that need it.
   @@unique([careerId, version])
   @@index([careerId, isActive])
+  @@index([kind, isActive])
   @@map("roadmaps")
 }
 
@@ -1107,10 +1133,23 @@ model UserProject {
   startedAt   DateTime?
   completedAt DateTime?
 
-  /// Stored, never fetched. CodeCompass does not visit these URLs and does not
-  /// claim they work — Phase 8 is where GitHub actually gets involved.
+  /// Typed in by the learner. Stored, never fetched — CodeCompass does not
+  /// visit these and does not claim they work. Kept alongside the GitHub link
+  /// below rather than replaced by it: not everybody uses GitHub, and Phase 7
+  /// worked without it.
   repositoryUrl String?
   deployedUrl   String?
+
+  /// A repository the learner picked or created through the GitHub connection
+  /// (Phase 8). Denormalised on purpose — these are a snapshot for display, so
+  /// the project page can render without an API call on every load. GitHub
+  /// remains the source of truth and a refresh re-reads it.
+  githubRepoId        BigInt?
+  githubRepoFullName  String?
+  githubRepoUrl       String?
+  githubDefaultBranch String?
+  githubRepoPrivate   Boolean?
+  githubLinkedAt      DateTime?
 
   /// The learner's own notes on what they built and what they'd change.
   notes String?
@@ -1160,4 +1199,106 @@ model UserProjectRequirement {
   @@id([userProjectId, requirementId])
   @@index([requirementId])
   @@map("user_project_requirements")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Git & GitHub (Phase 8)
+//
+// Two halves that stay separate on purpose.
+//
+// The *curriculum* is not modelled here at all. Git lessons are Topics in an
+// ACADEMY Roadmap, so they reuse Lesson, LessonSection, KnowledgeCheck,
+// UserTopicProgress and UserSectionProgress exactly as the career roadmaps do —
+// a second progress system for the same kind of content would be a liability,
+// not a feature. Only the interactive exercises, which are not lessons, get a
+// table of their own.
+//
+// The *integration* is GitHubConnection: one row per learner, holding an
+// encrypted OAuth token that is never selected by any query feeding a page.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Only states that can actually persist. NOT_CONNECTED is the absence of a
+/// row and DISCONNECTED is its deletion, so neither is storable — the TypeScript
+/// view type in lib/github/connection.ts adds them for the UI.
+enum GitHubConnectionStatus {
+  CONNECTED
+  /// GitHub rejected the token: revoked in the user's settings, or expired.
+  /// The row is kept so the UI can say "reconnect" rather than "connect", and
+  /// so the linked repositories on projects survive a re-authorisation.
+  AUTHORIZATION_EXPIRED
+}
+
+/// One learner's GitHub authorisation.
+///
+/// The access token is stored encrypted with AES-256-GCM under a key that lives
+/// only in the environment (see lib/github/crypto.ts). It is decrypted in the
+/// server-side GitHub service and nowhere else: no query that feeds a page
+/// selects the ciphertext, no action returns it, and nothing logs it.
+model GitHubConnection {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// GitHub's numeric account id. The stable identity — a username can change.
+  githubUserId BigInt  @unique
+  username     String
+  avatarUrl    String?
+  profileUrl   String
+  name         String?
+  publicRepos  Int     @default(0)
+
+  /// AES-256-GCM. Split across three columns rather than one blob so the shape
+  /// is obvious and a mistake is loud rather than silently unauthenticated.
+  accessTokenCipher String
+  accessTokenIv     String
+  accessTokenTag    String
+  /// Which key version encrypted this, so a key rotation can re-encrypt rather
+  /// than force every learner to reconnect.
+  keyVersion        Int    @default(1)
+
+  /// Exactly what the learner granted. Stored so the UI can explain what
+  /// CodeCompass can and cannot do, and so a missing scope is a clear message
+  /// rather than a confusing API failure.
+  scope String
+
+  status GitHubConnectionStatus @default(CONNECTED)
+
+  connectedAt    DateTime  @default(now())
+  lastVerifiedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("github_connections")
+}
+
+enum GitExerciseStatus {
+  ATTEMPTED
+  COMPLETED
+}
+
+/// Progress on the interactive Git exercises.
+///
+/// The exercises themselves live in code, not in the database: each one is a
+/// starting repository state plus a predicate over the simulator's end state,
+/// which is logic rather than content. Progress is keyed by slug, and the seed
+/// validator asserts every slug still exists so a renamed exercise is loud.
+model UserGitExercise {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  exerciseSlug String
+  status       GitExerciseStatus @default(ATTEMPTED)
+  attempts     Int               @default(0)
+  /// How many hints they revealed. Recorded to inform the content, not to judge.
+  hintsUsed    Int               @default(0)
+  completedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, exerciseSlug])
+  @@index([userId, status])
+  @@map("user_git_exercises")
 }

@@ -49,7 +49,13 @@ export default async function LearnTopicPage({
 
   if (!topic) notFound();
 
-  const career = topic.phase.roadmap.career;
+  // An ACADEMY topic (Git & GitHub) belongs to no career, so the breadcrumb
+  // names the curriculum instead and "back" goes to the academy rather than to
+  // a roadmap the learner may not even be on.
+  const isAcademy = topic.phase.roadmap.kind === "ACADEMY";
+  const contextName = topic.phase.roadmap.career?.name ?? topic.phase.roadmap.title;
+  const backHref = isAcademy ? "/academy/git" : "/roadmap";
+  const backLabel = isAcademy ? "Back to Git & GitHub" : "Back to roadmap";
 
   const [progress, nextTopic, practiceProblems, topicProjects] = await Promise.all([
     getTopicProgress(user.id, topic.id),
@@ -79,15 +85,15 @@ export default async function LearnTopicPage({
         {/* ── Topic header ─────────────────────────────────────── */}
         <header className="pt-10 sm:pt-14">
           <Link
-            href="/roadmap"
+            href={backHref}
             className="inline-flex items-center gap-1.5 rounded text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="size-4" aria-hidden />
-            Back to roadmap
+            {backLabel}
           </Link>
 
           <p className="mt-6 text-sm text-subtle-foreground">
-            {career.name} · {topic.phase.title}
+            {contextName} · {topic.phase.title}
           </p>
 
           <h1 className="balance mt-2 max-w-[24ch] text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">

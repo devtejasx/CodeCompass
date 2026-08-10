@@ -61,7 +61,8 @@ export function ProblemPanel({
 
         {topic ? (
           <p className="mt-2 text-sm text-subtle-foreground">
-            {topic.phase.roadmap.career.name} · {topic.phase.title} ·{" "}
+            {topic.phase.roadmap.career?.name ?? topic.phase.roadmap.title} ·{" "}
+            {topic.phase.title} ·{" "}
             <Link
               href={`/learn/${topic.slug}`}
               className="rounded text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"

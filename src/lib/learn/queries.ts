@@ -30,6 +30,10 @@ export async function getTopicForLearning(slug: string) {
             select: {
               id: true,
               title: true,
+              kind: true,
+              slug: true,
+              // Null for an ACADEMY roadmap — Git and GitHub belong to no single
+              // career. Callers show the roadmap title instead.
               career: { select: { id: true, slug: true, name: true } },
             },
           },

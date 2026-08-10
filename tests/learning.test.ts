@@ -91,7 +91,7 @@ describe("lesson loading", () => {
     expect(topic!.lesson!.sections.length).toBeGreaterThan(5);
     expect(topic!.lesson!.knowledgeChecks.length).toBeGreaterThanOrEqual(3);
     expect(topic!.lesson!.resources.length).toBeGreaterThan(0);
-    expect(topic!.phase.roadmap.career.slug).toBe("frontend-developer");
+    expect(topic!.phase.roadmap.career!.slug).toBe("frontend-developer");
   });
 
   it("returns sections in order", async () => {
