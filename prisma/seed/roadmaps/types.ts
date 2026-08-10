@@ -36,8 +36,17 @@ export interface SeedPhase {
 }
 
 export interface SeedRoadmap {
-  /** Must match a career in the Phase 3 catalog. */
-  careerSlug: string;
+  /**
+   * Must match a career in the Phase 3 catalog. Omitted for an ACADEMY
+   * roadmap — Git and GitHub belong to no single career.
+   */
+  careerSlug?: string;
+  /**
+   * Required for an ACADEMY roadmap, which has no career to be looked up by.
+   * Career roadmaps are found through their career and leave this unset.
+   */
+  slug?: string;
+  kind?: "CAREER" | "ACADEMY";
   title: string;
   description: string;
   version?: number;

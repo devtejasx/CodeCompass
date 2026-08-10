@@ -6,6 +6,7 @@ import { CAREERS } from "./seed/careers";
 import { ROADMAPS } from "./seed/roadmaps";
 import { assertValidRoadmaps } from "./seed/roadmaps/validate";
 import { LESSONS } from "./seed/lessons";
+import { ACADEMY_LESSONS, ACADEMY_ROADMAPS } from "./seed/academy";
 import { assertValidLessons } from "./seed/lessons/validate";
 import { PROBLEMS } from "./seed/problems";
 import { assertValidProblems } from "./seed/problems/validate";
@@ -460,9 +461,10 @@ async function seedProblems() {
  * authored, and noted in the README as debt.
  */
 async function seedLessons() {
-  assertValidLessons(LESSONS);
+  const all = [...LESSONS, ...ACADEMY_LESSONS];
+  assertValidLessons(all);
 
-  for (const lesson of LESSONS) {
+  for (const lesson of all) {
     const topic = await db.topic.findUnique({
       where: { slug: lesson.topicSlug },
       select: { id: true },
@@ -551,28 +553,46 @@ async function seedLessons() {
  * delete. User data is never touched — profiles reference Career, not Roadmap.
  */
 async function seedRoadmaps() {
-  assertValidRoadmaps(ROADMAPS);
+  const all = [...ROADMAPS, ...ACADEMY_ROADMAPS];
+  assertValidRoadmaps(all);
 
-  for (const roadmap of ROADMAPS) {
-    const career = await db.career.findUnique({
-      where: { slug: roadmap.careerSlug },
-      select: { id: true },
-    });
+  for (const roadmap of all) {
+    const isAcademy = (roadmap.kind ?? "CAREER") === "ACADEMY";
 
-    if (!career) {
-      throw new Error(
-        `Roadmap "${roadmap.title}" targets career "${roadmap.careerSlug}", which is not in the catalog.`,
-      );
+    // A career roadmap is identified by its career; an academy by its own slug.
+    let careerId: string | null = null;
+
+    if (!isAcademy) {
+      const career = await db.career.findUnique({
+        where: { slug: roadmap.careerSlug },
+        select: { id: true },
+      });
+
+      if (!career) {
+        throw new Error(
+          `Roadmap "${roadmap.title}" targets career "${roadmap.careerSlug}", which is not in the catalog.`,
+        );
+      }
+
+      careerId = career.id;
     }
 
     const version = roadmap.version ?? 1;
 
-    // Replacing the whole version keeps ordering authoritative.
-    await db.roadmap.deleteMany({ where: { careerId: career.id, version } });
+    // Replacing the whole version keeps ordering authoritative. The two kinds
+    // are deleted by different keys, so they are two statements rather than one
+    // clever ternary TypeScript cannot narrow.
+    if (isAcademy) {
+      await db.roadmap.deleteMany({ where: { slug: roadmap.slug } });
+    } else {
+      await db.roadmap.deleteMany({ where: { careerId: careerId!, version } });
+    }
 
     const created = await db.roadmap.create({
       data: {
-        careerId: career.id,
+        careerId,
+        kind: isAcademy ? "ACADEMY" : "CAREER",
+        slug: isAcademy ? roadmap.slug : null,
         title: roadmap.title,
         description: roadmap.description,
         version,
@@ -583,10 +603,13 @@ async function seedRoadmaps() {
     });
 
     // Any other version for this career stands down, so exactly one is active.
-    await db.roadmap.updateMany({
-      where: { careerId: career.id, id: { not: created.id } },
-      data: { isActive: false },
-    });
+    // Academy roadmaps have no sibling versions to retire.
+    if (!isAcademy) {
+      await db.roadmap.updateMany({
+        where: { careerId: careerId!, id: { not: created.id } },
+        data: { isActive: false },
+      });
+    }
 
     /** Topic slug → database id, for wiring prerequisites afterwards. */
     const topicIds = new Map<string, string>();

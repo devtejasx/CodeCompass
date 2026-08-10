@@ -13,9 +13,23 @@ import type { SeedRoadmap } from "./types";
  */
 export function validateRoadmap(roadmap: SeedRoadmap): string[] {
   const errors: string[] = [];
-  const where = roadmap.careerSlug || "(missing careerSlug)";
+  const kind = roadmap.kind ?? "CAREER";
+  const where = roadmap.careerSlug || roadmap.slug || `(missing identifier)`;
 
-  if (!roadmap.careerSlug) errors.push("Roadmap is missing careerSlug.");
+  // A roadmap is identified either by the career it belongs to or, for an
+  // academy, by its own slug. Exactly one applies, and neither is optional.
+  if (kind === "CAREER") {
+    if (!roadmap.careerSlug) errors.push("Career roadmap is missing careerSlug.");
+    if (roadmap.slug) {
+      errors.push(`[${where}] Career roadmaps are found through their career; drop the slug.`);
+    }
+  } else {
+    if (!roadmap.slug) errors.push("Academy roadmap is missing slug.");
+    if (roadmap.careerSlug) {
+      errors.push(`[${where}] Academy roadmaps belong to no career; drop careerSlug.`);
+    }
+  }
+
   if (!roadmap.title) errors.push(`[${where}] Roadmap is missing a title.`);
   if (!roadmap.description) errors.push(`[${where}] Roadmap is missing a description.`);
   if ((roadmap.version ?? 1) < 1) errors.push(`[${where}] Version must be >= 1.`);
