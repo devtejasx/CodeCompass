@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { gradeAttempt, topicPercent } from "@/lib/learn/progress";
+import { syncToolsForTopic } from "@/lib/ai-tools/progress";
 
 /**
  * Every learning mutation.
@@ -273,8 +274,18 @@ export async function submitKnowledgeCheck(input: unknown): Promise<AttemptResul
       },
     });
 
+    // An AI Academy topic can appear in several tools' learning paths, so
+    // completing it has to move every one of them. Doing it here rather than in
+    // the Academy's own pages is what makes progress independent of which door
+    // the learner came through — the roadmap, the topic page or a tool page all
+    // count the same. A topic in no path syncs nothing.
+    if (passed || alreadyCompleted) {
+      await syncToolsForTopic({ userId: user.id, topicId: parsed.data.topicId });
+    }
+
     revalidatePath("/roadmap");
     revalidatePath("/dashboard");
+    revalidatePath("/academy/ai-tools");
 
     return { ok: true, score, passed, correctCount, total, results };
   } catch {
