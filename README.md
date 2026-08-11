@@ -25,7 +25,13 @@ The principle the whole product is built around:
 | 7 | Projects — catalog, milestones, submission, self-evaluation | Complete |
 | 8 | Git & GitHub Academy + GitHub integration | Complete |
 | 9 | AI Tools Academy — catalog, workflows, comparison, responsible use | Complete |
-| 10 | Progress + personalisation | Not started |
+| 10 | Personalisation engine + AI mentor — "never wonder what to learn next" | Complete\*\* |
+| 11 | Developer readiness / techie profile | Not started |
+
+\*\* The personalisation engine is complete and needs no AI. The **AI mentor is
+optional**: with no provider configured, every recommendation, plan and summary
+still works and the mentor page says so. See
+[Personalisation & AI guidance](#personalisation--ai-guidance).
 
 \* The practice engine is complete. **Production code execution is not** — it
 ships with a development provider that returns clearly-labelled *simulated*
@@ -436,24 +442,105 @@ independent counter.
   logo misrepresents a company using its own identity — so tools render a
   generic glyph with the name in text beside it.
 
+---
+
+## Personalisation & AI guidance
+
+The phase that connects the other nine. The dashboard is rebuilt around one
+question — **what should I do next?** — answered from the learner's real
+progress, with the reasoning shown.
+
+**The split that defines this phase.** Deterministic rules decide *what* to
+recommend; AI only ever explains it.
+
+| Deterministic — always | AI — optional |
+| --- | --- |
+| Roadmap ordering, prerequisites, eligibility | Explaining a recommendation |
+| What is next, and its priority | Answering "why am I learning this?" |
+| Completion, progress, percentages | Re-explaining a concept another way |
+| The study plan and the weekly summary | Reflecting on progress |
+
+Asking a language model to re-derive facts the application already knows would
+trade a correct answer for a plausible one. **With `AI_PROVIDER` unset the
+entire product works** — the mentor page says it is unavailable, and every
+number on the dashboard is unchanged.
+
+- **`LearnerState` is derived, never stored.** Career, current topic, completed
+  topics, practice, projects, Git and AI progress are assembled on read from the
+  tables Phases 3–9 already maintain. A summary table would have been faster and
+  wrong: finishing a lesson changes the answer on the next read, with no cache to
+  invalidate and nothing to keep in sync.
+- **Recommendations are structured objects with a required `reason`.** Rendered
+  by components, computed by rules — never the other way round. Every reason is
+  assembled from real data ("you are 60% through this topic"), never attributed
+  to AI.
+- **Priority is explicit**: prerequisite → current learning → practice → project
+  → professional skill → enrichment. Practice for a topic just completed
+  deliberately outranks starting the next one.
+- **Knowledge gaps describe evidence, never ability.** "You have made 5 attempts
+  across 2 Arrays problems without solving them" — never "you are struggling
+  with arrays". Only strong, repeated evidence redirects a learner, and a check
+  they eventually passed produces no gap at all. There are tests asserting the
+  wording.
+- **The plan is sized to the time they said they have**, using the low end of
+  each band so a plan that fits gets finished. It contains only work that
+  actually exists; a one-item plan is a legitimate plan.
+- **A quiet week is met kindly.** There is no streak to lose, and the summary
+  says progress is saved exactly where they left it.
+- **`UserActivity` is the only genuinely new fact** — the existing tables record
+  that things are complete, not the order they happened in. It stores a type, a
+  subject, a label and a time, and deliberately has no free-form metadata blob,
+  which is how activity logs quietly become the most sensitive table in an app.
+
+**The mentor is grounded or it is nothing.**
+
+- **The context is an allowlist**, written line by line. There is no serialiser,
+  because `JSON.stringify(state)` would work today and leak whatever is added
+  tomorrow. It carries a first name and a learning position — never an email,
+  a password hash, a GitHub token, submitted code or a user id. A test asserts
+  each of those by name.
+- **The system prompt forbids inventing progress**, requires "I don't have
+  enough information" over a guess, and treats learner messages as questions
+  rather than instructions.
+- **Solutions are policy, not vibes.** `HINTS_ONLY` by default; a learner can
+  opt into full solutions. The mentor is told which, and never writes a project.
+- **The key is an ECMAScript `#private` field**, not a TypeScript `private` one.
+  The difference is the guarantee: TS `private` is erased, so the key would
+  serialise into any log line or error dump. There is a test asserting
+  `JSON.stringify(provider)` does not contain it.
+- **Every call passes through one function** which checks provider → rate limit
+  → input size, then records what it cost. Failures are recorded too, so a
+  provider outage cannot become an unlimited retry loop.
+- **A failed call is a normal outcome**, returning a typed result rather than
+  throwing — and it leaves the learner's question saved, so retrying does not
+  mean retyping.
+
 ## What is deliberately not built
 
 The following belong to later phases and are **not** implemented:
 
-AI mentor · AI chatbot · AI hints · AI-generated lessons or roadmaps · AI code
-generation, execution or review inside CodeCompass · AI commit or pull request
-generation · AI project generation · autonomous agents · **any model API call
-at all** · adaptive personalisation · GitHub Actions · webhooks · issue
-management · anything that writes to a repository · deployment automation ·
-community · project marketplace · leaderboards · XP · streaks · competitions ·
-payments · freelancing · subscriptions · admin CMS · job and resume features ·
-interview preparation · cloud development environments ·
-LeetCode/CodeChef/HackerRank synchronisation
+AI-generated lessons or roadmaps · AI code generation, execution or review
+inside CodeCompass · AI commit or pull request generation · AI project
+generation · autonomous agents · AI-invented learning paths · predictive
+analytics · GitHub Actions · webhooks · issue management · anything that writes
+to a repository · deployment automation · community · project marketplace ·
+leaderboards · XP · streaks · competitions · payments · freelancing ·
+subscriptions · admin CMS · job search · resume builder · LinkedIn automation ·
+interview preparation · salary negotiation · job applications · cloud
+development environments · LeetCode/CodeChef/HackerRank synchronisation
 
-Phase 9 is an **educational academy, not an AI feature**. No `OPENAI_API_KEY`,
-`ANTHROPIC_API_KEY` or equivalent is read, required or referenced anywhere in
-the codebase, and the AI tool catalog is curated by hand — there is no scraper
-and no crawler.
+**The AI never decides anything.** It explains recommendations the rules
+engine produced; it cannot reorder a roadmap, mark work complete, grade a
+submission, or invent a path. The mentor is optional and the product is whole
+without it.
+
+The **AI Tools Academy (Phase 9) still calls no model API**: it teaches *about*
+these tools. The only model call in the codebase is the mentor's, behind one
+provider interface, and it is off by default.
+
+Job-search features were removed from the CodeCompass vision deliberately. The
+goal is to make somebody a capable technology professional, not to become a job
+application platform.
 
 Also not implemented, and load-bearing: **a real code-execution sandbox**. The
 interface, the submission lifecycle, the limits and the scrubbing are all in
@@ -471,22 +558,26 @@ them, and the UI says so wherever they appear.
 ### Built to extend
 
 The chain is `Career → Roadmap → RoadmapPhase → Topic → Lesson → Problem →
-Project`, with Git and AI hanging off it as `ACADEMY` roadmaps. Phase 10 is
-progress and personalisation, and nothing here blocks it:
+Project`, with Git and AI hanging off it as `ACADEMY` roadmaps, and Phase 10
+reading across all of it. Phase 11 is developer readiness — "what have I
+actually learned, and what can I build?" — and nothing here blocks it:
 
-- **Every kind of progress is already one row per learner per thing**, in the
-  same shape: `UserTopicProgress`, `UserProblemProgress`, `UserProject`,
-  `UserGitExercise`, `UserAIToolProgress`, `UserAIWorkflowProgress`. Answering
-  "what should I do next?" is a read across six tables that already exist, not a
-  new tracking system.
-- `AIToolLesson.topicId` and `syncToolsForTopic` establish the pattern for
-  progress that is *derived* rather than accumulated — which is what
-  personalisation will need when one action counts towards several goals.
-- `UserTopicProgress.bestScore` and `attempts` are already recorded but not yet
-  surfaced. "What do I struggle with?" has data waiting for it.
-- `AIUseCase` and `CareerAITool` show the shape a recommendation edge takes:
-  a relation carrying its own *reason*, so a suggestion can always explain
-  itself rather than appearing as an unexplained list.
+- **`LearnerState` already answers most of it.** Completed topics, problems
+  solved, projects built, Git and AI progress are assembled in one place. A
+  techie profile is a different *presentation* of that object, not a new
+  tracking system.
+- `ProjectTechnology` and `CareerTechnology` already name technologies as rows.
+  "What technologies do I know?" is a join away from completed projects, with no
+  new model.
+- `UserActivity` gives a chronology, so "what have I done, and when" is a query
+  rather than a reconstruction across a dozen timestamp columns.
+- `UserTopicProgress.bestScore` and `attempts` feed the gap detector today; the
+  same evidence answers "what should I improve?".
+- `AIWorkflow` and `UserAIWorkflowProgress` already record which developer
+  workflows somebody has practised.
+- The `Recommendation` shape — a typed action carrying its own reason — is the
+  pattern any future "you are ready for X" claim should follow, so a readiness
+  statement can always show its evidence.
 - `ProjectConcept`, `ProblemTopic` and `AIToolLesson` are explicit join tables,
   so a fourth edge off `Topic` is additive.
 - `CodeExecutionService` is the only thing that knows how code runs. Swapping a
