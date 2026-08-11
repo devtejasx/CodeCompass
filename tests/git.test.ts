@@ -19,27 +19,27 @@ vi.mock("next/navigation", () => ({
 // helpers read it lazily but the tests need a deterministic one.
 process.env.GITHUB_TOKEN_ENCRYPTION_KEY ??= Buffer.alloc(32, 7).toString("base64");
 
-const { run, emptyState, file, history } = await import(
-  "@/lib/git/simulator/engine"
-);
-const { GIT_EXERCISES, findExercise, GIT_EXERCISE_SLUGS } = await import(
-  "@/lib/git/exercises"
-);
+const { run, emptyState, file, history } = await import("@/lib/git/simulator/engine");
+const { GIT_EXERCISES, findExercise, GIT_EXERCISE_SLUGS } =
+  await import("@/lib/git/exercises");
 const { GIT_COMMANDS, searchCommands } = await import("@/lib/git/commands");
-const { getGitAcademy, listExercises, getGitProgressSummary } = await import(
-  "@/lib/git/queries"
-);
+const { getGitAcademy, listExercises, getGitProgressSummary } =
+  await import("@/lib/git/queries");
 const { recordExerciseAttempt } = await import("@/app/actions/git");
 
 const { sealToken, openToken, safeEquals, randomToken, isEncryptionConfigured } =
   await import("@/lib/github/crypto");
-const { verifyState, OAUTH_STATE_COOKIE, stateCookieOptions } = await import(
-  "@/lib/github/oauth-state"
-);
+const { verifyState, OAUTH_STATE_COOKIE, stateCookieOptions } =
+  await import("@/lib/github/oauth-state");
 const { GITHUB_SCOPES, githubAvailability } = await import("@/lib/github/config");
 const { GitHubService } = await import("@/lib/github/service");
-const { getConnectionView, saveConnection, disconnect, withGitHub, markAuthorizationExpired } =
-  await import("@/lib/github/connection");
+const {
+  getConnectionView,
+  saveConnection,
+  disconnect,
+  withGitHub,
+  markAuthorizationExpired,
+} = await import("@/lib/github/connection");
 const { GitHubError } = await import("@/lib/github/types");
 const { disconnectGitHub, listRepositories, linkRepository, unlinkRepository } =
   await import("@/app/actions/github");
@@ -144,7 +144,9 @@ describe("Git curriculum", () => {
       select: {
         lesson: {
           select: {
-            _count: { select: { sections: true, knowledgeChecks: true, resources: true } },
+            _count: {
+              select: { sections: true, knowledgeChecks: true, resources: true },
+            },
           },
         },
       },
@@ -189,14 +191,16 @@ describe("Git simulator", () => {
 
     const empty = run(state, 'git commit -m "nothing"');
     expect(empty.ok).toBe(false);
-    expect(empty.output.some((line) => /nothing to commit/i.test(line.text))).toBe(true);
+    expect(empty.output.some((line) => /nothing to commit/i.test(line.text))).toBe(
+      true,
+    );
 
     state = run(state, "git add a.txt").state;
     const noMessage = run(state, "git commit");
     expect(noMessage.ok).toBe(false);
-    expect(noMessage.output.some((line) => /empty commit message/i.test(line.text))).toBe(
-      true,
-    );
+    expect(
+      noMessage.output.some((line) => /empty commit message/i.test(line.text)),
+    ).toBe(true);
   });
 
   it("creates a branch as a label, copying nothing", () => {
@@ -329,7 +333,9 @@ describe("Git exercises", () => {
   it("ships exercises that start incomplete and can be solved", () => {
     for (const exercise of GIT_EXERCISES) {
       const start = exercise.initial();
-      expect(exercise.isComplete(start), `${exercise.slug} starts complete`).toBe(false);
+      expect(exercise.isComplete(start), `${exercise.slug} starts complete`).toBe(
+        false,
+      );
 
       const solved = runAll(start, SOLUTIONS[exercise.slug] ?? []);
       expect(exercise.isComplete(solved), `${exercise.slug} unsolvable`).toBe(true);
@@ -427,9 +433,9 @@ describe("Git exercises", () => {
 
   it("refuses every write when signed out", async () => {
     auth.mockResolvedValue(null);
-    expect((await recordExerciseAttempt({ slug: "stage-two-files", state: {} })).ok).toBe(
-      false,
-    );
+    expect(
+      (await recordExerciseAttempt({ slug: "stage-two-files", state: {} })).ok,
+    ).toBe(false);
   });
 
   it("keeps two learners' exercise progress separate", async () => {
@@ -611,12 +617,18 @@ describe("OAuth state protection", () => {
         .reason,
     ).toBe("missing");
     expect(
-      verifyState({ cookieValue: `u:${state}`, callbackState: null, sessionUserId: "u" })
-        .reason,
+      verifyState({
+        cookieValue: `u:${state}`,
+        callbackState: null,
+        sessionUserId: "u",
+      }).reason,
     ).toBe("missing");
     expect(
-      verifyState({ cookieValue: "no-separator", callbackState: state, sessionUserId: "u" })
-        .reason,
+      verifyState({
+        cookieValue: "no-separator",
+        callbackState: state,
+        sessionUserId: "u",
+      }).reason,
     ).toBe("malformed");
     expect(
       verifyState({
@@ -657,7 +669,13 @@ describe("GitHub configuration", () => {
     expect([...GITHUB_SCOPES]).toEqual(["read:user", "repo"]);
 
     // Nothing broader ever gets requested by accident.
-    for (const forbidden of ["delete_repo", "admin:org", "workflow", "user:email", "gist"]) {
+    for (const forbidden of [
+      "delete_repo",
+      "admin:org",
+      "workflow",
+      "user:email",
+      "gist",
+    ]) {
       expect(GITHUB_SCOPES).not.toContain(forbidden);
     }
   });
@@ -840,7 +858,11 @@ describe("disconnect", () => {
 // ── 11. Service behaviour and error mapping ────────────────────────────────
 
 describe("GitHub service", () => {
-  function stubFetch(status: number, body: unknown, headers: Record<string, string> = {}) {
+  function stubFetch(
+    status: number,
+    body: unknown,
+    headers: Record<string, string> = {},
+  ) {
     const mock = vi.fn(
       async () =>
         new Response(typeof body === "string" ? body : JSON.stringify(body), {
@@ -865,7 +887,11 @@ describe("GitHub service", () => {
 
   it("maps a rate-limited 403 to RATE_LIMITED with a reset time", async () => {
     const reset = Math.floor(Date.now() / 1000) + 120;
-    stubFetch(403, {}, { "x-ratelimit-remaining": "0", "x-ratelimit-reset": String(reset) });
+    stubFetch(
+      403,
+      {},
+      { "x-ratelimit-remaining": "0", "x-ratelimit-reset": String(reset) },
+    );
 
     await expect(new GitHubService("t").listRepositories()).rejects.toMatchObject({
       kind: "RATE_LIMITED",

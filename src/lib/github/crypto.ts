@@ -103,10 +103,7 @@ export function sealToken(plaintext: string): SealedToken {
     authTagLength: TAG_BYTES,
   });
 
-  const encrypted = Buffer.concat([
-    cipher.update(plaintext, "utf8"),
-    cipher.final(),
-  ]);
+  const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
 
   return {
     cipher: encrypted.toString("base64"),
@@ -123,11 +120,7 @@ export function sealToken(plaintext: string): SealedToken {
  * cannot be fooled into returning something plausible. Callers treat a throw as
  * "this connection needs re-authorising", which is the only honest reading.
  */
-export function openToken(sealed: {
-  cipher: string;
-  iv: string;
-  tag: string;
-}): string {
+export function openToken(sealed: { cipher: string; iv: string; tag: string }): string {
   try {
     const decipher = createDecipheriv(
       "aes-256-gcm",

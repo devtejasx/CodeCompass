@@ -2,11 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { getCurrentUser } from "@/lib/session";
-import {
-  GITHUB_ACCESS_TOKEN,
-  appOrigin,
-  githubConfig,
-} from "@/lib/github/config";
+import { GITHUB_ACCESS_TOKEN, appOrigin, githubConfig } from "@/lib/github/config";
 import {
   OAUTH_STATE_COOKIE,
   clearedStateCookieOptions,
@@ -25,13 +21,7 @@ import { GitHubService } from "@/lib/github/service";
  */
 
 /** The reason codes /github knows how to explain. */
-type Failure =
-  | "unconfigured"
-  | "denied"
-  | "state"
-  | "exchange"
-  | "profile"
-  | "session";
+type Failure = "unconfigured" | "denied" | "state" | "exchange" | "profile" | "session";
 
 function fail(reason: Failure) {
   const response = NextResponse.redirect(

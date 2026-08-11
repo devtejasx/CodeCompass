@@ -23,7 +23,8 @@ The principle the whole product is built around:
 | 5 | Learning system — lessons, progress, knowledge checks | Complete |
 | 6 | Coding practice — problems, editor, submissions, progress | Complete\* |
 | 7 | Projects — catalog, milestones, submission, self-evaluation | Complete |
-| 8 | Git & GitHub | Not started |
+| 8 | Git & GitHub Academy + GitHub integration | Complete |
+| 9 | AI Tools Academy | Not started |
 
 \* The practice engine is complete. **Production code execution is not** — it
 ships with a development provider that returns clearly-labelled *simulated*
@@ -332,16 +333,61 @@ three seeded careers — 9 beginner, 11 intermediate, 4 advanced.
 - **Lists load summaries, details load details.** The catalog query never
   touches requirements, milestones, hints or resources.
 
+## Git & GitHub
+
+Two halves that stay deliberately separate: a curriculum that needs no GitHub
+account, and an optional integration with one.
+
+**The Academy** is ten modules as an `ACADEMY` roadmap — a Roadmap with no
+career. That is the whole design decision: Git lessons are Topics, so they reuse
+Lesson, LessonSection, KnowledgeCheck, UserTopicProgress and UserSectionProgress
+exactly as the career roadmaps do, and `/learn/[slug]` already renders them. A
+second progress system for the same kind of content would have been a liability.
+
+- **The mental model, not the command list.** Staging is introduced by the
+  problem it solves. A merge conflict is Git declining to guess. A rejected push
+  is Git protecting a colleague. Every command appears with the question it
+  answers.
+- **The simulator runs nothing.** `run(state, command)` is a pure reducer over a
+  plain object — no shell, no filesystem, no way for a typed command to reach
+  either. Sixteen commands are modelled, plus `edit` and `new` standing in for
+  an editor. There is a test that throws `rm -rf /` and `$(whoami)` at it and
+  asserts the state is byte-identical afterwards.
+- **Six exercises, evaluated structurally** — what the repository *is*, not
+  which keys were pressed, so the several ways to stage two files all count.
+- **The command reference searches its mistakes**, not just its commands, and
+  labels the six that can destroy work.
+
+**The integration** is optional and fails closed. See
+[docs/github-integration.md](docs/github-integration.md).
+
+- **Tokens are AES-256-GCM encrypted at rest** under an environment key, with a
+  pinned auth-tag length, a fresh IV per encryption and a key version for
+  rotation. They are decrypted in exactly one function, used, and discarded. No
+  query that feeds a page selects the ciphertext, and `ConnectionView` has no
+  token field — a page cannot leak what it was never given.
+- **CSRF** is a random `state` in a short-lived httpOnly cookie, compared in
+  constant time, carrying the session user id so a callback replayed into
+  another account fails. Every failure path burns the cookie.
+- **One file talks to GitHub.** Status codes are mapped once into kinds the
+  product can act on, so a raw GitHub error reaching a page is impossible by
+  construction rather than by discipline.
+- **The service performs one write** — creating a repository, private by
+  default. There is no delete and no push. Not implementing a destructive action
+  is a stronger guarantee than guarding it.
+- **Disconnecting never touches GitHub content**, and says so before asking.
+
 ## What is deliberately not built
 
 The following belong to later phases and are **not** implemented:
 
-GitHub OAuth · GitHub API · automatic repository creation · deployment
-automation · Git & GitHub Academy · AI mentor · AI hints · AI code review ·
-AI project generation · AI APIs · community · project marketplace ·
-leaderboards · XP · streaks · competitions · payments · freelancing ·
-subscriptions · admin CMS · job and resume features · interview preparation ·
-cloud development environments · LeetCode/CodeChef/HackerRank synchronisation
+AI Tools Academy · AI mentor · AI hints · AI code review · AI commit or pull
+request generation · AI project generation · AI APIs · GitHub Actions ·
+webhooks · issue management · anything that writes to a repository ·
+deployment automation · community · project marketplace · leaderboards · XP ·
+streaks · competitions · payments · freelancing · subscriptions · admin CMS ·
+job and resume features · interview preparation · cloud development
+environments · LeetCode/CodeChef/HackerRank synchronisation
 
 Also not implemented, and load-bearing: **a real code-execution sandbox**. The
 interface, the submission lifecycle, the limits and the scrubbing are all in

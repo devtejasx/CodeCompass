@@ -83,8 +83,8 @@ export function PullRequestSim() {
     <div className="surface rounded-xl p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="flex items-center gap-2 text-base font-medium tracking-tight text-foreground">
-          <GitPullRequest className="size-4 text-indigo-400" aria-hidden />
-          A pull request, start to finish
+          <GitPullRequest className="size-4 text-indigo-400" aria-hidden />A pull
+          request, start to finish
         </h3>
         <span className="font-mono text-xs text-subtle-foreground">
           {step + 1} / {STEPS.length}
@@ -110,8 +110,12 @@ export function PullRequestSim() {
                 className={cn(
                   "flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs transition-colors",
                   current && "border-primary/40 bg-primary/[0.10] text-indigo-200",
-                  done && !current && "border-emerald-500/25 bg-emerald-500/[0.06] text-emerald-300",
-                  !done && !current && "border-border bg-surface/50 text-subtle-foreground",
+                  done &&
+                    !current &&
+                    "border-emerald-500/25 bg-emerald-500/[0.06] text-emerald-300",
+                  !done &&
+                    !current &&
+                    "border-border bg-surface/50 text-subtle-foreground",
                 )}
               >
                 {done ? <Check className="size-3" aria-hidden /> : null}
@@ -140,7 +144,9 @@ export function PullRequestSim() {
           >
             {STEPS[step].actor}
           </span>
-          <span className="text-sm font-medium text-foreground">{STEPS[step].title}</span>
+          <span className="text-sm font-medium text-foreground">
+            {STEPS[step].title}
+          </span>
         </p>
 
         <p className="pretty mt-2.5 text-sm leading-relaxed text-muted-foreground">

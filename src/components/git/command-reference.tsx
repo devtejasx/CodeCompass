@@ -30,7 +30,11 @@ export function CommandReference() {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3">
-        <div role="tablist" aria-label="Command category" className="flex flex-wrap gap-1">
+        <div
+          role="tablist"
+          aria-label="Command category"
+          className="flex flex-wrap gap-1"
+        >
           {(["All", ...COMMAND_CATEGORIES] as const).map((entry) => {
             const active = category === entry;
             return (
@@ -79,7 +83,10 @@ export function CommandReference() {
       ) : (
         <ul aria-live="polite" className="mt-6 grid gap-3 lg:grid-cols-2">
           {results.map((entry) => (
-            <li key={entry.command} className="surface flex flex-col gap-3 rounded-xl p-4">
+            <li
+              key={entry.command}
+              className="surface flex flex-col gap-3 rounded-xl p-4"
+            >
               <div className="flex flex-wrap items-center gap-2">
                 <code className="rounded-md border border-border bg-[#0B0B0F] px-2 py-1 font-mono text-sm text-indigo-300">
                   {entry.command}

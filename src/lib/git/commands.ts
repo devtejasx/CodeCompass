@@ -195,16 +195,14 @@ export const GIT_COMMANDS: GitCommandEntry[] = [
     category: "Inspection",
     purpose: "Read the commit history.",
     example: "git log --oneline --graph",
-    mistake:
-      "Not knowing how to leave it. It opens in a pager — press q.",
+    mistake: "Not knowing how to leave it. It opens in a pager — press q.",
   },
   {
     command: "git show",
     category: "Inspection",
     purpose: "Show one commit: its message, author, and exactly what it changed.",
     example: "git show a1b2c3d",
-    mistake:
-      "Confusing it with git log. Log lists commits; show opens one of them.",
+    mistake: "Confusing it with git log. Log lists commits; show opens one of them.",
   },
   {
     command: "git diff",
@@ -217,8 +215,7 @@ export const GIT_COMMANDS: GitCommandEntry[] = [
   {
     command: "git blame",
     category: "Inspection",
-    purpose:
-      "Show which commit last changed each line of a file — and therefore why.",
+    purpose: "Show which commit last changed each line of a file — and therefore why.",
     example: "git blame src/auth.js",
     mistake:
       "Reading the name as an accusation. It is for finding the commit message that explains a line, not the person to complain to.",
@@ -294,8 +291,7 @@ export const GIT_COMMANDS: GitCommandEntry[] = [
   {
     command: "git push --force-with-lease",
     category: "Collaboration",
-    purpose:
-      "Force-push, but refuse if the remote moved in a way you have not seen.",
+    purpose: "Force-push, but refuse if the remote moved in a way you have not seen.",
     example: "git push --force-with-lease",
     mistake:
       "Using plain --force out of habit. --force-with-lease does the same job and declines when it would destroy something you did not know about.",

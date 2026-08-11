@@ -99,8 +99,7 @@ export const GIT_ACADEMY_ROADMAP: SeedRoadmap = {
     },
     {
       title: "Branches",
-      description:
-        "Working on something without touching what already works.",
+      description: "Working on something without touching what already works.",
       estimatedDuration: "1.5 hours",
       whyThisComesNext:
         "Branching is what makes Git worth the trouble. It is also the point where the mental model from the previous modules stops being optional.",
@@ -175,8 +174,7 @@ export const GIT_ACADEMY_ROADMAP: SeedRoadmap = {
     },
     {
       title: "The Professional Workflow",
-      description:
-        "How the pieces fit together on a real team, start to finish.",
+      description: "How the pieces fit together on a real team, start to finish.",
       estimatedDuration: "45 minutes",
       whyThisComesNext:
         "Every command so far has a place in one loop that professionals run several times a day. Seeing the whole loop is what turns a list of commands into a way of working.",

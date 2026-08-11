@@ -33,7 +33,10 @@ export function GitSimulator({
   const start = React.useMemo(
     () =>
       initialState ??
-      emptyState([file("README.md", "# My project"), file("app.js", "console.log('hi')")]),
+      emptyState([
+        file("README.md", "# My project"),
+        file("app.js", "console.log('hi')"),
+      ]),
     [initialState],
   );
 
@@ -48,6 +51,13 @@ export function GitSimulator({
   const [pastIndex, setPastIndex] = React.useState<number | null>(null);
 
   const transcript = React.useRef<HTMLDivElement>(null);
+  /*
+   * Unique per instance. The free simulator and an open exercise are both
+   * mounted at once (panels are hidden, not unmounted), and a hard-coded id
+   * would put two of them in the document — invalid HTML, and it breaks the
+   * label association that makes the input announceable.
+   */
+  const inputId = React.useId();
 
   React.useEffect(() => {
     transcript.current?.scrollTo({ top: transcript.current.scrollHeight });
@@ -137,11 +147,11 @@ export function GitSimulator({
           <span aria-hidden className="font-mono text-sm text-indigo-400">
             $
           </span>
-          <label htmlFor="sim-input" className="sr-only">
+          <label htmlFor={inputId} className="sr-only">
             Git command
           </label>
           <input
-            id="sim-input"
+            id={inputId}
             value={input}
             onChange={(event) => setInput(event.target.value)}
             onKeyDown={(event) => {
@@ -173,8 +183,9 @@ export function GitSimulator({
             Reset
           </Button>
           <p className="text-xs text-subtle-foreground">
-            Up and Down recall previous commands. <code className="font-mono">edit</code>{" "}
-            and <code className="font-mono">new</code> stand in for your editor.
+            Up and Down recall previous commands.{" "}
+            <code className="font-mono">edit</code> and{" "}
+            <code className="font-mono">new</code> stand in for your editor.
           </p>
         </div>
       </div>

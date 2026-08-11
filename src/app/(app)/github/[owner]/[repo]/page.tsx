@@ -68,7 +68,8 @@ export default async function RepositoryPage({
         ? {
             message: caught.userMessage,
             reconnect:
-              caught.kind === "AUTHORIZATION_EXPIRED" || caught.kind === "NOT_CONNECTED",
+              caught.kind === "AUTHORIZATION_EXPIRED" ||
+              caught.kind === "NOT_CONNECTED",
           }
         : { message: "That repository could not be loaded.", reconnect: false };
   }
@@ -184,7 +185,8 @@ export default async function RepositoryPage({
                 </h2>
                 <p className="mt-1.5 text-sm text-muted-foreground">
                   The history you built in the Academy, in a real repository. Each short
-                  SHA is the first seven characters of the commit&apos;s full identifier.
+                  SHA is the first seven characters of the commit&apos;s full
+                  identifier.
                 </p>
 
                 {commits.length === 0 ? (
@@ -217,7 +219,9 @@ export default async function RepositoryPage({
                               {commit.committedAt.toISOString().slice(0, 10)}
                             </time>
                           </span>
-                          <span className="sr-only">(opens on GitHub in a new tab)</span>
+                          <span className="sr-only">
+                            (opens on GitHub in a new tab)
+                          </span>
                         </a>
                       </li>
                     ))}

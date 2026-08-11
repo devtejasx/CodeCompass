@@ -28,7 +28,13 @@ export function MergeConflictSim() {
   const [committed, setCommitted] = React.useState(false);
 
   const resolved =
-    choice === "ours" ? OURS : choice === "theirs" ? THEIRS : choice === "both" ? BOTH : null;
+    choice === "ours"
+      ? OURS
+      : choice === "theirs"
+        ? THEIRS
+        : choice === "both"
+          ? BOTH
+          : null;
 
   return (
     <div className="surface rounded-xl p-5">
@@ -37,9 +43,9 @@ export function MergeConflictSim() {
         Resolve a merge conflict
       </h3>
       <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-        You ran <code className="font-mono text-xs">git merge feature/greeting</code> and
-        both branches changed the same line. Git stopped and left the decision to you —
-        that is what a conflict is.
+        You ran <code className="font-mono text-xs">git merge feature/greeting</code>{" "}
+        and both branches changed the same line. Git stopped and left the decision to
+        you — that is what a conflict is.
       </p>
 
       {/* ── The two versions, described in words too ────────────── */}
@@ -48,13 +54,17 @@ export function MergeConflictSim() {
           <p className="text-xs font-medium text-muted-foreground">
             Yours — on <span className="font-mono">main</span>
           </p>
-          <pre className="mt-2 overflow-x-auto font-mono text-xs text-white/85">{OURS}</pre>
+          <pre className="mt-2 overflow-x-auto font-mono text-xs text-white/85">
+            {OURS}
+          </pre>
         </div>
         <div className="rounded-lg border border-border bg-surface/60 p-3">
           <p className="text-xs font-medium text-muted-foreground">
             Theirs — from <span className="font-mono">feature/greeting</span>
           </p>
-          <pre className="mt-2 overflow-x-auto font-mono text-xs text-white/85">{THEIRS}</pre>
+          <pre className="mt-2 overflow-x-auto font-mono text-xs text-white/85">
+            {THEIRS}
+          </pre>
         </div>
       </div>
 
@@ -72,8 +82,8 @@ export function MergeConflictSim() {
         </pre>
         <p className="mt-2 text-xs leading-relaxed text-subtle-foreground">
           Between <code className="font-mono">{"<<<<<<<"}</code> and{" "}
-          <code className="font-mono">=======</code> is your branch&apos;s version. Between{" "}
-          <code className="font-mono">=======</code> and{" "}
+          <code className="font-mono">=======</code> is your branch&apos;s version.
+          Between <code className="font-mono">=======</code> and{" "}
           <code className="font-mono">{">>>>>>>"}</code> is the incoming one.
         </p>
       </div>
@@ -159,10 +169,10 @@ export function MergeConflictSim() {
                 Conflict resolved
               </p>
               <p className="pretty mt-2 text-sm leading-relaxed text-muted-foreground">
-                Nothing was broken and nothing was lost. Git could not know which version
-                was right, so it asked the one person who did. That is all a conflict
-                ever is — and the way to have fewer of them is shorter branches and
-                pulling from main more often, not avoiding branches.
+                Nothing was broken and nothing was lost. Git could not know which
+                version was right, so it asked the one person who did. That is all a
+                conflict ever is — and the way to have fewer of them is shorter branches
+                and pulling from main more often, not avoiding branches.
               </p>
             </div>
           ) : (

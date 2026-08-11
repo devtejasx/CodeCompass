@@ -258,19 +258,16 @@ export class GitHubService {
    */
   async revoke(clientId: string, clientSecret: string): Promise<boolean> {
     try {
-      const response = await fetch(
-        `${GITHUB_API}/applications/${clientId}/grant`,
-        {
-          method: "DELETE",
-          headers: {
-            accept: "application/vnd.github+json",
-            "user-agent": "CodeCompass",
-            authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
-            "content-type": "application/json",
-          },
-          body: JSON.stringify({ access_token: this.token }),
+      const response = await fetch(`${GITHUB_API}/applications/${clientId}/grant`, {
+        method: "DELETE",
+        headers: {
+          accept: "application/vnd.github+json",
+          "user-agent": "CodeCompass",
+          authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
+          "content-type": "application/json",
         },
-      );
+        body: JSON.stringify({ access_token: this.token }),
+      });
       return response.status === 204;
     } catch {
       console.error("[github] token revocation failed");

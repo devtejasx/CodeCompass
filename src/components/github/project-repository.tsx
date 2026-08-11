@@ -273,7 +273,9 @@ export function ProjectRepository({
             </div>
 
             <fieldset>
-              <legend className="text-sm font-medium text-foreground">Visibility</legend>
+              <legend className="text-sm font-medium text-foreground">
+                Visibility
+              </legend>
               <div className="mt-2 flex flex-col gap-2">
                 {[
                   {

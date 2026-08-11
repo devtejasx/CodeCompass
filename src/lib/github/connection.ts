@@ -5,11 +5,7 @@ import { db } from "@/lib/db";
 import { githubConfig } from "./config";
 import { openToken, sealToken } from "./crypto";
 import { GitHubService } from "./service";
-import {
-  GitHubError,
-  type GitHubAccount,
-  type GitHubConnectionState,
-} from "./types";
+import { GitHubError, type GitHubAccount, type GitHubConnectionState } from "./types";
 
 /**
  * Everything that reads or writes a stored GitHub authorisation.
@@ -191,10 +187,7 @@ export async function withGitHub<T>(
   });
 
   if (!row) {
-    throw new GitHubError(
-      "NOT_CONNECTED",
-      "Connect your GitHub account to use this.",
-    );
+    throw new GitHubError("NOT_CONNECTED", "Connect your GitHub account to use this.");
   }
 
   let token: string;

@@ -237,9 +237,7 @@ function Connected({
   connectedAt: Date | null;
 }) {
   return (
-    <div
-      className={cnCard(expired)}
-    >
+    <div className={cnCard(expired)}>
       <div className="flex flex-wrap items-start gap-4">
         {avatarUrl ? (
           /*

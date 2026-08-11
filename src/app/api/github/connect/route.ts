@@ -26,9 +26,7 @@ import { OAUTH_STATE_COOKIE, stateCookieOptions } from "@/lib/github/oauth-state
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) {
-    return NextResponse.redirect(
-      new URL("/login?callbackUrl=%2Fgithub", appOrigin()),
-    );
+    return NextResponse.redirect(new URL("/login?callbackUrl=%2Fgithub", appOrigin()));
   }
 
   const config = githubConfig();

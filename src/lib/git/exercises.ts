@@ -137,7 +137,9 @@ export const GIT_EXERCISES: GitExercise[] = [
       "git merge takes the name of the branch whose work you want.",
     ],
     initial: () => {
-      const state = emptyState([file("search.js", "export const search = () => {}", true)]);
+      const state = emptyState([
+        file("search.js", "export const search = () => {}", true),
+      ]);
       state.initialized = true;
       state.head = "feature/search";
       state.branches = { main: "c1", "feature/search": "c2" };
@@ -162,7 +164,8 @@ export const GIT_EXERCISES: GitExercise[] = [
       return state;
     },
     isComplete: (state) =>
-      state.head === "main" && history(state, "main").some((commit) => commit.id === "c2"),
+      state.head === "main" &&
+      history(state, "main").some((commit) => commit.id === "c2"),
     debrief:
       "main has not moved since the branch was created, so Git had nothing to reconcile — it slid the label forward. That is a fast-forward, and it is why no merge commit appeared.",
   },
@@ -206,8 +209,7 @@ export const GIT_EXERCISES: GitExercise[] = [
       return state;
     },
     isComplete: (state) =>
-      state.remoteAhead === 0 &&
-      state.remotes[0]?.commits.includes("c1") === true,
+      state.remoteAhead === 0 && state.remotes[0]?.commits.includes("c1") === true,
     debrief:
       "The rejection was Git protecting somebody else's work, not being awkward. Pull, then push — that loop is most of what working with a remote consists of, and reaching for --force instead is how people delete an afternoon of a colleague's work.",
   },

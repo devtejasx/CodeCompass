@@ -21,7 +21,9 @@ export function validateRoadmap(roadmap: SeedRoadmap): string[] {
   if (kind === "CAREER") {
     if (!roadmap.careerSlug) errors.push("Career roadmap is missing careerSlug.");
     if (roadmap.slug) {
-      errors.push(`[${where}] Career roadmaps are found through their career; drop the slug.`);
+      errors.push(
+        `[${where}] Career roadmaps are found through their career; drop the slug.`,
+      );
     }
   } else {
     if (!roadmap.slug) errors.push("Academy roadmap is missing slug.");

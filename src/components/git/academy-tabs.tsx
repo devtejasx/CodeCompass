@@ -190,7 +190,10 @@ export function AcademyTabs({
         <Section id="simulator" active={panel} title="Simulator">
           <div className="mb-5 max-w-[68ch]">
             <p className="flex items-start gap-2 text-sm leading-relaxed text-muted-foreground">
-              <Terminal className="mt-0.5 size-4 shrink-0 text-indigo-400" aria-hidden />
+              <Terminal
+                className="mt-0.5 size-4 shrink-0 text-indigo-400"
+                aria-hidden
+              />
               A model of Git you can type into. Nothing here runs on a real machine and
               nothing you do can break anything — try the commands you are unsure about
               and watch which of the three panels your files move between.
@@ -219,9 +222,7 @@ export function AcademyTabs({
                     <h3>
                       <button
                         type="button"
-                        onClick={() =>
-                          setOpenExercise(isOpen ? null : exercise.slug)
-                        }
+                        onClick={() => setOpenExercise(isOpen ? null : exercise.slug)}
                         aria-expanded={isOpen}
                         aria-controls={`exercise-${exercise.slug}`}
                         className="flex w-full items-start justify-between gap-4 p-5 text-left"

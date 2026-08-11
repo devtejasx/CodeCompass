@@ -130,7 +130,10 @@ export function ExerciseRunner({
               key={hint}
               className="flex gap-2.5 rounded-lg border border-amber-500/20 bg-amber-500/[0.06] p-3 text-sm leading-relaxed text-muted-foreground"
             >
-              <Lightbulb className="mt-0.5 size-3.5 shrink-0 text-amber-400" aria-hidden />
+              <Lightbulb
+                className="mt-0.5 size-3.5 shrink-0 text-amber-400"
+                aria-hidden
+              />
               <span>
                 <span className="sr-only">Hint {index + 1}: </span>
                 {hint}

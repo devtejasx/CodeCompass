@@ -70,10 +70,15 @@ export const GIT_FOUNDATION_LESSONS: SeedLesson[] = [
         explanation:
           "Git is the version control system itself and runs entirely on your own machine. GitHub is one of several companies that host Git repositories and add collaboration tools around them. You can use Git with no GitHub account at all — plenty of people do.",
         options: [
-          { text: "Git is the version control system; GitHub hosts repositories and adds collaboration", isCorrect: true },
+          {
+            text: "Git is the version control system; GitHub hosts repositories and adds collaboration",
+            isCorrect: true,
+          },
           { text: "Git is the older name for GitHub" },
           { text: "Git is for private code and GitHub is for public code" },
-          { text: "Git is a command and GitHub is the website version of that command" },
+          {
+            text: "Git is a command and GitHub is the website version of that command",
+          },
         ],
       },
       {
@@ -81,7 +86,10 @@ export const GIT_FOUNDATION_LESSONS: SeedLesson[] = [
         explanation:
           "Cloning gives you the complete history, not a window onto a server's copy. That is why committing, branching and reading the log all work offline, and why every clone is effectively a full backup of the project's history.",
         options: [
-          { text: "Every clone contains the entire history, so the work is not tied to one server", isCorrect: true },
+          {
+            text: "Every clone contains the entire history, so the work is not tied to one server",
+            isCorrect: true,
+          },
           { text: "Files are split across several machines to save space" },
           { text: "It can only be used by distributed teams" },
           { text: "Each developer gets a different part of the codebase" },
@@ -92,7 +100,10 @@ export const GIT_FOUNDATION_LESSONS: SeedLesson[] = [
         explanation:
           "They solve different problems. A backup protects you from losing hardware. Version control protects you from losing a previous state of your work. A repository that only exists on a laptop that gets stolen demonstrates both points at once.",
         options: [
-          { text: "They protect against different things — lost hardware versus lost previous states", isCorrect: true },
+          {
+            text: "They protect against different things — lost hardware versus lost previous states",
+            isCorrect: true,
+          },
           { text: "Version control only keeps the most recent version" },
           { text: "Backups are faster to restore from" },
           { text: "Version control deletes old versions after a while" },
@@ -184,7 +195,10 @@ export const GIT_FOUNDATION_LESSONS: SeedLesson[] = [
         explanation:
           "It creates a hidden .git directory holding the entire repository — the history, branches and configuration. Your working files are not moved or changed; they simply now sit next to a repository that can track them.",
         options: [
-          { text: "A hidden .git directory containing the repository's history and configuration", isCorrect: true },
+          {
+            text: "A hidden .git directory containing the repository's history and configuration",
+            isCorrect: true,
+          },
           { text: "A copy of your files on a server" },
           { text: "The first commit of your project" },
           { text: "A connection to GitHub" },
@@ -195,7 +209,10 @@ export const GIT_FOUNDATION_LESSONS: SeedLesson[] = [
         explanation:
           "Every commit records who made it. Git will not invent an author, so it asks once and then attaches that identity to everything you commit on that machine.",
         options: [
-          { text: "Every commit records an author, and Git refuses to guess who you are", isCorrect: true },
+          {
+            text: "Every commit records an author, and Git refuses to guess who you are",
+            isCorrect: true,
+          },
           { text: "To create your GitHub account" },
           { text: "To encrypt your repository" },
           { text: "Because Git needs to email you when something changes" },
@@ -206,7 +223,10 @@ export const GIT_FOUNDATION_LESSONS: SeedLesson[] = [
         explanation:
           "Constantly. It is the cheapest command in Git and it answers the question underneath most confusion: what state are my changes actually in right now?",
         options: [
-          { text: "Whenever you are unsure what state your changes are in — which is often", isCorrect: true },
+          {
+            text: "Whenever you are unsure what state your changes are in — which is often",
+            isCorrect: true,
+          },
           { text: "Only when a command has failed" },
           { text: "Once at the start of each day" },
           { text: "Only before pushing" },
@@ -256,7 +276,7 @@ export const GIT_FOUNDATION_LESSONS: SeedLesson[] = [
       {
         type: "CODE",
         content: "Two commands move work along:",
-        code: "# working directory → staging area\ngit add index.html\n\n# staging area → repository\ngit commit -m \"Add the landing page\"",
+        code: '# working directory → staging area\ngit add index.html\n\n# staging area → repository\ngit commit -m "Add the landing page"',
         language: "bash",
       },
       {
@@ -274,7 +294,7 @@ export const GIT_FOUNDATION_LESSONS: SeedLesson[] = [
         type: "EXAMPLE",
         title: "Two commits instead of one mess",
         content:
-          "You add auth.js and session.js, and commit \"Fix session expiry check\". Then you add styles.css and commit \"Tidy spacing on the login form\". Two commits, each doing one thing, each explaining itself. Six months later somebody bisecting a bug thanks you.",
+          'You add auth.js and session.js, and commit "Fix session expiry check". Then you add styles.css and commit "Tidy spacing on the login form". Two commits, each doing one thing, each explaining itself. Six months later somebody bisecting a bug thanks you.',
       },
       {
         type: "WARNING",
@@ -295,25 +315,33 @@ export const GIT_FOUNDATION_LESSONS: SeedLesson[] = [
         explanation:
           "So that a commit is a deliberate selection rather than whatever happened to be on disk. It lets you split an hour's mixed work into commits that each do one thing and each explain themselves.",
         options: [
-          { text: "So you can choose exactly which changes go into a commit, rather than all of them", isCorrect: true },
+          {
+            text: "So you can choose exactly which changes go into a commit, rather than all of them",
+            isCorrect: true,
+          },
           { text: "So Git has time to compress the files" },
           { text: "Because commits can only contain one file at a time" },
           { text: "To create a backup before committing" },
         ],
       },
       {
-        question: "You stage a file with git add, then edit it again. What does git status show?",
+        question:
+          "You stage a file with git add, then edit it again. What does git status show?",
         explanation:
           "The file appears as both staged and modified. git add captured the file as it was at that moment; the newer edit is a separate change you have not yet chosen to include.",
         options: [
-          { text: "The file appears as both staged and modified, because add captured a moment", isCorrect: true },
+          {
+            text: "The file appears as both staged and modified, because add captured a moment",
+            isCorrect: true,
+          },
           { text: "Only the newest version, because Git always uses the latest" },
           { text: "Nothing — the file is already staged" },
           { text: "An error, because the file changed after staging" },
         ],
       },
       {
-        question: "Which sequence moves a change from your disk into the permanent history?",
+        question:
+          "Which sequence moves a change from your disk into the permanent history?",
         explanation:
           "Working directory → staging area → repository, via git add and then git commit. Skipping either step means the change is not in the history yet.",
         options: [
@@ -328,7 +356,10 @@ export const GIT_FOUNDATION_LESSONS: SeedLesson[] = [
         explanation:
           "It stages everything Git can see — including debug code, stray files and, at worst, a config file containing a secret. Anything committed is in the history permanently, even if a later commit deletes it.",
         options: [
-          { text: "It can stage files you did not mean to commit, including secrets", isCorrect: true },
+          {
+            text: "It can stage files you did not mean to commit, including secrets",
+            isCorrect: true,
+          },
           { text: "It permanently deletes unstaged files" },
           { text: "It pushes your changes to GitHub immediately" },
           { text: "It always creates a merge conflict" },
@@ -413,18 +444,25 @@ export const GIT_FOUNDATION_LESSONS: SeedLesson[] = [
         explanation:
           "Nothing. A bare git diff compares your working directory with the staging area, and if everything is staged those are identical. git diff --staged is what you want then.",
         options: [
-          { text: "Nothing, because it compares working directory against staging", isCorrect: true },
+          {
+            text: "Nothing, because it compares working directory against staging",
+            isCorrect: true,
+          },
           { text: "Every change since the last commit" },
           { text: "An error, because there is nothing to compare" },
           { text: "The same as git log" },
         ],
       },
       {
-        question: "Why does the *why* belong in a commit message rather than the *what*?",
+        question:
+          "Why does the *why* belong in a commit message rather than the *what*?",
         explanation:
           "The what is already visible in the diff — anybody can see which lines changed. Why you changed them exists only in your head, and that is the part a future reader cannot reconstruct.",
         options: [
-          { text: "The what is visible in the diff; the why exists nowhere else", isCorrect: true },
+          {
+            text: "The what is visible in the diff; the why exists nowhere else",
+            isCorrect: true,
+          },
           { text: "Git rejects messages that describe the change" },
           { text: "The what is stored separately by GitHub" },
           { text: "Because messages have a character limit" },
@@ -435,7 +473,10 @@ export const GIT_FOUNDATION_LESSONS: SeedLesson[] = [
         explanation:
           "One enormous commit is hard to describe, impossible to review properly, and cannot be undone selectively. Several smaller commits, each doing one coherent thing, are easier to write messages for and far more useful later.",
         options: [
-          { text: "It produces one large commit that cannot be reviewed or undone selectively", isCorrect: true },
+          {
+            text: "It produces one large commit that cannot be reviewed or undone selectively",
+            isCorrect: true,
+          },
           { text: "Git slows down with large commits" },
           { text: "It uses more disk space" },
           { text: "Git rejects commits over a certain size" },
@@ -481,7 +522,7 @@ export const GIT_FOUNDATION_LESSONS: SeedLesson[] = [
       {
         type: "CODE",
         content: "Everyday branch commands:",
-        code: '# list branches; the current one is marked\ngit branch\n\n# create a branch and switch to it\ngit switch -c feature/login-form\n\n# move between existing branches\ngit switch main\n\n# merge a finished branch into the current one\ngit merge feature/login-form',
+        code: "# list branches; the current one is marked\ngit branch\n\n# create a branch and switch to it\ngit switch -c feature/login-form\n\n# move between existing branches\ngit switch main\n\n# merge a finished branch into the current one\ngit merge feature/login-form",
         language: "bash",
       },
       {
@@ -521,7 +562,10 @@ export const GIT_FOUNDATION_LESSONS: SeedLesson[] = [
         explanation:
           "A movable label pointing at a commit, which advances automatically as you commit. Nothing is copied, which is why creating a branch is instantaneous regardless of project size.",
         options: [
-          { text: "A movable pointer to a commit that advances as you commit", isCorrect: true },
+          {
+            text: "A movable pointer to a commit that advances as you commit",
+            isCorrect: true,
+          },
           { text: "A complete copy of the project directory" },
           { text: "A backup of the repository at a point in time" },
           { text: "A separate folder inside .git holding duplicated files" },
@@ -532,7 +576,10 @@ export const GIT_FOUNDATION_LESSONS: SeedLesson[] = [
         explanation:
           "It is Git declining to guess. Two branches changed the same lines differently and Git has no way to know which is right, so it stops and asks a human. It is a normal part of collaboration, not a failure.",
         options: [
-          { text: "Two branches changed the same lines, so Git asks a human to decide", isCorrect: true },
+          {
+            text: "Two branches changed the same lines, so Git asks a human to decide",
+            isCorrect: true,
+          },
           { text: "A corrupted repository that must be re-cloned" },
           { text: "Two people pushing at exactly the same moment" },
           { text: "A branch that has fallen too far behind main" },
@@ -543,7 +590,10 @@ export const GIT_FOUNDATION_LESSONS: SeedLesson[] = [
         explanation:
           "One command that both changed branches and discarded file changes made it easy to destroy work by mistake. Splitting the two jobs made each one's intent explicit.",
         options: [
-          { text: "One command doing both jobs made it easy to destroy work accidentally", isCorrect: true },
+          {
+            text: "One command doing both jobs made it easy to destroy work accidentally",
+            isCorrect: true,
+          },
           { text: "checkout was removed from Git entirely" },
           { text: "switch is faster on large repositories" },
           { text: "restore is only for remote branches" },
@@ -554,7 +604,10 @@ export const GIT_FOUNDATION_LESSONS: SeedLesson[] = [
         explanation:
           "When the branch you are merging into has not moved since you branched off, there is nothing to reconcile — Git simply slides the label forward to your latest commit, creating no merge commit.",
         options: [
-          { text: "The target branch has not moved, so its label just slides forward", isCorrect: true },
+          {
+            text: "The target branch has not moved, so its label just slides forward",
+            isCorrect: true,
+          },
           { text: "A merge that skips conflict checking to save time" },
           { text: "Merging several branches at once" },
           { text: "A merge that discards the older branch's commits" },

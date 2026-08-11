@@ -1,10 +1,4 @@
-import type {
-  SimCommit,
-  SimFile,
-  SimOutputLine,
-  SimResult,
-  SimState,
-} from "./types";
+import type { SimCommit, SimFile, SimOutputLine, SimResult, SimState } from "./types";
 
 /**
  * The simulator's reducer.
@@ -97,7 +91,10 @@ export function history(state: SimState, branch = state.head): SimCommit[] {
 function requireRepo(state: SimState): SimOutputLine[] | null {
   if (state.initialized) return null;
   return [
-    line("fatal: not a git repository (or any of the parent directories): .git", "error"),
+    line(
+      "fatal: not a git repository (or any of the parent directories): .git",
+      "error",
+    ),
     line("Run `git init` first — that is what creates the repository.", "hint"),
   ];
 }
@@ -249,7 +246,10 @@ function doInit(state: SimState): SimResult {
     state: next,
     output: [
       line("Initialized empty Git repository in /project/.git/", "success"),
-      line("That hidden .git directory *is* the repository — the whole history lives there.", "hint"),
+      line(
+        "That hidden .git directory *is* the repository — the whole history lives there.",
+        "hint",
+      ),
     ],
     ok: true,
   };
@@ -265,7 +265,7 @@ function doStatus(state: SimState): SimResult {
     output.push(
       line("You have unmerged paths.", "error"),
       line(`  both modified:   ${state.conflict.file}`, "error"),
-      line('Fix the conflict, then run `git add <file>` and `git commit`.', "hint"),
+      line("Fix the conflict, then run `git add <file>` and `git commit`.", "hint"),
     );
     return { state, output, ok: true };
   }
@@ -290,7 +290,8 @@ function doStatus(state: SimState): SimResult {
 
   if (modified.length > 0) {
     output.push(line("Changes not staged for commit:", "warning"));
-    for (const file of modified) output.push(line(`  modified:   ${file.name}`, "warning"));
+    for (const file of modified)
+      output.push(line(`  modified:   ${file.name}`, "warning"));
   }
 
   if (untracked.length > 0) {
@@ -386,7 +387,10 @@ function doCommit(state: SimState, raw: string): SimResult {
       output: [
         line(`On branch ${state.head}`),
         line("nothing to commit — no changes are staged.", "error"),
-        line("`git add` moves changes into the staging area first. That separation is the point.", "hint"),
+        line(
+          "`git add` moves changes into the staging area first. That separation is the point.",
+          "hint",
+        ),
       ],
       ok: false,
     };
@@ -443,7 +447,10 @@ function doCommit(state: SimState, raw: string): SimResult {
     output: [
       line(`[${next.head} ${commit.shortSha}] ${message}`, "success"),
       line(` ${count} file${count === 1 ? "" : "s"} changed`, "muted"),
-      line("That change is now in the repository — the third of the three places.", "hint"),
+      line(
+        "That change is now in the repository — the third of the three places.",
+        "hint",
+      ),
     ],
     ok: true,
   };
@@ -459,7 +466,10 @@ function doLog(state: SimState): SimResult {
     return {
       state,
       output: [
-        line(`fatal: your current branch '${state.head}' does not have any commits yet`, "error"),
+        line(
+          `fatal: your current branch '${state.head}' does not have any commits yet`,
+          "error",
+        ),
       ],
       ok: false,
     };
@@ -538,7 +548,10 @@ function doBranch(state: SimState, args: string[]): SimResult {
     return {
       state,
       output: Object.keys(state.branches).map((name) =>
-        line(name === state.head ? `* ${name}` : `  ${name}`, name === state.head ? "success" : "normal"),
+        line(
+          name === state.head ? `* ${name}` : `  ${name}`,
+          name === state.head ? "success" : "normal",
+        ),
       ),
       ok: true,
     };
@@ -560,7 +573,10 @@ function doBranch(state: SimState, args: string[]): SimResult {
     state: next,
     output: [
       line(`Created branch ${name}.`, "success"),
-      line("A branch is just a label pointing at a commit — nothing was copied.", "hint"),
+      line(
+        "A branch is just a label pointing at a commit — nothing was copied.",
+        "hint",
+      ),
     ],
     ok: true,
   };
@@ -607,7 +623,10 @@ function doSwitch(state: SimState, args: string[]): SimResult {
       state,
       output: [
         line(`fatal: invalid reference: ${name}`, "error"),
-        line("`git branch` lists what exists. `git switch -c <name>` creates one.", "hint"),
+        line(
+          "`git branch` lists what exists. `git switch -c <name>` creates one.",
+          "hint",
+        ),
       ],
       ok: false,
     };
@@ -615,7 +634,11 @@ function doSwitch(state: SimState, args: string[]): SimResult {
 
   const next = clone(state);
   next.head = name;
-  return { state: next, output: [line(`Switched to branch '${name}'`, "success")], ok: true };
+  return {
+    state: next,
+    output: [line(`Switched to branch '${name}'`, "success")],
+    ok: true,
+  };
 }
 
 /** Kept because tutorials still use it — and it is a teaching moment. */
@@ -645,7 +668,9 @@ function doMerge(state: SimState, args: string[]): SimResult {
   if (!name || state.branches[name] === undefined) {
     return {
       state,
-      output: [line(`merge: ${name ?? "(none)"} - not something we can merge`, "error")],
+      output: [
+        line(`merge: ${name ?? "(none)"} - not something we can merge`, "error"),
+      ],
       ok: false,
     };
   }
@@ -666,7 +691,11 @@ function doMerge(state: SimState, args: string[]): SimResult {
   const currentHistory = current ? history(state, state.head).map((c) => c.id) : [];
   const targetHistory = history(state, name).map((c) => c.id);
 
-  if (current && targetHistory.includes(current) === false && currentHistory.includes(target)) {
+  if (
+    current &&
+    targetHistory.includes(current) === false &&
+    currentHistory.includes(target)
+  ) {
     return { state, output: [line("Already up to date.", "muted")], ok: true };
   }
 
@@ -731,7 +760,10 @@ function doRemote(state: SimState, args: string[]): SimResult {
       state: next,
       output: [
         line(`Added remote '${name}'.`, "success"),
-        line("'origin' is only a nickname for that URL — nothing about it is special.", "hint"),
+        line(
+          "'origin' is only a nickname for that URL — nothing about it is special.",
+          "hint",
+        ),
       ],
       ok: true,
     };
@@ -742,7 +774,10 @@ function doRemote(state: SimState, args: string[]): SimResult {
       state,
       output: [
         line("(no remotes)", "muted"),
-        line("`git remote add origin <url>` connects this repository to a hosted copy.", "hint"),
+        line(
+          "`git remote add origin <url>` connects this repository to a hosted copy.",
+          "hint",
+        ),
       ],
       ok: true,
     };
@@ -874,7 +909,9 @@ function doPull(state: SimState): SimResult {
 
   next.branches[next.head] = parent;
   next.remoteAhead = 0;
-  next.remotes[0].commits = [...new Set([...next.remotes[0].commits, ...history(next).map((c) => c.id)])];
+  next.remotes[0].commits = [
+    ...new Set([...next.remotes[0].commits, ...history(next).map((c) => c.id)]),
+  ];
 
   return {
     state: next,
@@ -900,7 +937,10 @@ function doHelp(state: SimState): SimResult {
       line("  git remote, push, pull, fetch", "muted"),
       line("Plus two that are not Git, standing in for your editor:", "normal"),
       line("  edit <file>, new <file>", "muted"),
-      line("Nothing here runs on a real machine — it is a model, built to make the ideas visible.", "hint"),
+      line(
+        "Nothing here runs on a real machine — it is a model, built to make the ideas visible.",
+        "hint",
+      ),
     ],
     ok: true,
   };

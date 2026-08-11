@@ -13,8 +13,7 @@ export const GIT_COLLABORATION_LESSONS: SeedLesson[] = [
   {
     topicSlug: "git-academy-remotes",
     title: "Remotes, push, pull and fetch",
-    description:
-      "Getting your work off your laptop, and other people's work onto it.",
+    description: "Getting your work off your laptop, and other people's work onto it.",
     estimatedTime: "50 minutes",
     sections: [
       {
@@ -76,7 +75,10 @@ export const GIT_COLLABORATION_LESSONS: SeedLesson[] = [
         explanation:
           "fetch downloads new commits without touching your working files — it is purely informational. pull is a fetch plus an immediate merge, so it does change your files. Fetch when you want to look; pull when you are ready to integrate.",
         options: [
-          { text: "fetch downloads without changing your files; pull downloads and merges", isCorrect: true },
+          {
+            text: "fetch downloads without changing your files; pull downloads and merges",
+            isCorrect: true,
+          },
           { text: "fetch is for branches and pull is for tags" },
           { text: "pull is the older name for fetch" },
           { text: "fetch works offline and pull needs a network" },
@@ -87,7 +89,10 @@ export const GIT_COLLABORATION_LESSONS: SeedLesson[] = [
         explanation:
           "Because the remote has commits you do not have locally. Accepting the push would silently discard somebody else's work, so Git refuses and asks you to pull first.",
         options: [
-          { text: "The remote has commits you do not have, and pushing would discard them", isCorrect: true },
+          {
+            text: "The remote has commits you do not have, and pushing would discard them",
+            isCorrect: true,
+          },
           { text: "Your commit messages are too short" },
           { text: "You are not the repository owner" },
           { text: "The branch has too many commits" },
@@ -98,7 +103,10 @@ export const GIT_COLLABORATION_LESSONS: SeedLesson[] = [
         explanation:
           "It is the default nickname Git gives the remote you cloned from — a shortcut for a URL, nothing more. A repository can have several remotes under different names.",
         options: [
-          { text: "The default nickname for the remote you cloned from", isCorrect: true },
+          {
+            text: "The default nickname for the remote you cloned from",
+            isCorrect: true,
+          },
           { text: "The first commit in the repository" },
           { text: "The main branch" },
           { text: "The original author of the project" },
@@ -109,7 +117,10 @@ export const GIT_COLLABORATION_LESSONS: SeedLesson[] = [
         explanation:
           "It overwrites the remote branch with yours, destroying any commits that were on it. On a branch other people use, that is their work gone. --force-with-lease is the safer relative because it refuses if the remote moved unexpectedly.",
         options: [
-          { text: "It overwrites the remote branch, destroying commits other people pushed", isCorrect: true },
+          {
+            text: "It overwrites the remote branch, destroying commits other people pushed",
+            isCorrect: true,
+          },
           { text: "It uses significantly more bandwidth" },
           { text: "It permanently locks the branch" },
           { text: "It deletes your local branch afterwards" },
@@ -192,7 +203,10 @@ export const GIT_COLLABORATION_LESSONS: SeedLesson[] = [
         explanation:
           "Forking copies a repository to your GitHub account and happens on GitHub. Cloning copies a repository to your own machine and is a plain Git operation. Contributing to someone else's project usually involves both.",
         options: [
-          { text: "Forking copies it to your GitHub account; cloning copies it to your computer", isCorrect: true },
+          {
+            text: "Forking copies it to your GitHub account; cloning copies it to your computer",
+            isCorrect: true,
+          },
           { text: "They are two names for the same operation" },
           { text: "Forking is for private repositories and cloning for public ones" },
           { text: "Cloning creates a new branch; forking creates a new repository" },
@@ -203,7 +217,10 @@ export const GIT_COLLABORATION_LESSONS: SeedLesson[] = [
         explanation:
           "A proposal to merge one branch into another, with review and discussion attached. It is a GitHub feature built on top of Git branches — Git itself has no concept of one.",
         options: [
-          { text: "A proposal to merge one branch into another, with review attached", isCorrect: true },
+          {
+            text: "A proposal to merge one branch into another, with review attached",
+            isCorrect: true,
+          },
           { text: "A Git command that downloads changes" },
           { text: "A request to be given access to a repository" },
           { text: "Another word for git pull" },
@@ -214,7 +231,10 @@ export const GIT_COLLABORATION_LESSONS: SeedLesson[] = [
         explanation:
           "The history keeps every previous state, so the secret is still recoverable from the earlier commit. On a public repository, automated scanners will have found it within seconds of the push. The only safe response is to revoke the credential.",
         options: [
-          { text: "The earlier commit still contains it, and the history is permanent", isCorrect: true },
+          {
+            text: "The earlier commit still contains it, and the history is permanent",
+            isCorrect: true,
+          },
           { text: "GitHub caches the file for 30 days" },
           { text: "It is enough, as long as you delete it quickly" },
           { text: "Only if the repository is public" },
@@ -322,7 +342,10 @@ export const GIT_COLLABORATION_LESSONS: SeedLesson[] = [
         explanation:
           "Because review quality falls off a cliff with size. A small PR gets read line by line; a huge one gets approved without real scrutiny, which defeats the purpose of reviewing at all.",
         options: [
-          { text: "Large PRs get rubber-stamped rather than genuinely reviewed", isCorrect: true },
+          {
+            text: "Large PRs get rubber-stamped rather than genuinely reviewed",
+            isCorrect: true,
+          },
           { text: "GitHub limits the number of files in a pull request" },
           { text: "Large pull requests cannot be merged automatically" },
           { text: "Small PRs use less storage" },
@@ -333,14 +356,18 @@ export const GIT_COLLABORATION_LESSONS: SeedLesson[] = [
         explanation:
           "Keep branches short-lived and pull from main regularly. Conflicts grow with the time and distance between branches, and most painful ones are really a communication gap that surfaced as a text problem.",
         options: [
-          { text: "Keep branches short-lived and integrate from main often", isCorrect: true },
+          {
+            text: "Keep branches short-lived and integrate from main often",
+            isCorrect: true,
+          },
           { text: "Always use git push --force" },
           { text: "Have only one person work on the project at a time" },
           { text: "Avoid using branches at all" },
         ],
       },
       {
-        question: "What happens if you commit a file still containing conflict markers?",
+        question:
+          "What happens if you commit a file still containing conflict markers?",
         explanation:
           "You commit broken code. Those marker lines are not valid in any language, so the build fails — and the conflict is not actually resolved until every one of them is gone.",
         options: [
@@ -430,7 +457,10 @@ export const GIT_COLLABORATION_LESSONS: SeedLesson[] = [
         explanation:
           "So the branch starts from current work. Branching from a stale main builds your feature on old code, and the resulting conflict surfaces at merge time when it is largest and hardest to sort out.",
         options: [
-          { text: "So the branch starts from current work rather than an old snapshot", isCorrect: true },
+          {
+            text: "So the branch starts from current work rather than an old snapshot",
+            isCorrect: true,
+          },
           { text: "Because Git refuses to branch from an out-of-date main" },
           { text: "To reserve the branch name on the remote" },
           { text: "It makes the eventual push faster" },
@@ -441,7 +471,10 @@ export const GIT_COLLABORATION_LESSONS: SeedLesson[] = [
         explanation:
           "Commit the fixes on the same branch and push. The pull request updates itself and the whole conversation stays in one place — a new PR would scatter it.",
         options: [
-          { text: "Commit the fixes on the same branch and push; the PR updates itself", isCorrect: true },
+          {
+            text: "Commit the fixes on the same branch and push; the PR updates itself",
+            isCorrect: true,
+          },
           { text: "Close the PR and open a new one with the fixes" },
           { text: "Create a second branch for the review comments" },
           { text: "Merge it anyway and fix afterwards" },
@@ -452,7 +485,10 @@ export const GIT_COLLABORATION_LESSONS: SeedLesson[] = [
         explanation:
           "So the branch list stays a list of live work. Its commits are safely in main; the branch label has done its job and keeping it only adds noise.",
         options: [
-          { text: "Its commits are in main already, so the label is just noise", isCorrect: true },
+          {
+            text: "Its commits are in main already, so the label is just noise",
+            isCorrect: true,
+          },
           { text: "Merged branches slow down the repository" },
           { text: "Otherwise the changes get merged a second time" },
           { text: "GitHub charges for unused branches" },
@@ -540,7 +576,10 @@ export const GIT_COLLABORATION_LESSONS: SeedLesson[] = [
         explanation:
           "It defines what others may legally do with the code. A public repository with no licence is all rights reserved by default — visible, but not open source in any meaningful sense.",
         options: [
-          { text: "It defines what others may legally do; no licence means all rights reserved", isCorrect: true },
+          {
+            text: "It defines what others may legally do; no licence means all rights reserved",
+            isCorrect: true,
+          },
           { text: "It determines who can star the repository" },
           { text: "It is required before GitHub will make a repository public" },
           { text: "It sets who is allowed to open issues" },
@@ -551,7 +590,10 @@ export const GIT_COLLABORATION_LESSONS: SeedLesson[] = [
         explanation:
           "CONTRIBUTING.md, after the README. It carries the project's expectations — commit format, tests, whether to open an issue first. Ignoring it is the most common reason a pull request is closed unread.",
         options: [
-          { text: "CONTRIBUTING.md, which carries the project's expectations", isCorrect: true },
+          {
+            text: "CONTRIBUTING.md, which carries the project's expectations",
+            isCorrect: true,
+          },
           { text: "The full commit history" },
           { text: "Every open issue" },
           { text: "The list of contributors" },
@@ -562,7 +604,10 @@ export const GIT_COLLABORATION_LESSONS: SeedLesson[] = [
         explanation:
           "So you can pull the project's latest changes into your fork before starting new work. Without it a long-lived fork drifts, and every contribution starts from increasingly stale code.",
         options: [
-          { text: "To pull the project's latest changes into your fork before new work", isCorrect: true },
+          {
+            text: "To pull the project's latest changes into your fork before new work",
+            isCorrect: true,
+          },
           { text: "To gain write access to the original repository" },
           { text: "To have your pull requests reviewed faster" },
           { text: "Because GitHub requires two remotes for a fork" },

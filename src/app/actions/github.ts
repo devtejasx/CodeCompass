@@ -172,7 +172,8 @@ export async function linkRepository(input: unknown): Promise<GitHubResult> {
   if (!user) return { ok: false, error: "Please sign in first." };
 
   const parsed = linkInput.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "That repository could not be read." };
+  if (!parsed.success)
+    return { ok: false, error: "That repository could not be read." };
 
   try {
     const repository = await withGitHub(user.id, (service) =>
