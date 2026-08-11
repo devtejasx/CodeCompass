@@ -157,8 +157,16 @@ function findCycles(roadmap: SeedRoadmap, where: string): string[] {
 export function assertValidRoadmaps(roadmaps: SeedRoadmap[]): void {
   const errors = roadmaps.flatMap(validateRoadmap);
 
-  const slugs = roadmaps.map((r) => `${r.careerSlug}@v${r.version ?? 1}`);
-  const duplicates = slugs.filter((s, i) => slugs.indexOf(s) !== i);
+  // Keyed by whichever identifier actually applies. A career roadmap is unique
+  // per (career, version); an academy has no career, so keying it on careerSlug
+  // would collapse every academy onto "undefined@v1" and report the second one
+  // as a duplicate of the first.
+  const keys = roadmaps.map((r) =>
+    (r.kind ?? "CAREER") === "ACADEMY"
+      ? `academy:${r.slug}`
+      : `career:${r.careerSlug}@v${r.version ?? 1}`,
+  );
+  const duplicates = keys.filter((key, index) => keys.indexOf(key) !== index);
   if (duplicates.length > 0) {
     errors.push(`Duplicate roadmap versions: ${[...new Set(duplicates)].join(", ")}.`);
   }
