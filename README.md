@@ -26,7 +26,8 @@ The principle the whole product is built around:
 | 8 | Git & GitHub Academy + GitHub integration | Complete |
 | 9 | AI Tools Academy — catalog, workflows, comparison, responsible use | Complete |
 | 10 | Personalisation engine + AI mentor — "never wonder what to learn next" | Complete\*\* |
-| 11 | Developer readiness / techie profile | Not started |
+| 11 | Techie Profile — evidence-based capabilities, public profile, export | Complete |
+| 12 | Advanced developer growth | Not started |
 
 \*\* The personalisation engine is complete and needs no AI. The **AI mentor is
 optional**: with no provider configured, every recommendation, plan and summary
@@ -515,6 +516,67 @@ number on the dashboard is unchanged.
   throwing — and it leaves the learner's question saved, so retrying does not
   mean retyping.
 
+---
+
+## Techie Profile
+
+The phase that answers **"what can I actually do?"** — with evidence, not a
+completion percentage. Nineteen capabilities, each a claim a learner should be
+able to make about themselves, each backed by the specific work that produced
+it.
+
+**Evidence is derived, never stored.** A capability's *sources* are authored
+content; a learner's evidence is the intersection of those sources with their
+real progress, computed on read. There is no `CapabilityEvidence` table — one
+would mean a write on every lesson, problem, project, exercise and workflow,
+and six more places to drift from the truth they record. Completing a lesson
+changes the level on the next page load.
+
+- **The ladder is cumulative and hard at the top.** `EXPLORING → LEARNING →
+  PRACTICING → APPLYING → CONFIDENT`. There is no "Expert" or "Master" and
+  there never will be from evidence collected inside one learning platform —
+  CONFIDENT already requires completed topics, solved practice *and* more than
+  one finished project. Telling a beginner they are an expert is not
+  encouragement; it is setting them up to be caught out.
+- **A project alone does not clear a rung it has not earned.** Finishing a
+  portfolio without completing a single HTML or CSS topic reads "Practicing",
+  not "Applying" — showing the latter beside "0/13 topics" is the kind of
+  overclaim that makes a learner distrust the whole page. Building *is*
+  practice, but the project cannot unlock its own gate.
+- **Every claim shows its working.** `/profile/skills/[slug]` lists each topic,
+  problem, project, exercise and workflow that counts, and whether it is done.
+  Nothing is inferred.
+- **Strengths require APPLYING or above** — something built, not something read.
+  Improvements are the capabilities *closest to their next rung*, so each one
+  has a concrete next step, and the hint names the real blocker rather than
+  suggesting a project the learner has already completed.
+- **Insights are withheld below the evidence threshold.** "You are strongest in
+  arrays" after three problems is a coincidence presented as a finding; the page
+  says there is not enough data instead.
+- **No certificates, no readiness score.** A test asserts the serialised profile
+  contains no "certified", "job-ready" or "employab*" anywhere.
+- **The next action comes from Phase 10's engine**, not a second copy — a
+  profile that disagreed with the dashboard would be worse than no profile.
+
+**The public profile is opt-in twice over.**
+
+- **Off by default**, and a private profile is *not found* rather than found and
+  refused — the same 404 as an unknown username, so nobody can enumerate who
+  exists. GitHub is off even when the other sections default on: a handle is an
+  identity elsewhere.
+- **Built by naming every field**, never by filtering a private object. There is
+  no `getTechieProfile()` call with sensitive keys deleted afterwards, because
+  that pattern fails silently the moment a field is added upstream. A section
+  that is switched off is not fetched at all.
+- **Completed projects only**, with no repository or demo links — a repository
+  may be private, and CodeCompass has never verified either.
+- **Usernames are validated and reserved.** `/u/admin` looking official is a
+  social-engineering problem, not an aesthetic one. Case is folded, because two
+  accounts differing only by case is a phishing surface.
+- **The export contains no credential, token or internal id**, identifies
+  content by slug, and takes its filename from the date — learner-supplied text
+  in a `Content-Disposition` header is response splitting.
+
 ## What is deliberately not built
 
 The following belong to later phases and are **not** implemented:
@@ -526,8 +588,15 @@ analytics · GitHub Actions · webhooks · issue management · anything that wri
 to a repository · deployment automation · community · project marketplace ·
 leaderboards · XP · streaks · competitions · payments · freelancing ·
 subscriptions · admin CMS · job search · resume builder · LinkedIn automation ·
-interview preparation · salary negotiation · job applications · cloud
-development environments · LeetCode/CodeChef/HackerRank synchronisation
+interview preparation · salary negotiation · job applications · recruiter
+outreach · networking automation · certificates · skill badges ·
+job-readiness guarantees · cloud development environments ·
+LeetCode/CodeChef/HackerRank synchronisation
+
+**The Techie Profile is a learning record, not a résumé.** It reports evidence
+collected inside CodeCompass and makes no claim about employability. There are
+no certificates, no badge wall, and the public profile says so in its own
+footer.
 
 **The AI never decides anything.** It explains recommendations the rules
 engine produced; it cannot reorder a roadmap, mark work complete, grade a
@@ -558,28 +627,29 @@ them, and the UI says so wherever they appear.
 ### Built to extend
 
 The chain is `Career → Roadmap → RoadmapPhase → Topic → Lesson → Problem →
-Project`, with Git and AI hanging off it as `ACADEMY` roadmaps, and Phase 10
-reading across all of it. Phase 11 is developer readiness — "what have I
-actually learned, and what can I build?" — and nothing here blocks it:
+Project`, with Git and AI hanging off it as `ACADEMY` roadmaps, Phase 10 reading
+across all of it and Phase 11 turning that into capabilities. Phase 12 is
+advanced developer growth — harder projects, system design, testing,
+performance, open source — and nothing here blocks it:
 
-- **`LearnerState` already answers most of it.** Completed topics, problems
-  solved, projects built, Git and AI progress are assembled in one place. A
-  techie profile is a different *presentation* of that object, not a new
-  tracking system.
-- `ProjectTechnology` and `CareerTechnology` already name technologies as rows.
-  "What technologies do I know?" is a join away from completed projects, with no
-  new model.
-- `UserActivity` gives a chronology, so "what have I done, and when" is a query
-  rather than a reconstruction across a dozen timestamp columns.
-- `UserTopicProgress.bestScore` and `attempts` feed the gap detector today; the
-  same evidence answers "what should I improve?".
-- `AIWorkflow` and `UserAIWorkflowProgress` already record which developer
-  workflows somebody has practised.
+- **`Capability` and `CapabilitySource` are the extension point.** An advanced
+  capability is a seed entry pointing at new topics and projects; the level
+  rules, the evidence page and the public profile pick it up with no code
+  change. `CapabilitySourceKind` is where a new kind of evidence would go.
+- **`CapabilityLevel` has deliberate headroom.** CONFIDENT is the ceiling from
+  evidence collected here; anything beyond it needs a different *kind* of
+  evidence — reviewed work, a contribution accepted elsewhere — which is a new
+  source kind rather than a new adjective.
+- `RoadmapKind` already supports academies alongside careers, so a "systems"
+  or "production engineering" curriculum is another `ACADEMY` roadmap reusing
+  Topic, Lesson and every progress table unchanged.
+- `ProjectDifficulty` reaches `ADVANCED` and `ProjectType` covers types with no
+  seeded projects yet — harder builds are content, not schema.
 - The `Recommendation` shape — a typed action carrying its own reason — is the
   pattern any future "you are ready for X" claim should follow, so a readiness
   statement can always show its evidence.
-- `ProjectConcept`, `ProblemTopic` and `AIToolLesson` are explicit join tables,
-  so a fourth edge off `Topic` is additive.
+- `ProjectConcept`, `ProblemTopic`, `AIToolLesson` and `CapabilitySource` are
+  all explicit join tables, so a fifth edge off `Topic` is additive.
 - `CodeExecutionService` is the only thing that knows how code runs. Swapping a
   mock for a container pool, or a container pool for a queue and workers, is a
   change behind that interface and nothing above it moves.
