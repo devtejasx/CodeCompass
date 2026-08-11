@@ -9,6 +9,7 @@ import { NextStep } from "@/components/dashboard/next-step";
 import { ProgressOverview } from "@/components/dashboard/progress-overview";
 import {
   MentorCard,
+  ProfileSummary,
   RecentActivity,
   TodaysPlan,
   TrackPanels,
@@ -19,6 +20,7 @@ import { careerIcon } from "@/lib/careers/icons";
 import { getGuidance, getWeeklySummary } from "@/lib/personalization/service";
 import { listRecentActivity } from "@/lib/personalization/activity";
 import { aiAvailability } from "@/lib/ai/provider";
+import { getCapabilities } from "@/lib/profile/capabilities";
 import { db } from "@/lib/db";
 
 export const metadata: Metadata = {
@@ -45,10 +47,12 @@ export const metadata: Metadata = {
 export default async function DashboardPage() {
   const user = await requireOnboardedUser();
 
-  const [guidance, weekly, activities] = await Promise.all([
+  const [guidance, weekly, activities, capabilities] = await Promise.all([
     getGuidance(user.id),
     getWeeklySummary(user.id),
     listRecentActivity(user.id, 6),
+    // Only the count is needed here — the profile is where the evidence lives.
+    getCapabilities(user.id),
   ]);
 
   const { state, next, tracks, plan } = guidance;
@@ -142,7 +146,17 @@ export default async function DashboardPage() {
             <RecentActivity activities={activities} />
           </div>
 
-          <div className="mt-4">
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <ProfileSummary
+              capabilities={
+                capabilities.filter((capability) => capability.level !== null).length
+              }
+              projects={state.projects.completed}
+              problemsSolved={state.practice.solved}
+              gitPercent={state.progress.git}
+              aiPercent={state.progress.ai}
+              careerName={career?.name ?? null}
+            />
             <MentorCard available={ai.configured} />
           </div>
 

@@ -22,6 +22,10 @@ const PROTECTED_PREFIXES = [
   "/academy",
   "/github",
   "/mentor",
+  // The learner's own profile. /u/<username> is deliberately NOT here: a public
+  // profile has to render for somebody with no account, and its own query
+  // refuses anything that is not explicitly published.
+  "/profile",
 ];
 const AUTH_PAGES = ["/login", "/signup"];
 

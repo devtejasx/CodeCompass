@@ -7,6 +7,7 @@ import {
   Hammer,
   ListChecks,
   Sparkles,
+  UserRound,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -244,6 +245,73 @@ export function RecentActivity({ activities }: { activities: ActivityItem[] }) {
           );
         })}
       </ul>
+    </section>
+  );
+}
+
+/**
+ * A compact link into the Techie Profile.
+ *
+ * Five numbers and a link, deliberately. The profile itself is where evidence
+ * belongs; repeating it here would turn the dashboard into the analytics page
+ * it is explicitly not supposed to be.
+ */
+export function ProfileSummary({
+  capabilities,
+  projects,
+  problemsSolved,
+  gitPercent,
+  aiPercent,
+  careerName,
+}: {
+  capabilities: number;
+  projects: number;
+  problemsSolved: number;
+  gitPercent: number;
+  aiPercent: number;
+  careerName: string | null;
+}) {
+  const stats = [
+    { label: "Skills", value: `${capabilities}` },
+    { label: "Projects", value: `${projects}` },
+    { label: "Practice", value: `${problemsSolved}` },
+    { label: "Git", value: `${gitPercent}%` },
+    { label: "AI", value: `${aiPercent}%` },
+  ];
+
+  return (
+    <section aria-labelledby="profile-summary-heading" className="surface rounded-xl p-6">
+      <h2
+        id="profile-summary-heading"
+        className="flex items-center gap-2 text-xs font-medium uppercase tracking-label text-subtle-foreground"
+      >
+        <UserRound className="size-3.5 text-indigo-400" aria-hidden />
+        Your Techie Profile
+      </h2>
+
+      {careerName ? (
+        <p className="mt-3 text-sm text-muted-foreground">{careerName}</p>
+      ) : null}
+
+      <dl className="mt-4 flex flex-wrap gap-x-8 gap-y-3">
+        {stats.map((stat) => (
+          <div key={stat.label}>
+            <dt className="text-xs text-subtle-foreground">{stat.label}</dt>
+            <dd className="mt-0.5 font-mono text-lg font-medium text-foreground">
+              {stat.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      <div className="mt-5">
+        <Button variant="secondary" size="sm" asChild>
+          <Link href="/profile">
+            View profile
+            <ArrowRight aria-hidden />
+          </Link>
+        </Button>
+      </div>
     </section>
   );
 }
