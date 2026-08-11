@@ -1,9 +1,8 @@
 // CodeCompass schema.
 //
 // Grown one phase at a time: auth + onboarding (2), career explorer (3),
-// roadmap engine (4), learning system (5), coding practice (6). Project,
-// AITool and the Git/GitHub academy belong to later phases and are NOT
-// modelled here.
+// roadmap engine (4), learning system (5), coding practice (6), projects (7),
+// Git & GitHub (8) and the AI Tools Academy (9).
 //
 // Sessions are JWTs, which is what Auth.js requires for the Credentials
 // provider, so there is no Session table to store. Adding an OAuth provider in
@@ -100,6 +99,10 @@ model User {
   /// Git & GitHub (Phase 8).
   githubConnection GitHubConnection?
   gitExercises     UserGitExercise[]
+
+  /// AI Tools Academy (Phase 9).
+  aiToolProgress     UserAIToolProgress[]
+  aiWorkflowProgress UserAIWorkflowProgress[]
 
   @@map("users")
 }
@@ -210,6 +213,11 @@ model Career {
   /// Every roadmap version authored for this career. Not every career has one
   /// yet — the explorer ships 20 careers, Phase 4 ships 3 roadmaps.
   roadmaps Roadmap[]
+
+  /// AI tools worth learning on this path (Phase 9). A relation rather than a
+  /// hardcoded map in a component, so the recommendations can change with the
+  /// tooling landscape without a frontend edit.
+  aiTools CareerAITool[]
 
   /// Controls catalog ordering without relying on insertion order.
   sortOrder Int @default(0)
@@ -403,6 +411,11 @@ model Topic {
 
   /// Projects that build on this topic (Phase 7).
   projects ProjectConcept[]
+
+  /// Steps in an AI tool's learning path that teach this topic (Phase 9).
+  /// The AI Academy authors its curriculum as ordinary Topics, so a tool's
+  /// path is an ordering over existing content rather than a second library.
+  aiToolLessons AIToolLesson[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1307,4 +1320,494 @@ model UserGitExercise {
   @@unique([userId, exerciseSlug])
   @@index([userId, status])
   @@map("user_git_exercises")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI Tools Academy (Phase 9)
+//
+//   AIToolCategory → AITool → AIToolCapability
+//                           → AIToolUseCase
+//                           → AIToolResource
+//                           → AIToolLearningPath → AIToolLesson → Topic
+//                           → CareerAITool → Career
+//
+//   AIWorkflow → AIWorkflowStep
+//              → AIWorkflowPrompt
+//              → AIWorkflowTool → AITool
+//
+// Two decisions run through this whole block.
+//
+// First: AI tools change faster than anything else CodeCompass teaches. Every
+// name, URL, capability and limitation is a database row, so a tool being
+// renamed, deprecated or gaining a feature is a seed change — never a React
+// change. `status` and `lastVerifiedAt` exist so an out-of-date record can say
+// so rather than quietly lie.
+//
+// Second: the *teaching* is not modelled here. AI lessons are Topics in an
+// ACADEMY Roadmap, exactly like the Git Academy, so they reuse Lesson,
+// LessonSection, KnowledgeCheck, Resource and UserTopicProgress unchanged.
+// AIToolLesson is therefore a pointer at a Topic with a per-tool ordering, not
+// a second copy of the lesson system. UserAIToolProgress records tool-level
+// intent and a percentage derived from those topics.
+//
+// Nothing in this phase calls a model API. No key is read, no request is made:
+// the Academy teaches about these tools, it does not embed them.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A tool's lifecycle, so a record that is no longer current can be kept and
+/// labelled rather than deleted. DEPRECATED covers renamed and discontinued
+/// products alike — see AITool.supersededBySlug for where a learner should go.
+enum AIToolStatus {
+  ACTIVE
+  BETA
+  DEPRECATED
+}
+
+/// What someone is actually trying to do. This is the vocabulary shared by the
+/// use-case filter, the decision helper and the career recommendations, which
+/// is why it is an enum rather than free text: three features agreeing on the
+/// same words is the whole point.
+enum AIUseCase {
+  WRITE_CODE
+  UNDERSTAND_CODE
+  DEBUG
+  TEST
+  DOCUMENT
+  REFACTOR
+  RESEARCH
+  LEARN
+  DESIGN_UI
+  BUILD_APP
+  AUTOMATE
+  BUILD_WITH_AI
+  ANALYSE_DATA
+  ARCHITECTURE
+}
+
+/// Where the tool is used. The decision helper's second question ("which
+/// environment?") is answered against exactly this list.
+enum AIToolEnvironment {
+  /// Runs inside a code editor.
+  IDE
+  /// Used in a browser tab.
+  BROWSER
+  /// A command-line program.
+  TERMINAL
+  /// Called from your own code.
+  API
+  /// A hosted platform you build inside.
+  PLATFORM
+}
+
+enum AIWorkflowCategory {
+  DEBUGGING
+  LEARNING
+  UNDERSTANDING
+  TESTING
+  DOCUMENTATION
+  REFACTORING
+  RESEARCH
+  ARCHITECTURE
+  PLANNING
+  REVIEW
+}
+
+enum AIToolProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+/// Deliberately few. A taxonomy a learner cannot hold in their head is not a
+/// taxonomy, it is a tag cloud.
+model AIToolCategory {
+  id   String @id @default(cuid())
+  slug String @unique
+  name String
+
+  description String
+  /// Lucide icon name, resolved through a registry at render time.
+  icon        String @default("Sparkles")
+
+  order Int @default(0)
+
+  tools AITool[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ai_tool_categories")
+}
+
+model AITool {
+  id   String @id @default(cuid())
+  slug String @unique
+  name String
+
+  /// One line for the card.
+  description     String
+  /// A paragraph for the detail hero.
+  longDescription String
+
+  /// Section 1 of the detail page: what the tool actually does, in plain
+  /// language. Kept separate from longDescription because "what is it" and
+  /// "how would you describe it in a sentence" are different jobs.
+  whatItIs String
+
+  /// Sections 2, 3 and 5. Plain string arrays for the same reason Career's
+  /// narrative lists are: nothing joins on them, so promoting them to tables
+  /// would be structure without a payoff.
+  whenToUse    String[]
+  whenNotToUse String[]
+  limitations  String[]
+
+  /// Section 6 — how developers actually use it, in prose.
+  howDevelopersUseIt String
+
+  /// Never invented. Both are checked by the seed validator, which rejects
+  /// anything that is not an https URL.
+  officialUrl String
+  docsUrl     String?
+
+  categoryId String
+  category   AIToolCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  status     AIToolStatus     @default(ACTIVE)
+  difficulty CareerDifficulty @default(BEGINNER)
+
+  /// The one thing to say if you only get one line: "AI-assisted development".
+  primaryUse String
+
+  environments AIToolEnvironment[]
+
+  /// Lucide icon name. Tool logos are deliberately NOT downloaded: brand assets
+  /// have licences, and a wrong or invented logo is worse than a clean glyph.
+  iconIdentifier String @default("Sparkles")
+
+  /// When a human last checked this record against the official source, and
+  /// what they checked it against. Null means "never verified" — which is
+  /// exactly what should be shown, rather than a comforting fake date.
+  lastVerifiedAt     DateTime?
+  verificationSource String?
+
+  /// Where a learner should go instead, for a tool that was renamed or
+  /// discontinued. A slug rather than a relation: the successor may not be in
+  /// the catalog, and a dangling foreign key would be worse than a dead link
+  /// the UI can simply not render.
+  supersededBySlug String?
+  /// One sentence explaining the DEPRECATED status, shown wherever the badge is.
+  statusNote       String?
+
+  sortOrder Int @default(0)
+
+  capabilities  AIToolCapability[]
+  useCases      AIToolUseCase[]
+  resources     AIToolResource[]
+  learningPaths AIToolLearningPath[]
+  careers       CareerAITool[]
+  workflows     AIWorkflowTool[]
+
+  progress UserAIToolProgress[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([status])
+  @@index([difficulty])
+  @@map("ai_tools")
+}
+
+/// One verified capability. A row exists only when the capability was confirmed
+/// against the tool's own documentation — the comparison table reads these
+/// directly, so an unchecked claim here becomes a claim CodeCompass makes.
+model AIToolCapability {
+  id     String @id @default(cuid())
+  toolId String
+  tool   AITool @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  capability String
+  /// What it means for someone who has not used the tool.
+  detail     String?
+  order      Int
+
+  @@unique([toolId, order])
+  @@index([toolId])
+  @@map("ai_tool_capabilities")
+}
+
+/// Connects a tool to a thing a person is trying to do. Powers the use-case
+/// filter and the decision helper, and carries the sentence that explains the
+/// match so a recommendation is never an unexplained list.
+model AIToolUseCase {
+  id     String @id @default(cuid())
+  toolId String
+  tool   AITool @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  useCase AIUseCase
+  /// Why this tool suits this job.
+  note    String
+  order   Int
+
+  @@unique([toolId, useCase])
+  @@index([useCase])
+  @@map("ai_tool_use_cases")
+}
+
+/// Curated official links. Never scraped, never embedded — shown with their
+/// source and opened in a new tab, exactly like lesson and project resources.
+model AIToolResource {
+  id     String @id @default(cuid())
+  toolId String
+  tool   AITool @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  title       String
+  url         String
+  type        ResourceType @default(DOCUMENTATION)
+  description String?
+  /// Shown to the reader so they know where a link goes before clicking.
+  source      String
+  order       Int
+
+  @@unique([toolId, order])
+  @@index([toolId])
+  @@map("ai_tool_resources")
+}
+
+/// The ordered curriculum for one tool.
+///
+/// Every tool gets its own path rather than a shared template: what a learner
+/// needs from an AI coding assistant is not what they need from an automation
+/// platform, and pretending otherwise would be filler.
+model AIToolLearningPath {
+  id     String @id @default(cuid())
+  toolId String
+  tool   AITool @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  slug        String @unique
+  title       String
+  description String
+
+  difficulty    CareerDifficulty @default(BEGINNER)
+  /// Display string ("2–3 hours"), mirroring every other estimate in this schema.
+  estimatedTime String
+
+  order Int @default(0)
+
+  lessons AIToolLesson[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([toolId])
+  @@map("ai_tool_learning_paths")
+}
+
+/// One level in a tool's path.
+///
+/// `topicId` is what makes this a pointer rather than a parallel content
+/// system: the teaching lives in a Topic and its Lesson, so completion is
+/// ordinary UserTopicProgress and a learner who studies "Debugging with AI"
+/// once has studied it for every tool whose path includes it. Nullable so a
+/// level can be authored before its lesson exists, in which case the UI says
+/// "coming soon" rather than linking nowhere.
+model AIToolLesson {
+  id             String             @id @default(cuid())
+  learningPathId String
+  learningPath   AIToolLearningPath @relation(fields: [learningPathId], references: [id], onDelete: Cascade)
+
+  title         String
+  description   String
+  order         Int
+  /// Display string ("25 minutes").
+  estimatedTime String
+
+  topicId String?
+  topic   Topic?  @relation(fields: [topicId], references: [id], onDelete: SetNull)
+
+  @@unique([learningPathId, order])
+  @@index([learningPathId])
+  @@index([topicId])
+  @@map("ai_tool_lessons")
+}
+
+/// Career → tool → use case.
+///
+/// The relationship the recommendations are built from. Storing *why* alongside
+/// the edge is what lets the explorer say "recommended for Frontend Developer
+/// because…" instead of showing an unexplained list of logos.
+model CareerAITool {
+  careerId String
+  toolId   String
+
+  career Career @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  tool   AITool @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  /// The job this tool does on this path.
+  useCase AIUseCase
+  /// One sentence, shown on the recommendation card.
+  reason  String
+
+  sortOrder Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@id([careerId, toolId])
+  @@index([toolId])
+  @@map("career_ai_tools")
+}
+
+/// A repeatable way of working with AI on a real development task.
+///
+/// The point of the library is that AI is a step *inside* a process the
+/// developer owns — which is why every workflow has to declare what to verify
+/// and what usually goes wrong, not just a list of steps.
+model AIWorkflow {
+  id   String @id @default(cuid())
+  slug String @unique
+
+  title   String
+  /// What you are trying to achieve, in one sentence.
+  goal    String
+  /// A short paragraph of context.
+  summary String
+
+  category      AIWorkflowCategory
+  difficulty    CareerDifficulty   @default(BEGINNER)
+  /// Display string ("15 minutes").
+  estimatedTime String
+
+  /// How to check the AI did not lead you astray, and the mistakes this
+  /// workflow exists to prevent. Both required by the seed validator: a
+  /// workflow without them teaches copy-and-paste.
+  whatToVerify   String[]
+  commonMistakes String[]
+
+  sortOrder Int @default(0)
+
+  steps   AIWorkflowStep[]
+  prompts AIWorkflowPrompt[]
+  tools   AIWorkflowTool[]
+
+  progress UserAIWorkflowProgress[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@map("ai_workflows")
+}
+
+model AIWorkflowStep {
+  id         String     @id @default(cuid())
+  workflowId String
+  workflow   AIWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  title  String
+  detail String
+  order  Int
+
+  /// True for the steps the human does, false for the one where AI is asked.
+  /// Rendered as a label so the division of labour is visible at a glance
+  /// rather than implied by the prose.
+  isHumanStep Boolean @default(true)
+
+  @@unique([workflowId, order])
+  @@index([workflowId])
+  @@map("ai_workflow_steps")
+}
+
+/// A worked prompt, broken into its parts.
+///
+/// Split into goal/context/request rather than stored as one blob on purpose:
+/// the teaching is the *structure*, and a learner who copies a magic string has
+/// learned nothing they can reuse on their own problem.
+model AIWorkflowPrompt {
+  id         String     @id @default(cuid())
+  workflowId String
+  workflow   AIWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  label   String
+  goal    String
+  context String
+  request String
+
+  /// The part that matters: why this prompt works better than "fix my code".
+  whyItWorks String
+
+  order Int
+
+  @@unique([workflowId, order])
+  @@index([workflowId])
+  @@map("ai_workflow_prompts")
+}
+
+/// Which tools this workflow is realistic with. Not an endorsement and not
+/// exclusive — a workflow usually works with several.
+model AIWorkflowTool {
+  workflowId String
+  toolId     String
+
+  workflow AIWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  tool     AITool     @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  sortOrder Int @default(0)
+
+  @@id([workflowId, toolId])
+  @@index([toolId])
+  @@map("ai_workflow_tools")
+}
+
+/// One learner's progress through one tool's curriculum.
+///
+/// `percentComplete` is derived from the UserTopicProgress rows behind the
+/// path's lessons and is rewritten by lib/ai-tools/progress on every change, so
+/// the two can never disagree: the topics are the source of truth and this row
+/// is a maintained projection, kept so the dashboard can read one table.
+///
+/// User-owned. Every read and write is scoped by the session user id.
+model UserAIToolProgress {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  toolId String
+  tool   AITool @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  status          AIToolProgressStatus @default(NOT_STARTED)
+  percentComplete Int                  @default(0)
+
+  startedAt      DateTime?
+  completedAt    DateTime?
+  lastAccessedAt DateTime  @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, toolId])
+  @@index([userId, status])
+  @@index([toolId])
+  @@map("user_ai_tool_progress")
+}
+
+/// A learner marking a workflow as one they have actually used.
+///
+/// Self-reported, exactly like a project's self-evaluation: CodeCompass cannot
+/// watch someone debug, and the UI never claims it verified anything.
+model UserAIWorkflowProgress {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  workflowId String
+  workflow   AIWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  completedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, workflowId])
+  @@index([userId])
+  @@map("user_ai_workflow_progress")
 }
