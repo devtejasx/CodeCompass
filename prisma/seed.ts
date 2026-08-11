@@ -14,6 +14,15 @@ import { renderSource, renderStarter } from "./seed/problems/starter";
 import type { SeedLanguage } from "./seed/problems/types";
 import { PROJECTS } from "./seed/projects";
 import { assertValidProjects } from "./seed/projects/validate";
+import {
+  AI_ACADEMY_LESSONS,
+  AI_ACADEMY_ROADMAPS,
+  AI_CATEGORIES,
+  AI_TOOLS,
+  AI_WORKFLOWS,
+  CAREER_AI_TOOLS,
+} from "./seed/ai";
+import { assertValidAIContent } from "./seed/ai/validate";
 
 /**
  * Seeds the career catalog.
@@ -136,6 +145,9 @@ async function main() {
   await seedLessons();
   await seedProblems();
   await seedProjects();
+  // Last: the AI tool catalog links its learning paths to topics, so every
+  // roadmap must already exist.
+  await seedAITools();
 
   const [careers, roadmaps, phases, topics, lessons, sections, checks] =
     await Promise.all([
@@ -176,6 +188,308 @@ async function main() {
     `Seeded ${projects} projects, ${requirements} requirements, ` +
       `${milestones} milestones, ${projectConcepts} project→topic links.`,
   );
+
+  const [aiCategories, aiTools, aiPaths, aiPathLessons, aiWorkflows, careerLinks] =
+    await Promise.all([
+      db.aIToolCategory.count(),
+      db.aITool.count(),
+      db.aIToolLearningPath.count(),
+      db.aIToolLesson.count(),
+      db.aIWorkflow.count(),
+      db.careerAITool.count(),
+    ]);
+
+  console.log(
+    `Seeded ${aiCategories} AI categories, ${aiTools} AI tools, ` +
+      `${aiPaths} learning paths, ${aiPathLessons} path lessons, ` +
+      `${aiWorkflows} workflows, ${careerLinks} career→tool links.`,
+  );
+}
+
+/**
+ * Replaces the AI tool catalog wholesale.
+ *
+ * Same reasoning as every other content seeder: capabilities, use cases,
+ * resources and path lessons derive their `order` from array position, so a
+ * reordering has to be able to drop the old rows or the unique constraints
+ * would fight it.
+ *
+ * The AITool row itself is upserted rather than deleted, so learner progress
+ * survives a content edit — UserAIToolProgress cascades from AITool, and
+ * wiping somebody's progress because a limitation was reworded would be
+ * indefensible. Learning paths *are* replaced, which is deliberate: a path is
+ * an ordering, and progress lives on the Topic behind each step rather than on
+ * the step, so re-seeding a path loses nothing a learner did.
+ *
+ * A tool removed from the catalog does lose its progress rows, which is
+ * correct — but the intended way to retire a tool is `status: "DEPRECATED"`
+ * with a successor, not deletion. See seed/ai/tools-coding.ts for the worked
+ * example.
+ */
+async function seedAITools() {
+  assertValidAIContent({
+    categories: AI_CATEGORIES,
+    tools: AI_TOOLS,
+    workflows: AI_WORKFLOWS,
+    careerTools: CAREER_AI_TOOLS,
+  });
+
+  // ── Categories ──────────────────────────────────────────────────────────
+  for (const [index, category] of AI_CATEGORIES.entries()) {
+    const data = {
+      name: category.name,
+      description: category.description,
+      icon: category.icon,
+      order: index,
+    };
+
+    await db.aIToolCategory.upsert({
+      where: { slug: category.slug },
+      create: { slug: category.slug, ...data },
+      update: data,
+    });
+  }
+
+  // ── Tools ───────────────────────────────────────────────────────────────
+  for (const [index, tool] of AI_TOOLS.entries()) {
+    const category = await db.aIToolCategory.findUniqueOrThrow({
+      where: { slug: tool.categorySlug },
+      select: { id: true },
+    });
+
+    const existing = await db.aITool.findUnique({
+      where: { slug: tool.slug },
+      select: { id: true },
+    });
+
+    if (existing) {
+      await db.aIToolCapability.deleteMany({ where: { toolId: existing.id } });
+      await db.aIToolUseCase.deleteMany({ where: { toolId: existing.id } });
+      await db.aIToolResource.deleteMany({ where: { toolId: existing.id } });
+      await db.aIToolLearningPath.deleteMany({ where: { toolId: existing.id } });
+      await db.careerAITool.deleteMany({ where: { toolId: existing.id } });
+      await db.aIWorkflowTool.deleteMany({ where: { toolId: existing.id } });
+    }
+
+    const data = {
+      name: tool.name,
+      description: tool.description,
+      longDescription: tool.longDescription,
+      whatItIs: tool.whatItIs,
+      whenToUse: tool.whenToUse,
+      whenNotToUse: tool.whenNotToUse,
+      limitations: tool.limitations,
+      howDevelopersUseIt: tool.howDevelopersUseIt,
+      officialUrl: tool.officialUrl,
+      docsUrl: tool.docsUrl ?? null,
+      categoryId: category.id,
+      status: tool.status ?? ("ACTIVE" as const),
+      difficulty: tool.difficulty,
+      primaryUse: tool.primaryUse,
+      environments: tool.environments,
+      iconIdentifier: tool.icon,
+      // Parsed from the authored ISO date rather than `new Date()`: this
+      // records when a human checked the record, not when the seed last ran.
+      lastVerifiedAt: new Date(`${tool.verifiedOn}T00:00:00.000Z`),
+      verificationSource: tool.verificationSource,
+      supersededBySlug: tool.supersededBySlug ?? null,
+      statusNote: tool.statusNote ?? null,
+      sortOrder: index,
+    };
+
+    const row = await db.aITool.upsert({
+      where: { slug: tool.slug },
+      create: { slug: tool.slug, ...data },
+      update: data,
+      select: { id: true },
+    });
+
+    for (const [order, capability] of tool.capabilities.entries()) {
+      await db.aIToolCapability.create({
+        data: {
+          toolId: row.id,
+          capability: capability.capability,
+          detail: capability.detail ?? null,
+          order: order + 1,
+        },
+      });
+    }
+
+    for (const [order, useCase] of tool.useCases.entries()) {
+      await db.aIToolUseCase.create({
+        data: {
+          toolId: row.id,
+          useCase: useCase.useCase,
+          note: useCase.note,
+          order: order + 1,
+        },
+      });
+    }
+
+    for (const [order, resource] of tool.resources.entries()) {
+      await db.aIToolResource.create({
+        data: {
+          toolId: row.id,
+          title: resource.title,
+          url: resource.url,
+          type: resource.type,
+          description: resource.description ?? null,
+          source: resource.source,
+          order: order + 1,
+        },
+      });
+    }
+
+    const path = tool.learningPath;
+    const createdPath = await db.aIToolLearningPath.create({
+      data: {
+        toolId: row.id,
+        slug: path.slug,
+        title: path.title,
+        description: path.description,
+        difficulty: path.difficulty,
+        estimatedTime: path.estimatedTime,
+        order: 0,
+      },
+      select: { id: true },
+    });
+
+    for (const [order, lesson] of path.lessons.entries()) {
+      let topicId: string | null = null;
+
+      if (lesson.topicSlug) {
+        const topic = await db.topic.findUnique({
+          where: { slug: lesson.topicSlug },
+          select: { id: true },
+        });
+
+        // A typo here would silently produce a path step that teaches nothing.
+        if (!topic) {
+          throw new Error(
+            `AI tool "${tool.slug}" path step "${lesson.title}" targets topic "${lesson.topicSlug}", which is not in any roadmap.`,
+          );
+        }
+
+        topicId = topic.id;
+      }
+
+      await db.aIToolLesson.create({
+        data: {
+          learningPathId: createdPath.id,
+          title: lesson.title,
+          description: lesson.description,
+          estimatedTime: lesson.estimatedTime,
+          topicId,
+          order: order + 1,
+        },
+      });
+    }
+  }
+
+  // ── Workflows ───────────────────────────────────────────────────────────
+  for (const [index, workflow] of AI_WORKFLOWS.entries()) {
+    const existing = await db.aIWorkflow.findUnique({
+      where: { slug: workflow.slug },
+      select: { id: true },
+    });
+
+    if (existing) {
+      await db.aIWorkflowStep.deleteMany({ where: { workflowId: existing.id } });
+      await db.aIWorkflowPrompt.deleteMany({ where: { workflowId: existing.id } });
+      await db.aIWorkflowTool.deleteMany({ where: { workflowId: existing.id } });
+    }
+
+    const data = {
+      title: workflow.title,
+      goal: workflow.goal,
+      summary: workflow.summary,
+      category: workflow.category,
+      difficulty: workflow.difficulty,
+      estimatedTime: workflow.estimatedTime,
+      whatToVerify: workflow.whatToVerify,
+      commonMistakes: workflow.commonMistakes,
+      sortOrder: index,
+    };
+
+    const row = await db.aIWorkflow.upsert({
+      where: { slug: workflow.slug },
+      create: { slug: workflow.slug, ...data },
+      update: data,
+      select: { id: true },
+    });
+
+    for (const [order, step] of workflow.steps.entries()) {
+      await db.aIWorkflowStep.create({
+        data: {
+          workflowId: row.id,
+          title: step.title,
+          detail: step.detail,
+          isHumanStep: step.isHumanStep ?? true,
+          order: order + 1,
+        },
+      });
+    }
+
+    for (const [order, prompt] of workflow.prompts.entries()) {
+      await db.aIWorkflowPrompt.create({
+        data: {
+          workflowId: row.id,
+          label: prompt.label,
+          goal: prompt.goal,
+          context: prompt.context,
+          request: prompt.request,
+          whyItWorks: prompt.whyItWorks,
+          order: order + 1,
+        },
+      });
+    }
+
+    for (const [order, toolSlug] of workflow.toolSlugs.entries()) {
+      const tool = await db.aITool.findUniqueOrThrow({
+        where: { slug: toolSlug },
+        select: { id: true },
+      });
+
+      await db.aIWorkflowTool.create({
+        data: { workflowId: row.id, toolId: tool.id, sortOrder: order },
+      });
+    }
+  }
+
+  // ── Career recommendations ──────────────────────────────────────────────
+  for (const entry of CAREER_AI_TOOLS) {
+    const career = await db.career.findUnique({
+      where: { slug: entry.careerSlug },
+      select: { id: true },
+    });
+
+    // A typo in careerSlug would silently drop the whole set of
+    // recommendations for that path.
+    if (!career) {
+      throw new Error(
+        `AI tool recommendations target career "${entry.careerSlug}", which is not in the catalog.`,
+      );
+    }
+
+    await db.careerAITool.deleteMany({ where: { careerId: career.id } });
+
+    for (const [order, link] of entry.tools.entries()) {
+      const tool = await db.aITool.findUniqueOrThrow({
+        where: { slug: link.toolSlug },
+        select: { id: true },
+      });
+
+      await db.careerAITool.create({
+        data: {
+          careerId: career.id,
+          toolId: tool.id,
+          useCase: link.useCase,
+          reason: link.reason,
+          sortOrder: order,
+        },
+      });
+    }
+  }
 }
 
 /**
@@ -461,7 +775,7 @@ async function seedProblems() {
  * authored, and noted in the README as debt.
  */
 async function seedLessons() {
-  const all = [...LESSONS, ...ACADEMY_LESSONS];
+  const all = [...LESSONS, ...ACADEMY_LESSONS, ...AI_ACADEMY_LESSONS];
   assertValidLessons(all);
 
   for (const lesson of all) {
@@ -553,7 +867,7 @@ async function seedLessons() {
  * delete. User data is never touched — profiles reference Career, not Roadmap.
  */
 async function seedRoadmaps() {
-  const all = [...ROADMAPS, ...ACADEMY_ROADMAPS];
+  const all = [...ROADMAPS, ...ACADEMY_ROADMAPS, ...AI_ACADEMY_ROADMAPS];
   assertValidRoadmaps(all);
 
   for (const roadmap of all) {
