@@ -2,7 +2,7 @@
 //
 // Grown one phase at a time: auth + onboarding (2), career explorer (3),
 // roadmap engine (4), learning system (5), coding practice (6), projects (7),
-// Git & GitHub (8) and the AI Tools Academy (9).
+// Git & GitHub (8), the AI Tools Academy (9) and personalization (10).
 //
 // Sessions are JWTs, which is what Auth.js requires for the Credentials
 // provider, so there is no Session table to store. Adding an OAuth provider in
@@ -104,6 +104,11 @@ model User {
   aiToolProgress     UserAIToolProgress[]
   aiWorkflowProgress UserAIWorkflowProgress[]
 
+  /// Personalization & AI guidance (Phase 10).
+  activities    UserActivity[]
+  conversations MentorConversation[]
+  aiUsage       AIUsage[]
+
   @@map("users")
 }
 
@@ -133,6 +138,10 @@ model Profile {
   /// nothing writes this yet. Kept nullable so a later step can fill it in
   /// without a destructive migration.
   primaryGoal String?
+
+  /// How much help the AI mentor gives on a problem the learner is actively
+  /// solving (Phase 10). Defaults to the conservative setting.
+  mentorSolutionPolicy MentorSolutionPolicy @default(HINTS_ONLY)
 
   onboardingCompleted Boolean @default(false)
 
@@ -1810,4 +1819,175 @@ model UserAIWorkflowProgress {
   @@unique([userId, workflowId])
   @@index([userId])
   @@map("user_ai_workflow_progress")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Personalization & AI Guidance (Phase 10)
+//
+//   UserActivity                    — what happened, for summaries and recency
+//   MentorConversation → MentorMessage — the AI mentor's stored chats
+//   AIUsage                         — one row per AI call, for rate limiting
+//
+// The important thing about this block is how little of it there is.
+//
+// A "learner profile" is NOT modelled. Everything Phase 10 needs to know — the
+// chosen career, completed topics, problems solved, projects built, Git and AI
+// progress — is already recorded by Phases 3 to 9, and duplicating it into a
+// summary table would create a second source of truth that silently drifts.
+// LearnerState is therefore *derived* on read (see lib/personalization/state),
+// and recommendations are computed from it rather than stored.
+//
+// UserActivity is the one genuinely new fact: the existing tables record that
+// something IS complete, not WHEN each thing happened in sequence. A weekly
+// summary and a recent-activity feed need the sequence, and reconstructing it
+// from a dozen timestamp columns across six tables would be both slow and
+// fragile.
+//
+// Nothing here stores a recommendation. Recommendations are a pure function of
+// state, so caching one would mean deciding when it goes stale — and the whole
+// point is that finishing a lesson changes the answer immediately.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// What a learner did. Deliberately a closed set: an open string would become a
+/// dumping ground, and every value here has to earn a place in either the
+/// weekly summary or the activity feed.
+enum ActivityType {
+  CAREER_SELECTED
+  LESSON_STARTED
+  LESSON_COMPLETED
+  PROBLEM_ATTEMPTED
+  PROBLEM_SOLVED
+  PROJECT_STARTED
+  PROJECT_MILESTONE_COMPLETED
+  PROJECT_COMPLETED
+  GIT_EXERCISE_COMPLETED
+  AI_TOOL_STARTED
+  AI_WORKFLOW_COMPLETED
+}
+
+/// One thing a learner did, at a point in time.
+///
+/// `label` is a display string captured when the event happened — the topic
+/// title, the problem name — so the feed renders without joining to six tables
+/// and still reads correctly if content is later renamed.
+///
+/// There is deliberately no free-form `metadata` blob. A JSON column invites
+/// storing whatever is to hand, which is how activity logs quietly become the
+/// most sensitive table in an application. Everything worth knowing here is the
+/// type, the thing, and when.
+model UserActivity {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type ActivityType
+
+  /// The topic, problem, project or tool this refers to. Not a foreign key:
+  /// activity is a historical record, and it should survive its subject being
+  /// removed from the catalog rather than cascade away with it.
+  entityId   String?
+  /// Slug for linking, where the subject has a page.
+  entitySlug String?
+  /// Human-readable, captured at the time.
+  label      String
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, type, createdAt])
+  @@map("user_activities")
+}
+
+/// How much help the mentor gives on a problem the learner is actively solving.
+///
+/// Configurable because the right answer genuinely differs: somebody working
+/// through their first loops is served by a hint, and somebody unblocking a
+/// side project at midnight is not. The default is the conservative one.
+enum MentorSolutionPolicy {
+  /// Concepts, approaches and progressively stronger hints. Never the answer.
+  HINTS_ONLY
+  /// Full solutions on request, after the learner has attempted the problem.
+  ALLOW_SOLUTIONS
+}
+
+model MentorConversation {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Derived from the first message, for the conversation list.
+  title String?
+
+  messages MentorMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, updatedAt])
+  @@map("mentor_conversations")
+}
+
+enum MentorRole {
+  USER
+  ASSISTANT
+}
+
+/// One turn.
+///
+/// Only the role and the text. No token counts, no model name, no provider
+/// metadata and no request ids — those belong to AIUsage, which is queried for
+/// rate limiting and never rendered. Keeping them apart means the table that
+/// feeds a page holds nothing but the conversation.
+model MentorMessage {
+  id             String             @id @default(cuid())
+  conversationId String
+  conversation   MentorConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  role    MentorRole
+  content String
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+  @@map("mentor_messages")
+}
+
+enum AIRequestKind {
+  MENTOR
+  GUIDANCE
+  EXPLANATION
+  STUDY_PLAN
+}
+
+/// One AI call, for rate limiting and cost visibility.
+///
+/// Counting rows in a time window is the whole rate limiter. That is slower
+/// than an in-memory counter and correct across restarts and multiple
+/// instances, which for a per-learner limit measured in requests per hour is
+/// the right trade.
+///
+/// Token counts are the provider's own figures where it reports them, and an
+/// estimate otherwise — the column name says which. Nothing from the prompt or
+/// the response is stored here.
+model AIUsage {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  kind     AIRequestKind
+  /// Adapter name, e.g. "anthropic" or "mock". Never a key or an endpoint.
+  provider String
+  model    String
+
+  inputTokens  Int @default(0)
+  outputTokens Int @default(0)
+
+  /// False for a refusal, a timeout or a provider error. Failures are recorded
+  /// so a broken provider cannot be retried without limit.
+  ok Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("ai_usage")
 }
