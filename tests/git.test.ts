@@ -856,7 +856,7 @@ describe("GitHub service", () => {
     const mock = stubFetch(200, []);
     await new GitHubService("gho_header_token").listRepositories();
 
-    const [url, init] = mock.mock.calls[0] as [string, RequestInit];
+    const [url, init] = mock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).not.toContain("gho_header_token");
     expect((init.headers as Record<string, string>).authorization).toBe(
       "Bearer gho_header_token",
@@ -942,7 +942,7 @@ describe("GitHub service", () => {
     });
 
     const body = JSON.parse(
-      String((mock.mock.calls[0] as [string, RequestInit])[1].body),
+      String((mock.mock.calls[0] as unknown as [string, RequestInit])[1].body),
     );
     expect(body.private).toBe(true);
     expect(body.auto_init).toBe(true);
