@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Code2, Compass, Layers, Repeat2 } from "lucide-react";
+import { ArrowRight, Code2, Compass, Layers, Repeat2, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { LANGUAGE_LABEL } from "@/lib/onboarding/options";
@@ -11,12 +11,18 @@ interface RoadmapSidebarProps {
   progress: RoadmapProgress;
   /** From onboarding. Shown as context — Phase 4 has no language variants yet. */
   selectedLanguage: ProgrammingLanguage | null;
+  /**
+   * The AI tools curated for this career, if any (Phase 9). A career with no
+   * curated set simply omits the section rather than showing an empty one.
+   */
+  aiTools?: { slug: string; name: string }[];
 }
 
 export function RoadmapSidebar({
   careerName,
   progress,
   selectedLanguage,
+  aiTools = [],
 }: RoadmapSidebarProps) {
   return (
     <aside className="flex flex-col gap-4 lg:sticky lg:top-24 lg:self-start">
@@ -102,6 +108,49 @@ export function RoadmapSidebar({
           </div>
         ) : null}
       </section>
+
+      {/*
+        The AI Academy alongside the roadmap rather than inside it. Modern
+        development is part of this path, but the Academy is career-independent
+        and reachable on its own — so this is a signpost, not a phase.
+      */}
+      {aiTools.length > 0 ? (
+        <section aria-labelledby="ai-tools-heading" className="surface rounded-xl p-5">
+          <h2
+            id="ai-tools-heading"
+            className="text-xs font-medium uppercase tracking-label text-subtle-foreground"
+          >
+            AI tools on this path
+          </h2>
+
+          <p className="mt-2 flex items-start gap-2 text-sm leading-relaxed text-muted-foreground">
+            <Sparkles className="mt-0.5 size-4 shrink-0 text-indigo-400" aria-hidden />
+            Modern development includes knowing which AI tools help, and when they
+            do not.
+          </p>
+
+          <ul className="mt-3 flex flex-col gap-1.5">
+            {aiTools.slice(0, 4).map((tool) => (
+              <li key={tool.slug}>
+                <Link
+                  href={`/academy/ai-tools/${tool.slug}`}
+                  className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {tool.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+
+          <Link
+            href="/academy/ai-tools"
+            className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-indigo-300 transition-colors hover:text-indigo-200"
+          >
+            AI Tools Academy
+            <ArrowRight className="size-3.5" aria-hidden />
+          </Link>
+        </section>
+      ) : null}
 
       <Button variant="secondary" asChild>
         <Link href="/careers">

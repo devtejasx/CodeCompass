@@ -17,6 +17,7 @@ import { getProjectRecommendations, getProjectSummary } from "@/lib/projects/que
 import { getGitProgressSummary } from "@/lib/git/queries";
 import { getConnectionView } from "@/lib/github/connection";
 import { githubAvailability } from "@/lib/github/config";
+import { getAIProgressSummary } from "@/lib/ai-tools/queries";
 import {
   CAREER_LABEL,
   EXPERIENCE_LABEL,
@@ -90,7 +91,7 @@ export default async function DashboardPage() {
 
   // Practice, kept to two numbers and one next action. The dashboard is a
   // starting point, not a statistics page.
-  const [practice, recommended, projects, projectRecommendations, git, github] =
+  const [practice, recommended, projects, projectRecommendations, git, github, ai] =
     await Promise.all([
       getPracticeSummary(user.id),
       getRecommendedProblems(user.id, 1),
@@ -98,6 +99,7 @@ export default async function DashboardPage() {
       getProjectRecommendations(user.id, 1),
       getGitProgressSummary(user.id),
       getConnectionView(user.id),
+      getAIProgressSummary(user.id),
     ]);
 
   const githubConfigured = githubAvailability().configured;
@@ -490,6 +492,90 @@ export default async function DashboardPage() {
                 </Button>
               ) : null}
             </div>
+          </div>
+
+          {/* ── AI Tools ───────────────────────────────────────── */}
+          <div className="surface mt-4 rounded-xl p-6">
+            <h2 className="text-xs font-medium uppercase tracking-label text-subtle-foreground">
+              AI Tools
+            </h2>
+
+            <dl className="mt-4 flex flex-wrap gap-x-10 gap-y-3">
+              <div>
+                <dt className="text-xs text-subtle-foreground">Tools learned</dt>
+                <dd className="mt-0.5 font-mono text-2xl font-medium text-foreground">
+                  {ai.toolsLearned}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs text-subtle-foreground">Workflows completed</dt>
+                <dd className="mt-0.5 font-mono text-2xl font-medium text-foreground">
+                  {ai.workflowsCompleted}
+                </dd>
+              </div>
+            </dl>
+
+            {ai.current ? (
+              <>
+                <div className="mt-5">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm text-muted-foreground">
+                      Current ·{" "}
+                      <span className="font-medium text-foreground">
+                        {ai.current.name}
+                      </span>
+                    </span>
+                    <span className="font-mono text-sm text-foreground">
+                      {ai.current.percentComplete}%
+                    </span>
+                  </div>
+                  <div
+                    className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-raised"
+                    role="progressbar"
+                    aria-valuenow={ai.current.percentComplete}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label={`${ai.current.name} learning progress`}
+                  >
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{ width: `${ai.current.percentComplete}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <Button asChild>
+                    <Link href={`/academy/ai-tools/${ai.current.slug}`}>
+                      Continue Learning
+                      <ArrowRight aria-hidden />
+                    </Link>
+                  </Button>
+                  <Button variant="ghost" asChild>
+                    <Link href="/academy/ai-tools">All AI tools</Link>
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="mt-4 text-sm text-muted-foreground">
+                  {ai.toolsLearned > 0
+                    ? "Nothing in progress. Pick another tool, or try a workflow."
+                    : "Learn what today's AI tools do, when to use them — and when not to."}
+                </p>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <Button asChild>
+                    <Link href="/academy/ai-tools">
+                      {ai.toolsLearned > 0 ? "Browse AI tools" : "Start AI Tools"}
+                      <ArrowRight aria-hidden />
+                    </Link>
+                  </Button>
+                  <Button variant="ghost" asChild>
+                    <Link href="/academy/ai-tools/workflows">Workflows</Link>
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
 
           {!chosenCareer || !ChosenIcon ? (

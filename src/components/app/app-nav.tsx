@@ -9,6 +9,7 @@ import {
   Hammer,
   LayoutDashboard,
   Route,
+  Sparkles,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ const LINKS = [
   { href: "/practice", label: "Practice", icon: Code2 },
   { href: "/projects", label: "Projects", icon: Hammer },
   { href: "/academy/git", label: "Git & GitHub", icon: GitBranch },
+  { href: "/academy/ai-tools", label: "AI Tools", icon: Sparkles },
   { href: "/careers", label: "Explore Careers", icon: Compass },
 ];
 

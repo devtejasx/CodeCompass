@@ -24,7 +24,8 @@ The principle the whole product is built around:
 | 6 | Coding practice — problems, editor, submissions, progress | Complete\* |
 | 7 | Projects — catalog, milestones, submission, self-evaluation | Complete |
 | 8 | Git & GitHub Academy + GitHub integration | Complete |
-| 9 | AI Tools Academy | Not started |
+| 9 | AI Tools Academy — catalog, workflows, comparison, responsible use | Complete |
+| 10 | Progress + personalisation | Not started |
 
 \* The practice engine is complete. **Production code execution is not** — it
 ships with a development provider that returns clearly-labelled *simulated*
@@ -377,17 +378,82 @@ second progress system for the same kind of content would have been a liability.
   is a stronger guarantee than guarding it.
 - **Disconnecting never touches GitHub content**, and says so before asking.
 
+---
+
+## AI Tools Academy
+
+Twenty tools, a seventeen-lesson curriculum, ten developer workflows and a
+comparison that refuses to pick a winner. **No model API is called anywhere in
+this phase** — no key is read, no request is made. It teaches about these tools;
+it does not embed them.
+
+**The catalog is data, not components.** AI tooling changes faster than anything
+else CodeCompass teaches, so every name, URL, capability and limitation is a
+database row. During this phase alone, two of the twenty tools turned out to
+have been renamed — which is exactly the point.
+
+- **Nothing is deleted when a tool changes.** Windsurf is now presented by
+  Cognition as Devin Desktop; the Windsurf record is kept, marked `DEPRECATED`,
+  and points at its successor. Searching the old name finds both. Superseded
+  tools are excluded from every recommendation and from the decision helper, but
+  remain findable — the most likely reason you are searching a name is that you
+  saw it somewhere and want to know what happened to it.
+- **Every claim was checked against the vendor's own site or documentation**, and
+  each tool carries `lastVerifiedAt` and `verificationSource`. The detail page
+  prints the date. A record nobody has verified says "Not verified" rather than
+  showing a comforting fake date, and the seed validator rejects a tool without
+  an https source or an ISO date.
+- **"When should I not use it?" is required content**, sits above capabilities on
+  every page, and is enforced by the validator alongside a minimum of three
+  limitations. A catalog that lists what a tool can do before establishing when
+  it is the wrong choice is a brochure.
+
+**The curriculum is not modelled.** AI lessons are Topics in a second `ACADEMY`
+roadmap, exactly like Git, so they reuse Lesson, LessonSection, KnowledgeCheck
+and UserTopicProgress unchanged. `AIToolLesson` is a *pointer* at a Topic with a
+per-tool ordering — which is why finishing "Debugging with AI" once counts
+towards every tool whose path includes it, and why completing it from the
+roadmap, the topic page or a tool page all move the same numbers.
+`UserAIToolProgress` is a maintained projection of those topics, never an
+independent counter.
+
+- **Every tool gets its own path.** ChatGPT's is weighted towards learning and
+  verification; Cursor's towards reading and reviewing code; n8n's towards what
+  fails and who approves. A shared template would have been filler.
+- **The decision helper uses deterministic rules**, not a model call. The answer
+  is a lookup over relationships already stored, so it is reproducible, free,
+  explainable, and cannot invent a tool that does not exist. Where nothing
+  matches both answers it widens and *says* it widened.
+- **The comparison has no score, rank or winner column** — different tools do
+  overlapping jobs in different ways, and a verdict would be a claim CodeCompass
+  has no basis for. An empty cell reads "Not documented", never a bare dash.
+- **Workflows put AI inside a process the human owns.** Every step is labelled
+  "You" or "Ask AI"; across the library the human steps outnumber the AI steps,
+  and a test asserts it. Prompts are split into goal/context/request with an
+  explanation of *why* they work, because the structure is the teaching and a
+  magic string is not.
+- **Tool logos are not used.** Brand assets carry licences, and an approximated
+  logo misrepresents a company using its own identity — so tools render a
+  generic glyph with the name in text beside it.
+
 ## What is deliberately not built
 
 The following belong to later phases and are **not** implemented:
 
-AI Tools Academy · AI mentor · AI hints · AI code review · AI commit or pull
-request generation · AI project generation · AI APIs · GitHub Actions ·
-webhooks · issue management · anything that writes to a repository ·
-deployment automation · community · project marketplace · leaderboards · XP ·
-streaks · competitions · payments · freelancing · subscriptions · admin CMS ·
-job and resume features · interview preparation · cloud development
-environments · LeetCode/CodeChef/HackerRank synchronisation
+AI mentor · AI chatbot · AI hints · AI-generated lessons or roadmaps · AI code
+generation, execution or review inside CodeCompass · AI commit or pull request
+generation · AI project generation · autonomous agents · **any model API call
+at all** · adaptive personalisation · GitHub Actions · webhooks · issue
+management · anything that writes to a repository · deployment automation ·
+community · project marketplace · leaderboards · XP · streaks · competitions ·
+payments · freelancing · subscriptions · admin CMS · job and resume features ·
+interview preparation · cloud development environments ·
+LeetCode/CodeChef/HackerRank synchronisation
+
+Phase 9 is an **educational academy, not an AI feature**. No `OPENAI_API_KEY`,
+`ANTHROPIC_API_KEY` or equivalent is read, required or referenced anywhere in
+the codebase, and the AI tool catalog is curated by hand — there is no scraper
+and no crawler.
 
 Also not implemented, and load-bearing: **a real code-execution sandbox**. The
 interface, the submission lifecycle, the limits and the scrubbing are all in
@@ -405,17 +471,24 @@ them, and the UI says so wherever they appear.
 ### Built to extend
 
 The chain is `Career → Roadmap → RoadmapPhase → Topic → Lesson → Problem →
-Project`. Phase 8 adds Git and GitHub, and nothing here blocks it:
+Project`, with Git and AI hanging off it as `ACADEMY` roadmaps. Phase 10 is
+progress and personalisation, and nothing here blocks it:
 
-- `UserProject.repositoryUrl` already exists and is already populated. Phase 8
-  can read it, and can add `githubRepoId`, commits and pull requests alongside
-  it without reshaping anything — the seam is deliberately a plain URL column
-  rather than an integration.
-- Nothing fetches those URLs today, so introducing GitHub means introducing the
-  *first* outbound call, through GitHub's API with the learner's own
-  authorisation. There is no home-grown fetching to unpick first.
-- `ProjectConcept` and `ProblemTopic` are explicit join tables, so a third edge
-  off `Topic` is additive.
+- **Every kind of progress is already one row per learner per thing**, in the
+  same shape: `UserTopicProgress`, `UserProblemProgress`, `UserProject`,
+  `UserGitExercise`, `UserAIToolProgress`, `UserAIWorkflowProgress`. Answering
+  "what should I do next?" is a read across six tables that already exist, not a
+  new tracking system.
+- `AIToolLesson.topicId` and `syncToolsForTopic` establish the pattern for
+  progress that is *derived* rather than accumulated — which is what
+  personalisation will need when one action counts towards several goals.
+- `UserTopicProgress.bestScore` and `attempts` are already recorded but not yet
+  surfaced. "What do I struggle with?" has data waiting for it.
+- `AIUseCase` and `CareerAITool` show the shape a recommendation edge takes:
+  a relation carrying its own *reason*, so a suggestion can always explain
+  itself rather than appearing as an unexplained list.
+- `ProjectConcept`, `ProblemTopic` and `AIToolLesson` are explicit join tables,
+  so a fourth edge off `Topic` is additive.
 - `CodeExecutionService` is the only thing that knows how code runs. Swapping a
   mock for a container pool, or a container pool for a queue and workers, is a
   change behind that interface and nothing above it moves.
@@ -424,6 +497,9 @@ Project`. Phase 8 adds Git and GitHub, and nothing here blocks it:
 - `Roadmap.version` and `isActive` already support seeding a v2 alongside v1.
 - Content sits behind `prisma/seed/`, validated before it is written, so
   authoring is never a frontend change.
+- `AITool.status`, `lastVerifiedAt` and `supersededBySlug` make an admin surface
+  for re-verifying the catalog additive: the fields the UI reads already exist,
+  so a future editor writes them rather than introducing them.
 
 ---
 

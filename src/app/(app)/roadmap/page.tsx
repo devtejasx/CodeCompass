@@ -21,6 +21,7 @@ import {
 } from "@/lib/learn/progress";
 import { getCompletedTopicIds, getResumeTopic } from "@/lib/learn/queries";
 import { getProjectsByPhase } from "@/lib/projects/queries";
+import { getCareerRecommendations } from "@/lib/ai-tools/queries";
 import type { PhaseStatus } from "@/lib/roadmap/progress";
 import type { ProjectListItem } from "@/lib/projects/queries";
 
@@ -55,6 +56,11 @@ export default async function RoadmapPage() {
   // Real progress now: completed topics drive phase and topic state, and the
   // same helpers feed the dashboard so the two can never disagree.
   const completedTopicIds = await getCompletedTopicIds(user.id, roadmap.id);
+
+  // A signpost to the AI Academy, not a phase of the roadmap: the Academy is
+  // career-independent and reachable on its own, so this only names the tools
+  // curated for this path.
+  const aiRecommendations = await getCareerRecommendations(user.id, 4);
 
   const topicsInOrder = roadmap.phases.flatMap((phase) =>
     phase.topics.map((topic) => ({
@@ -185,6 +191,10 @@ export default async function RoadmapPage() {
             careerName={career.name}
             progress={progress}
             selectedLanguage={profile.selectedLanguage}
+            aiTools={aiRecommendations.recommendations.map((entry) => ({
+              slug: entry.tool.slug,
+              name: entry.tool.name,
+            }))}
           />
         </div>
       </Container>
