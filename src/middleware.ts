@@ -21,6 +21,7 @@ const PROTECTED_PREFIXES = [
   "/projects",
   "/academy",
   "/github",
+  "/mentor",
 ];
 const AUTH_PAGES = ["/login", "/signup"];
 
