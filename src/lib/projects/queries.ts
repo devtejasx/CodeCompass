@@ -192,6 +192,12 @@ export async function getUserProject(userId: string, projectId: string) {
       deployedUrl: true,
       notes: true,
       updatedAt: true,
+      // The GitHub link (Phase 8). Denormalised on the row, so rendering the
+      // workspace needs no API call.
+      githubRepoFullName: true,
+      githubRepoUrl: true,
+      githubDefaultBranch: true,
+      githubRepoPrivate: true,
       milestones: {
         select: { milestoneId: true, status: true, completedAt: true },
       },

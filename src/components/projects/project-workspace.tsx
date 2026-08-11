@@ -10,6 +10,7 @@ import { HintList } from "@/components/projects/hint-list";
 import { MilestoneList } from "@/components/projects/milestone-list";
 import { SelfEvaluation } from "@/components/projects/self-evaluation";
 import { SubmissionForm } from "@/components/projects/submission-form";
+import { ProjectRepository } from "@/components/github/project-repository";
 import {
   ConceptList,
   RequirementList,
@@ -23,6 +24,7 @@ import {
 } from "@/lib/projects/progress";
 import { cn } from "@/lib/utils";
 import type { ProjectDetail, UserProjectDetail } from "@/lib/projects/queries";
+import type { GitHubConnectionState } from "@/lib/github/types";
 
 /**
  * The project workspace.
@@ -53,11 +55,18 @@ export function ProjectWorkspace({
   userProject,
   completedTopicIds,
   nextProject,
+  github,
 }: {
   project: ProjectDetail;
   userProject: UserProjectDetail;
   completedTopicIds: string[];
   nextProject: { slug: string; title: string } | null;
+  /** GitHub connection state and any repository already linked (Phase 8). */
+  github: {
+    configured: boolean;
+    state: GitHubConnectionState;
+    suggestedName: string;
+  };
 }) {
   const [panel, setPanel] = React.useState<Panel>("milestones");
 
@@ -218,6 +227,30 @@ export function ProjectWorkspace({
                 initialDeployedUrl={userProject.deployedUrl}
                 initialNotes={userProject.notes}
               />
+
+              {/*
+                GitHub sits below the typed-in URL rather than replacing it.
+                Phase 7 worked without GitHub and still does.
+              */}
+              <div className="mt-8 border-t border-border pt-8">
+                <ProjectRepository
+                  projectId={project.id}
+                  projectTitle={project.title}
+                  suggestedName={github.suggestedName}
+                  connectionState={github.state}
+                  configured={github.configured}
+                  linked={
+                    userProject.githubRepoFullName && userProject.githubRepoUrl
+                      ? {
+                          fullName: userProject.githubRepoFullName,
+                          url: userProject.githubRepoUrl,
+                          defaultBranch: userProject.githubDefaultBranch ?? "main",
+                          isPrivate: userProject.githubRepoPrivate ?? true,
+                        }
+                      : null
+                  }
+                />
+              </div>
 
               <div className="mt-10 border-t border-border pt-8">
                 <h3 className="text-lg font-medium tracking-tight text-foreground">

@@ -6,6 +6,8 @@ import { ArrowLeft } from "lucide-react";
 import { Container } from "@/components/shared/container";
 import { ProjectWorkspace } from "@/components/projects/project-workspace";
 import { requireUser } from "@/lib/session";
+import { getConnectionView } from "@/lib/github/connection";
+import { githubAvailability } from "@/lib/github/config";
 import {
   getCompletedTopicIdsForUser,
   getProjectDetail,
@@ -48,9 +50,10 @@ export default async function ProjectWorkspacePage({
   const userProject = await getUserProject(user.id, project.id);
   if (!userProject) redirect(`/projects/${slug}`);
 
-  const [completedTopicIds, { recommendations }] = await Promise.all([
+  const [completedTopicIds, { recommendations }, connection] = await Promise.all([
     getCompletedTopicIdsForUser(user.id),
     getProjectRecommendations(user.id, 4),
+    getConnectionView(user.id),
   ]);
 
   // The next thing to build, once this one is done.
@@ -74,6 +77,13 @@ export default async function ProjectWorkspacePage({
             userProject={userProject}
             completedTopicIds={completedTopicIds}
             nextProject={next ? { slug: next.slug, title: next.title } : null}
+            github={{
+              configured: githubAvailability().configured,
+              state: connection.state,
+              // The slug already reads like a repository name, which is exactly
+              // what a learner would type anyway.
+              suggestedName: project.slug,
+            }}
           />
         </div>
       </Container>
