@@ -2,6 +2,10 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../src/generated/prisma/client";
+import type { CapabilitySourceKind } from "../src/generated/prisma/client";
+// The Git exercises live in code rather than in the database — see the note in
+// src/lib/git/exercises — so the capability validator gets their slugs here.
+import { GIT_EXERCISE_SLUGS } from "../src/lib/git/exercises";
 import { CAREERS } from "./seed/careers";
 import { ROADMAPS } from "./seed/roadmaps";
 import { assertValidRoadmaps } from "./seed/roadmaps/validate";
@@ -23,6 +27,8 @@ import {
   CAREER_AI_TOOLS,
 } from "./seed/ai";
 import { assertValidAIContent } from "./seed/ai/validate";
+import { CAPABILITIES } from "./seed/capabilities";
+import { assertValidCapabilities } from "./seed/capabilities/validate";
 
 /**
  * Seeds the career catalog.
@@ -148,6 +154,9 @@ async function main() {
   // Last: the AI tool catalog links its learning paths to topics, so every
   // roadmap must already exist.
   await seedAITools();
+  // Later still: capabilities reference topics, projects, exercises, tools and
+  // workflows, so everything they can point at has to exist first.
+  await seedCapabilities();
 
   const [careers, roadmaps, phases, topics, lessons, sections, checks] =
     await Promise.all([
@@ -204,6 +213,107 @@ async function main() {
       `${aiPaths} learning paths, ${aiPathLessons} path lessons, ` +
       `${aiWorkflows} workflows, ${careerLinks} career→tool links.`,
   );
+
+  const [capabilities, capabilitySources] = await Promise.all([
+    db.capability.count(),
+    db.capabilitySource.count(),
+  ]);
+
+  console.log(
+    `Seeded ${capabilities} capabilities with ${capabilitySources} evidence sources.`,
+  );
+}
+
+/**
+ * Replaces the capability catalog.
+ *
+ * Sources are deleted and recreated because `order` comes from array position,
+ * and the Capability row itself is upserted rather than deleted — although in
+ * this case nothing user-owned cascades from it, because there is no stored
+ * evidence to lose. Evidence is derived on read from the learner's actual
+ * progress, which is the whole point: re-seeding the catalog cannot alter
+ * anybody's record of what they have done.
+ *
+ * Every `ref` is resolved against real content before anything is written. A
+ * slug naming nothing fails the seed loudly rather than producing a capability
+ * that could never be earned — the guarantee a foreign key would have given,
+ * enforced at authoring time because nothing at runtime writes these rows.
+ */
+async function seedCapabilities() {
+  assertValidCapabilities(CAPABILITIES);
+
+  const [topics, projects, aiTools, aiWorkflows] = await Promise.all([
+    db.topic.findMany({ select: { slug: true } }),
+    db.project.findMany({ select: { slug: true } }),
+    db.aITool.findMany({ select: { slug: true } }),
+    db.aIWorkflow.findMany({ select: { slug: true } }),
+  ]);
+
+  assertValidCapabilities(CAPABILITIES, {
+    topicSlugs: new Set(topics.map((topic) => topic.slug)),
+    projectSlugs: new Set(projects.map((project) => project.slug)),
+    gitExerciseSlugs: new Set(GIT_EXERCISE_SLUGS),
+    aiToolSlugs: new Set(aiTools.map((tool) => tool.slug)),
+    aiWorkflowSlugs: new Set(aiWorkflows.map((workflow) => workflow.slug)),
+  });
+
+  for (const [index, capability] of CAPABILITIES.entries()) {
+    const data = {
+      name: capability.name,
+      description: capability.description,
+      longDescription: capability.longDescription,
+      category: capability.category,
+      icon: capability.icon,
+      sortOrder: index,
+    };
+
+    const row = await db.capability.upsert({
+      where: { slug: capability.slug },
+      create: { slug: capability.slug, ...data },
+      update: data,
+      select: { id: true },
+    });
+
+    await db.capabilitySource.deleteMany({ where: { capabilityId: row.id } });
+
+    const sources: { kind: CapabilitySourceKind; ref: string }[] = [
+      ...(capability.topics ?? []).map((ref) => ({
+        kind: "TOPIC" as const,
+        ref,
+      })),
+      ...(capability.practiceTopics ?? []).map((ref) => ({
+        kind: "PRACTICE_TOPIC" as const,
+        ref,
+      })),
+      ...(capability.projects ?? []).map((ref) => ({
+        kind: "PROJECT" as const,
+        ref,
+      })),
+      ...(capability.gitExercises ?? []).map((ref) => ({
+        kind: "GIT_EXERCISE" as const,
+        ref,
+      })),
+      ...(capability.aiTools ?? []).map((ref) => ({
+        kind: "AI_TOOL" as const,
+        ref,
+      })),
+      ...(capability.aiWorkflows ?? []).map((ref) => ({
+        kind: "AI_WORKFLOW" as const,
+        ref,
+      })),
+    ];
+
+    if (sources.length > 0) {
+      await db.capabilitySource.createMany({
+        data: sources.map((source, order) => ({
+          capabilityId: row.id,
+          kind: source.kind,
+          ref: source.ref,
+          order,
+        })),
+      });
+    }
+  }
 }
 
 /**
