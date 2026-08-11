@@ -27,6 +27,14 @@ import {
 /** AES-256 needs exactly 32 bytes; GCM's standard nonce is 12. */
 const KEY_BYTES = 32;
 const IV_BYTES = 12;
+/**
+ * Full-length GCM tag, stated explicitly on both sides.
+ *
+ * Without it Node will accept a *shorter* tag on decryption, which weakens the
+ * authentication GCM exists to provide — a truncated tag is easier to forge.
+ * Pinning it to 16 bytes refuses anything else.
+ */
+const TAG_BYTES = 16;
 
 /** Bumped when the key changes, so stored rows say which key opened them. */
 export const CURRENT_KEY_VERSION = 1;
@@ -91,7 +99,9 @@ export function sealToken(plaintext: string): SealedToken {
   }
 
   const iv = randomBytes(IV_BYTES);
-  const cipher = createCipheriv("aes-256-gcm", key(), iv);
+  const cipher = createCipheriv("aes-256-gcm", key(), iv, {
+    authTagLength: TAG_BYTES,
+  });
 
   const encrypted = Buffer.concat([
     cipher.update(plaintext, "utf8"),
@@ -123,6 +133,7 @@ export function openToken(sealed: {
       "aes-256-gcm",
       key(),
       Buffer.from(sealed.iv, "base64"),
+      { authTagLength: TAG_BYTES },
     );
     decipher.setAuthTag(Buffer.from(sealed.tag, "base64"));
 

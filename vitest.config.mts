@@ -16,6 +16,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "./src"),
+      // Vitest is neither a browser nor an RSC build, so it resolves the real
+      // package to its throwing entry. See tests/stubs/server-only.ts — the
+      // build-time guarantee is unaffected.
+      "server-only": path.resolve(import.meta.dirname, "./tests/stubs/server-only.ts"),
     },
   },
 });

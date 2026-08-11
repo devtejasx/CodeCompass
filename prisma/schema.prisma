@@ -1240,7 +1240,13 @@ model GitHubConnection {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   /// GitHub's numeric account id. The stable identity — a username can change.
-  githubUserId BigInt  @unique
+  ///
+  /// Deliberately NOT unique. GitHub is a linked integration here, not the
+  /// login mechanism: CodeCompass has its own authentication, and the natural
+  /// key is userId, which is unique above. Making GitHub identity a global key
+  /// would mean the second learner to link a shared account hits an opaque
+  /// constraint violation, enforcing a restriction the product never needed.
+  githubUserId BigInt
   username     String
   avatarUrl    String?
   profileUrl   String
