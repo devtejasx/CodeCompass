@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { buildFeedback, type FailureDetail } from "@/lib/practice/feedback";
+import { recordActivity } from "@/lib/personalization/activity";
 import {
   EXECUTION_LIMITS,
   getExecutionService,
@@ -266,6 +267,24 @@ export async function runSubmission(input: unknown): Promise<RunSubmissionResult
       }));
 
     if (submission.kind === "SUBMIT") {
+      // Solving is recorded once, the first time. A failed submission is
+      // recorded as an attempt — which is what the knowledge-gap signal reads,
+      // and which is described as evidence rather than as a shortcoming.
+      const identity = await db.practiceProblem.findUnique({
+        where: { id: problem.id },
+        select: { slug: true, title: true },
+      });
+
+      if (identity) {
+        await recordActivity({
+          userId: user.id,
+          type: solved ? "PROBLEM_SOLVED" : "PROBLEM_ATTEMPTED",
+          entityId: problem.id,
+          entitySlug: identity.slug,
+          label: identity.title,
+        });
+      }
+
       revalidatePath("/practice");
       revalidatePath("/dashboard");
     }

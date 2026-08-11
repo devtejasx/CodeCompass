@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { gradeAttempt, topicPercent } from "@/lib/learn/progress";
 import { syncToolsForTopic } from "@/lib/ai-tools/progress";
+import { recordActivity, recordActivityOnce } from "@/lib/personalization/activity";
 
 /**
  * Every learning mutation.
@@ -71,7 +72,7 @@ export async function startTopic(input: unknown): Promise<LearnResult> {
   try {
     const topic = await db.topic.findUnique({
       where: { id: parsed.data.topicId },
-      select: { id: true },
+      select: { id: true, slug: true, title: true },
     });
     if (!topic) return { ok: false, error: "That topic could not be found." };
 
@@ -85,6 +86,16 @@ export async function startTopic(input: unknown): Promise<LearnResult> {
       },
       // Never downgrade a completed topic back to in-progress.
       update: { lastAccessedAt: new Date() },
+    });
+
+    // Deduplicated against the latest row: opening a lesson repeatedly should
+    // not fill the feed with ten identical entries.
+    await recordActivityOnce({
+      userId: user.id,
+      type: "LESSON_STARTED",
+      entityId: topic.id,
+      entitySlug: topic.slug,
+      label: topic.title,
     });
   } catch {
     console.error("[startTopic] failed to record topic start");
@@ -281,6 +292,25 @@ export async function submitKnowledgeCheck(input: unknown): Promise<AttemptResul
     // count the same. A topic in no path syncs nothing.
     if (passed || alreadyCompleted) {
       await syncToolsForTopic({ userId: user.id, topicId: parsed.data.topicId });
+    }
+
+    // Only the first pass is an event. Retaking a check you already passed is
+    // revision, and recording it again would inflate the weekly summary.
+    if (passed && !alreadyCompleted) {
+      const topic = await db.topic.findUnique({
+        where: { id: parsed.data.topicId },
+        select: { slug: true, title: true },
+      });
+
+      if (topic) {
+        await recordActivity({
+          userId: user.id,
+          type: "LESSON_COMPLETED",
+          entityId: parsed.data.topicId,
+          entitySlug: topic.slug,
+          label: topic.title,
+        });
+      }
     }
 
     revalidatePath("/roadmap");

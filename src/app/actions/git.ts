@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { findExercise } from "@/lib/git/exercises";
+import { recordActivity } from "@/lib/personalization/activity";
 
 /**
  * Git exercise progress.
@@ -83,6 +84,18 @@ export async function recordExerciseAttempt(input: unknown): Promise<GitResult> 
         completedAt: alreadyDone ? undefined : completed ? new Date() : null,
       },
     });
+
+    // Only the first solve. Re-solving an exercise to practise is welcome and
+    // should not appear in the feed as if it were new progress.
+    if (completed && !alreadyDone) {
+      await recordActivity({
+        userId: user.id,
+        type: "GIT_EXERCISE_COMPLETED",
+        entityId: exercise.slug,
+        entitySlug: exercise.slug,
+        label: exercise.title,
+      });
+    }
 
     revalidatePath("/academy/git");
     revalidatePath("/dashboard");

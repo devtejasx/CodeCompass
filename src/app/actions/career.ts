@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
+import { recordActivity } from "@/lib/personalization/activity";
 
 export interface CareerSelectionResult {
   ok: boolean;
@@ -39,7 +40,7 @@ export async function selectCareer(input: unknown): Promise<CareerSelectionResul
   try {
     const career = await db.career.findUnique({
       where: { id: parsed.data.careerId },
-      select: { id: true },
+      select: { id: true, slug: true, name: true },
     });
 
     if (!career) {
@@ -49,6 +50,18 @@ export async function selectCareer(input: unknown): Promise<CareerSelectionResul
     await db.profile.update({
       where: { userId: user.id },
       data: { selectedCareerId: career.id },
+    });
+
+    // Changing career recalculates every recommendation on the next read,
+    // because recommendations are derived rather than stored. Historical
+    // progress is deliberately untouched: topics they completed stay
+    // completed, and the new roadmap simply asks different questions of them.
+    await recordActivity({
+      userId: user.id,
+      type: "CAREER_SELECTED",
+      entityId: career.id,
+      entitySlug: career.slug,
+      label: career.name,
     });
   } catch {
     console.error("[selectCareer] failed to persist career selection");

@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { canComplete } from "@/lib/projects/progress";
 import { checkUrl } from "@/lib/projects/urls";
+import { recordActivity } from "@/lib/personalization/activity";
 
 /**
  * Every project mutation.
@@ -51,7 +52,12 @@ export async function startProject(input: unknown): Promise<StartProjectResult> 
   try {
     const project = await db.project.findUnique({
       where: { id: parsed.data.projectId },
-      select: { id: true, slug: true, milestones: { select: { id: true } } },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        milestones: { select: { id: true } },
+      },
     });
     if (!project) return { ok: false, error: "That project could not be found." };
 
@@ -91,6 +97,16 @@ export async function startProject(input: unknown): Promise<StartProjectResult> 
           })),
         });
       }
+    });
+
+    // Recording never breaks the thing it records: recordActivity swallows its
+    // own failures, so a logging problem cannot stop a project being started.
+    await recordActivity({
+      userId: user.id,
+      type: "PROJECT_STARTED",
+      entityId: project.id,
+      entitySlug: project.slug,
+      label: project.title,
     });
 
     revalidatePath("/projects");
@@ -141,7 +157,11 @@ export async function setMilestoneComplete(input: unknown): Promise<ProjectResul
     // The milestone must belong to this project, not merely exist.
     const milestone = await db.projectMilestone.findFirst({
       where: { id: parsed.data.milestoneId, projectId: parsed.data.projectId },
-      select: { id: true },
+      select: {
+        id: true,
+        title: true,
+        project: { select: { slug: true, title: true } },
+      },
     });
     if (!milestone) return { ok: false, error: "That milestone could not be found." };
 
@@ -170,6 +190,18 @@ export async function setMilestoneComplete(input: unknown): Promise<ProjectResul
       await db.userProject.update({
         where: { id: userProject.id },
         data: { status: "IN_PROGRESS", completedAt: null },
+      });
+    }
+
+    // Only ticking is worth recording. Un-ticking is a correction, and a feed
+    // that narrates corrections back at somebody is noise.
+    if (parsed.data.completed) {
+      await recordActivity({
+        userId: user.id,
+        type: "PROJECT_MILESTONE_COMPLETED",
+        entityId: parsed.data.projectId,
+        entitySlug: milestone.project.slug,
+        label: `${milestone.title} — ${milestone.project.title}`,
       });
     }
 
@@ -374,6 +406,21 @@ export async function completeProject(input: unknown): Promise<ProjectResult> {
       where: { id: userProject.id },
       data: { status: "COMPLETED", completedAt: new Date() },
     });
+
+    const project = await db.project.findUnique({
+      where: { id: parsed.data.projectId },
+      select: { slug: true, title: true },
+    });
+
+    if (project) {
+      await recordActivity({
+        userId: user.id,
+        type: "PROJECT_COMPLETED",
+        entityId: parsed.data.projectId,
+        entitySlug: project.slug,
+        label: project.title,
+      });
+    }
 
     revalidatePath("/projects");
     revalidatePath("/dashboard");

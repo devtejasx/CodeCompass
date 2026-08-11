@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { syncToolProgress } from "@/lib/ai-tools/progress";
+import { recordActivityOnce, recordActivity } from "@/lib/personalization/activity";
 
 /**
  * Every AI Academy mutation.
@@ -50,11 +51,19 @@ export async function startTool(input: unknown): Promise<AIToolResult> {
   try {
     const tool = await db.aITool.findUnique({
       where: { slug: parsed.data.toolSlug },
-      select: { id: true, slug: true },
+      select: { id: true, slug: true, name: true },
     });
     if (!tool) return { ok: false, error: "That tool could not be found." };
 
     await syncToolProgress({ userId: user.id, toolId: tool.id, touch: true });
+
+    await recordActivityOnce({
+      userId: user.id,
+      type: "AI_TOOL_STARTED",
+      entityId: tool.id,
+      entitySlug: tool.slug,
+      label: tool.name,
+    });
 
     revalidatePath("/academy/ai-tools");
     revalidatePath(`/academy/ai-tools/${tool.slug}`);
@@ -91,7 +100,7 @@ export async function setWorkflowComplete(input: unknown): Promise<AIToolResult>
   try {
     const workflow = await db.aIWorkflow.findUnique({
       where: { slug: parsed.data.workflowSlug },
-      select: { id: true, slug: true },
+      select: { id: true, slug: true, title: true },
     });
     if (!workflow) return { ok: false, error: "That workflow could not be found." };
 
@@ -102,6 +111,14 @@ export async function setWorkflowComplete(input: unknown): Promise<AIToolResult>
         },
         create: { userId: user.id, workflowId: workflow.id },
         update: {},
+      });
+
+      await recordActivity({
+        userId: user.id,
+        type: "AI_WORKFLOW_COMPLETED",
+        entityId: workflow.id,
+        entitySlug: workflow.slug,
+        label: workflow.title,
       });
     } else {
       // deleteMany rather than delete: scoped by userId, and a missing row is
