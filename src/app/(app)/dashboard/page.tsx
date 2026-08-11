@@ -14,6 +14,9 @@ import { completedPhaseOrders, roadmapPercent } from "@/lib/learn/progress";
 import { getCompletedTopicIds, getResumeTopic } from "@/lib/learn/queries";
 import { getPracticeSummary, getRecommendedProblems } from "@/lib/practice/queries";
 import { getProjectRecommendations, getProjectSummary } from "@/lib/projects/queries";
+import { getGitProgressSummary } from "@/lib/git/queries";
+import { getConnectionView } from "@/lib/github/connection";
+import { githubAvailability } from "@/lib/github/config";
 import {
   CAREER_LABEL,
   EXPERIENCE_LABEL,
@@ -87,12 +90,20 @@ export default async function DashboardPage() {
 
   // Practice, kept to two numbers and one next action. The dashboard is a
   // starting point, not a statistics page.
-  const [practice, recommended, projects, projectRecommendations] = await Promise.all([
-    getPracticeSummary(user.id),
-    getRecommendedProblems(user.id, 1),
-    getProjectSummary(user.id),
-    getProjectRecommendations(user.id, 1),
-  ]);
+  const [practice, recommended, projects, projectRecommendations, git, github] =
+    await Promise.all([
+      getPracticeSummary(user.id),
+      getRecommendedProblems(user.id, 1),
+      getProjectSummary(user.id),
+      getProjectRecommendations(user.id, 1),
+      getGitProgressSummary(user.id),
+      getConnectionView(user.id),
+    ]);
+
+  const githubConfigured = githubAvailability().configured;
+  const projectsWithGitHub = await db.userProject.count({
+    where: { userId: user.id, githubRepoFullName: { not: null } },
+  });
 
   const nextPractice =
     practice.inFlight?.problem ?? recommended.recommendations[0]?.problem ?? null;
@@ -411,6 +422,74 @@ export default async function DashboardPage() {
                 </Button>
               </div>
             )}
+          </div>
+
+          {/* ── Git & GitHub ───────────────────────────────────── */}
+          <div className="surface mt-4 rounded-xl p-6">
+            <h2 className="text-xs font-medium uppercase tracking-label text-subtle-foreground">
+              Git &amp; GitHub
+            </h2>
+
+            <div className="mt-4">
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm text-muted-foreground">
+                  {git.completedModules} of {git.totalModules} modules ·{" "}
+                  {git.exercisesCompleted}/{git.totalExercises} exercises
+                </span>
+                <span className="font-mono text-sm text-foreground">
+                  {git.percentComplete}%
+                </span>
+              </div>
+              <div
+                className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-raised"
+                role="progressbar"
+                aria-valuenow={git.percentComplete}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Git and GitHub progress"
+              >
+                <div
+                  className="h-full rounded-full bg-primary"
+                  style={{ width: `${git.percentComplete}%` }}
+                />
+              </div>
+            </div>
+
+            <p className="mt-4 text-sm text-muted-foreground">
+              GitHub:{" "}
+              <span className="font-medium text-foreground">
+                {!githubConfigured
+                  ? "not configured on this deployment"
+                  : github.state === "CONNECTED"
+                    ? `connected as ${github.account?.username}`
+                    : github.state === "AUTHORIZATION_EXPIRED"
+                      ? "needs reconnecting"
+                      : "not connected"}
+              </span>
+              {github.state === "CONNECTED" && projectsWithGitHub > 0 ? (
+                <>
+                  {" · "}
+                  {projectsWithGitHub}{" "}
+                  {projectsWithGitHub === 1 ? "project" : "projects"} linked
+                </>
+              ) : null}
+            </p>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Button asChild>
+                <Link href="/academy/git">
+                  {git.completedModules === 0 ? "Start Git & GitHub" : "Continue"}
+                  <ArrowRight aria-hidden />
+                </Link>
+              </Button>
+              {githubConfigured ? (
+                <Button variant="ghost" asChild>
+                  <Link href="/github">
+                    {github.state === "CONNECTED" ? "Manage GitHub" : "Connect GitHub"}
+                  </Link>
+                </Button>
+              ) : null}
+            </div>
           </div>
 
           {!chosenCareer || !ChosenIcon ? (
