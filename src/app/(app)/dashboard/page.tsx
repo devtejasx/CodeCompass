@@ -1,29 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Clock3, Code2, Compass, Sparkles } from "lucide-react";
+import { ArrowRight, Compass } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/shared/container";
 import { Glow, GridBackdrop } from "@/components/shared/backdrops";
-import { db } from "@/lib/db";
+import { NextStep } from "@/components/dashboard/next-step";
+import { ProgressOverview } from "@/components/dashboard/progress-overview";
+import {
+  MentorCard,
+  RecentActivity,
+  TodaysPlan,
+  TrackPanels,
+  WeekInReview,
+} from "@/components/dashboard/dashboard-panels";
 import { requireOnboardedUser } from "@/lib/session";
 import { careerIcon } from "@/lib/careers/icons";
-import { getActiveRoadmapForCareer } from "@/lib/roadmap/queries";
-import { summariseProgress } from "@/lib/roadmap/progress";
-import { completedPhaseOrders, roadmapPercent } from "@/lib/learn/progress";
-import { getCompletedTopicIds, getResumeTopic } from "@/lib/learn/queries";
-import { getPracticeSummary, getRecommendedProblems } from "@/lib/practice/queries";
-import { getProjectRecommendations, getProjectSummary } from "@/lib/projects/queries";
-import { getGitProgressSummary } from "@/lib/git/queries";
-import { getConnectionView } from "@/lib/github/connection";
-import { githubAvailability } from "@/lib/github/config";
-import { getAIProgressSummary } from "@/lib/ai-tools/queries";
-import {
-  CAREER_LABEL,
-  EXPERIENCE_LABEL,
-  LANGUAGE_LABEL,
-  TIME_LABEL,
-} from "@/lib/onboarding/options";
+import { getGuidance, getWeeklySummary } from "@/lib/personalization/service";
+import { listRecentActivity } from "@/lib/personalization/activity";
+import { aiAvailability } from "@/lib/ai/provider";
+import { db } from "@/lib/db";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -31,573 +27,155 @@ export const metadata: Metadata = {
 };
 
 /**
- * Phase 2 placeholder. Its only job is to prove that authentication and
- * onboarding actually worked and that the answers came back out of Postgres.
- * The real dashboard is a later phase.
+ * The personalized command center.
+ *
+ * Rebuilt in Phase 10 around one question: what should I do next? That answer
+ * is first, largest, and carries a single call to action — everything else on
+ * the page is secondary by construction, and on a phone the learner sees the
+ * next step and nothing else before scrolling.
+ *
+ * A server component. All the personalization runs here, in one `getGuidance`
+ * call, and the components below render structured data — no recommendation
+ * logic reaches the browser, and none of it lives in a component.
+ *
+ * This page never depends on AI. Every recommendation, percentage and plan item
+ * is computed by the deterministic engine; the mentor card is an entry point,
+ * not a source.
  */
 export default async function DashboardPage() {
   const user = await requireOnboardedUser();
 
-  const profile = await db.profile.findUnique({
-    where: { userId: user.id },
-    select: {
-      experienceLevel: true,
-      selectedCareer: true,
-      dailyLearningTime: true,
-      selectedLanguage: true,
-      chosenCareer: {
-        select: {
-          id: true,
-          slug: true,
-          name: true,
-          shortDescription: true,
-          icon: true,
-        },
-      },
-    },
-  });
+  const [guidance, weekly, activities] = await Promise.all([
+    getGuidance(user.id),
+    getWeeklySummary(user.id),
+    listRecentActivity(user.id, 6),
+  ]);
 
-  const chosenCareer = profile?.chosenCareer ?? null;
-  const ChosenIcon = chosenCareer ? careerIcon(chosenCareer.icon) : null;
+  const { state, next, tracks, plan } = guidance;
 
-  // Only the shape needed for the summary — not the whole roadmap tree.
-  const roadmap = chosenCareer
-    ? await getActiveRoadmapForCareer(chosenCareer.id)
+  const career = state.career
+    ? await db.career.findUnique({
+        where: { id: state.career.id },
+        select: { slug: true, name: true, shortDescription: true, icon: true },
+      })
     : null;
 
-  // Real learning progress, computed with the same helpers the roadmap page
-  // uses, so the two views can never report different numbers.
-  const completedTopicIds = roadmap
-    ? await getCompletedTopicIds(user.id, roadmap.id)
-    : [];
-  const resume = roadmap ? await getResumeTopic(user.id, roadmap.id) : null;
-
-  const progress = roadmap
-    ? {
-        ...summariseProgress(
-          roadmap,
-          completedPhaseOrders(roadmap.phases, completedTopicIds),
-        ),
-        percentComplete: roadmapPercent({
-          requiredTopicIds: roadmap.phases
-            .flatMap((phase) => phase.topics)
-            .filter((topic) => topic.isRequired)
-            .map((topic) => topic.id),
-          completedTopicIds,
-        }),
-        topicsCompleted: completedTopicIds.length,
-      }
-    : null;
-
-  // Practice, kept to two numbers and one next action. The dashboard is a
-  // starting point, not a statistics page.
-  const [practice, recommended, projects, projectRecommendations, git, github, ai] =
-    await Promise.all([
-      getPracticeSummary(user.id),
-      getRecommendedProblems(user.id, 1),
-      getProjectSummary(user.id),
-      getProjectRecommendations(user.id, 1),
-      getGitProgressSummary(user.id),
-      getConnectionView(user.id),
-      getAIProgressSummary(user.id),
-    ]);
-
-  const githubConfigured = githubAvailability().configured;
-  const projectsWithGitHub = await db.userProject.count({
-    where: { userId: user.id, githubRepoFullName: { not: null } },
-  });
-
-  const nextPractice =
-    practice.inFlight?.problem ?? recommended.recommendations[0]?.problem ?? null;
-
-  const nextProject = projectRecommendations.recommendations[0]?.project ?? null;
-
-  const summary = [
-    {
-      label: "Experience",
-      value: profile?.experienceLevel ? EXPERIENCE_LABEL[profile.experienceLevel] : "—",
-      icon: Compass,
-    },
-    {
-      label: "Career interest",
-      value: profile?.selectedCareer ? CAREER_LABEL[profile.selectedCareer] : "—",
-      icon: Sparkles,
-    },
-    {
-      label: "Learning time",
-      value: profile?.dailyLearningTime ? TIME_LABEL[profile.dailyLearningTime] : "—",
-      icon: Clock3,
-    },
-    {
-      label: "Language",
-      value: profile?.selectedLanguage ? LANGUAGE_LABEL[profile.selectedLanguage] : "—",
-      icon: Code2,
-    },
-  ];
-
+  const CareerIcon = career ? careerIcon(career.icon) : null;
   const firstName = user.name.split(/\s+/)[0] || user.name;
+  const ai = aiAvailability();
 
   return (
-    <div className="relative flex-1 overflow-hidden py-14 sm:py-20">
-      <GridBackdrop className="mask-fade-b opacity-60" />
+    <div className="relative flex-1 overflow-hidden py-10 sm:py-14">
+      <GridBackdrop className="mask-fade-b opacity-50" />
       <Glow className="-top-40 left-1/2 size-[30rem] -translate-x-1/2" />
 
       <Container>
-        <div className="mx-auto max-w-3xl">
-          <h1 className="balance text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-            Welcome to CodeCompass, {firstName}.
-          </h1>
-          <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-            Your journey starts here.
-          </p>
+        <div className="mx-auto max-w-4xl">
+          {/* ── Welcome ────────────────────────────────────────── */}
+          <header>
+            <h1 className="balance text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+              {greeting()}, {firstName}.
+            </h1>
 
-          <h2 className="mt-12 text-xs font-medium uppercase tracking-label text-subtle-foreground">
-            What you told us
-          </h2>
-
-          <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-            {summary.map((item) => (
-              <div
-                key={item.label}
-                className="surface flex items-start gap-3 rounded-xl p-4"
-              >
-                <span
-                  aria-hidden
-                  className="grid size-9 shrink-0 place-items-center rounded-lg border border-border bg-surface text-muted-foreground"
-                >
-                  <item.icon className="size-4" />
-                </span>
-                <div className="min-w-0">
-                  <dt className="text-xs text-subtle-foreground">{item.label}</dt>
-                  <dd className="mt-0.5 text-sm font-medium text-foreground">
-                    {item.value}
-                  </dd>
-                </div>
-              </div>
-            ))}
-          </dl>
-
-          {chosenCareer && ChosenIcon ? (
-            <div className="surface mt-8 rounded-xl p-6">
-              <h2 className="text-xs font-medium uppercase tracking-label text-subtle-foreground">
-                Your path
-              </h2>
-
-              <div className="mt-4 flex items-start gap-3">
-                <span
-                  aria-hidden
-                  className="grid size-10 shrink-0 place-items-center rounded-lg border border-border bg-surface text-indigo-400"
-                >
-                  <ChosenIcon className="size-[18px]" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-base font-medium text-foreground">
-                    {chosenCareer.name}
-                  </p>
-                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                    {chosenCareer.shortDescription}
-                  </p>
-                </div>
-              </div>
-
-              {progress ? (
-                <>
-                  <div className="mt-6">
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-sm text-muted-foreground">
-                        Roadmap progress
-                      </span>
-                      <span className="font-mono text-sm text-foreground">
-                        {progress.percentComplete}%
-                      </span>
-                    </div>
-                    <div
-                      className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-raised"
-                      role="progressbar"
-                      aria-valuenow={progress.percentComplete}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-label={`${chosenCareer.name} roadmap progress`}
-                    >
-                      <div
-                        className="h-full rounded-full bg-primary"
-                        style={{ width: `${progress.percentComplete}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <dl className="mt-4 flex flex-wrap gap-x-8 gap-y-2 text-sm">
-                    {progress.currentPhaseTitle ? (
-                      <div>
-                        <dt className="text-xs text-subtle-foreground">
-                          Current phase
-                        </dt>
-                        <dd className="mt-0.5 font-medium text-foreground">
-                          {progress.currentPhaseTitle}
-                        </dd>
-                      </div>
-                    ) : null}
-                    <div>
-                      <dt className="text-xs text-subtle-foreground">
-                        Topics completed
-                      </dt>
-                      <dd className="mt-0.5 font-medium text-foreground">
-                        {progress.topicsCompleted}
-                      </dd>
-                    </div>
-                    {resume ? (
-                      <div>
-                        <dt className="text-xs text-subtle-foreground">
-                          Current topic
-                        </dt>
-                        <dd className="mt-0.5 font-medium text-foreground">
-                          {resume.topic.title}
-                        </dd>
-                      </div>
-                    ) : null}
-                  </dl>
-                </>
-              ) : (
-                <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
-                  We&apos;re still building the roadmap for this path. Your choice is
-                  saved — check back soon.
-                </p>
-              )}
-
-              <div className="mt-6 flex flex-wrap gap-2">
-                {progress ? (
-                  <Button asChild>
-                    <Link href={resume ? `/learn/${resume.topic.slug}` : "/roadmap"}>
-                      Continue Your Journey
-                      <ArrowRight aria-hidden />
-                    </Link>
-                  </Button>
-                ) : null}
-                <Button variant="secondary" asChild>
-                  <Link href={`/careers/${chosenCareer.slug}`}>View this path</Link>
-                </Button>
-                <Button variant="ghost" asChild>
-                  <Link href="/careers">Change Career</Link>
-                </Button>
-              </div>
-            </div>
-          ) : null}
-
-          {/* ── Practice ───────────────────────────────────────── */}
-          <div className="surface mt-4 rounded-xl p-6">
-            <h2 className="text-xs font-medium uppercase tracking-label text-subtle-foreground">
-              Coding practice
-            </h2>
-
-            <p className="mt-4 font-mono text-2xl font-medium text-foreground">
-              {practice.solved}
-              <span className="ml-2 font-sans text-sm font-normal text-muted-foreground">
-                {practice.solved === 1 ? "problem solved" : "problems solved"}
-              </span>
-            </p>
-
-            {nextPractice ? (
-              <>
-                <p className="mt-4 text-sm text-muted-foreground">
-                  {practice.inFlight ? "Current practice" : "Next up"}:{" "}
-                  <span className="font-medium text-foreground">
-                    {nextPractice.title}
-                  </span>
-                </p>
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <Button asChild>
-                    <Link href={`/practice/${nextPractice.slug}`}>
-                      {practice.inFlight ? "Continue Practice" : "Start Practice"}
-                      <ArrowRight aria-hidden />
-                    </Link>
-                  </Button>
-                  <Button variant="ghost" asChild>
-                    <Link href="/practice">All problems</Link>
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="mt-5">
-                <Button variant="secondary" asChild>
-                  <Link href="/practice">
-                    Browse practice problems
-                    <ArrowRight aria-hidden />
-                  </Link>
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* ── Projects ───────────────────────────────────────── */}
-          <div className="surface mt-4 rounded-xl p-6">
-            <h2 className="text-xs font-medium uppercase tracking-label text-subtle-foreground">
-              Projects
-            </h2>
-
-            <dl className="mt-4 flex flex-wrap gap-x-10 gap-y-3">
-              <div>
-                <dt className="text-xs text-subtle-foreground">Completed</dt>
-                <dd className="mt-0.5 font-mono text-2xl font-medium text-foreground">
-                  {projects.completed}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-subtle-foreground">In progress</dt>
-                <dd className="mt-0.5 font-mono text-2xl font-medium text-foreground">
-                  {projects.inProgress}
-                </dd>
-              </div>
-            </dl>
-
-            {projects.current ? (
-              <>
-                <div className="mt-5">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      Current project ·{" "}
-                      <span className="font-medium text-foreground">
-                        {projects.current.title}
-                      </span>
-                    </span>
-                    <span className="font-mono text-sm text-foreground">
-                      {projects.current.percentComplete}%
-                    </span>
-                  </div>
-                  <div
-                    className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-raised"
-                    role="progressbar"
-                    aria-valuenow={projects.current.percentComplete}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-label={`${projects.current.title} progress`}
-                  >
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${projects.current.percentComplete}%` }}
-                    />
-                  </div>
-                  <p className="mt-1.5 font-mono text-xs text-subtle-foreground">
-                    {projects.current.completedMilestones}/
-                    {projects.current.totalMilestones} milestones
-                  </p>
-                </div>
-
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <Button asChild>
-                    <Link href={`/projects/${projects.current.slug}/workspace`}>
-                      Continue Project
-                      <ArrowRight aria-hidden />
-                    </Link>
-                  </Button>
-                  <Button variant="ghost" asChild>
-                    <Link href="/projects">All projects</Link>
-                  </Button>
-                </div>
-              </>
-            ) : nextProject ? (
-              <>
-                <p className="mt-5 text-sm text-muted-foreground">
-                  Ready to build:{" "}
-                  <span className="font-medium text-foreground">
-                    {nextProject.title}
-                  </span>
-                </p>
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <Button asChild>
-                    <Link href={`/projects/${nextProject.slug}`}>
-                      Start a project
-                      <ArrowRight aria-hidden />
-                    </Link>
-                  </Button>
-                  <Button variant="ghost" asChild>
-                    <Link href="/projects">All projects</Link>
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="mt-5">
-                <Button variant="secondary" asChild>
-                  <Link href="/projects">
-                    Browse projects
-                    <ArrowRight aria-hidden />
-                  </Link>
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* ── Git & GitHub ───────────────────────────────────── */}
-          <div className="surface mt-4 rounded-xl p-6">
-            <h2 className="text-xs font-medium uppercase tracking-label text-subtle-foreground">
-              Git &amp; GitHub
-            </h2>
-
-            <div className="mt-4">
-              <div className="flex items-baseline justify-between">
-                <span className="text-sm text-muted-foreground">
-                  {git.completedModules} of {git.totalModules} modules ·{" "}
-                  {git.exercisesCompleted}/{git.totalExercises} exercises
-                </span>
-                <span className="font-mono text-sm text-foreground">
-                  {git.percentComplete}%
-                </span>
-              </div>
-              <div
-                className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-raised"
-                role="progressbar"
-                aria-valuenow={git.percentComplete}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label="Git and GitHub progress"
-              >
-                <div
-                  className="h-full rounded-full bg-primary"
-                  style={{ width: `${git.percentComplete}%` }}
-                />
-              </div>
-            </div>
-
-            <p className="mt-4 text-sm text-muted-foreground">
-              GitHub:{" "}
-              <span className="font-medium text-foreground">
-                {!githubConfigured
-                  ? "not configured on this deployment"
-                  : github.state === "CONNECTED"
-                    ? `connected as ${github.account?.username}`
-                    : github.state === "AUTHORIZATION_EXPIRED"
-                      ? "needs reconnecting"
-                      : "not connected"}
-              </span>
-              {github.state === "CONNECTED" && projectsWithGitHub > 0 ? (
-                <>
-                  {" · "}
-                  {projectsWithGitHub}{" "}
-                  {projectsWithGitHub === 1 ? "project" : "projects"} linked
-                </>
-              ) : null}
-            </p>
-
-            <div className="mt-5 flex flex-wrap gap-2">
-              <Button asChild>
-                <Link href="/academy/git">
-                  {git.completedModules === 0 ? "Start Git & GitHub" : "Continue"}
-                  <ArrowRight aria-hidden />
-                </Link>
-              </Button>
-              {githubConfigured ? (
-                <Button variant="ghost" asChild>
-                  <Link href="/github">
-                    {github.state === "CONNECTED" ? "Manage GitHub" : "Connect GitHub"}
-                  </Link>
-                </Button>
-              ) : null}
-            </div>
-          </div>
-
-          {/* ── AI Tools ───────────────────────────────────────── */}
-          <div className="surface mt-4 rounded-xl p-6">
-            <h2 className="text-xs font-medium uppercase tracking-label text-subtle-foreground">
-              AI Tools
-            </h2>
-
-            <dl className="mt-4 flex flex-wrap gap-x-10 gap-y-3">
-              <div>
-                <dt className="text-xs text-subtle-foreground">Tools learned</dt>
-                <dd className="mt-0.5 font-mono text-2xl font-medium text-foreground">
-                  {ai.toolsLearned}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-subtle-foreground">Workflows completed</dt>
-                <dd className="mt-0.5 font-mono text-2xl font-medium text-foreground">
-                  {ai.workflowsCompleted}
-                </dd>
-              </div>
-            </dl>
-
-            {ai.current ? (
-              <>
-                <div className="mt-5">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      Current ·{" "}
-                      <span className="font-medium text-foreground">
-                        {ai.current.name}
-                      </span>
-                    </span>
-                    <span className="font-mono text-sm text-foreground">
-                      {ai.current.percentComplete}%
-                    </span>
-                  </div>
-                  <div
-                    className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-raised"
-                    role="progressbar"
-                    aria-valuenow={ai.current.percentComplete}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-label={`${ai.current.name} learning progress`}
-                  >
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${ai.current.percentComplete}%` }}
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <Button asChild>
-                    <Link href={`/academy/ai-tools/${ai.current.slug}`}>
-                      Continue Learning
-                      <ArrowRight aria-hidden />
-                    </Link>
-                  </Button>
-                  <Button variant="ghost" asChild>
-                    <Link href="/academy/ai-tools">All AI tools</Link>
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="mt-4 text-sm text-muted-foreground">
-                  {ai.toolsLearned > 0
-                    ? "Nothing in progress. Pick another tool, or try a workflow."
-                    : "Learn what today's AI tools do, when to use them — and when not to."}
-                </p>
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <Button asChild>
-                    <Link href="/academy/ai-tools">
-                      {ai.toolsLearned > 0 ? "Browse AI tools" : "Start AI Tools"}
-                      <ArrowRight aria-hidden />
-                    </Link>
-                  </Button>
-                  <Button variant="ghost" asChild>
-                    <Link href="/academy/ai-tools/workflows">Workflows</Link>
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
-
-          {!chosenCareer || !ChosenIcon ? (
-            <div className="surface mt-4 rounded-xl p-6">
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                You haven&apos;t chosen a path yet — and there&apos;s no rush. Explore
-                what different careers actually involve, compare a couple, and pick one
-                when it feels right.
+            {career && CareerIcon ? (
+              <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                <CareerIcon className="size-4 text-indigo-400" aria-hidden />
+                {career.name}
               </p>
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">
+                You haven&apos;t chosen a path yet — and there&apos;s no rush.
+              </p>
+            )}
+          </header>
 
-              <div className="mt-5">
-                <Button asChild>
-                  <Link href="/careers">
-                    Explore your path
-                    <ArrowRight aria-hidden />
-                  </Link>
-                </Button>
-              </div>
+          {/* ── The one thing that matters ─────────────────────── */}
+          <div className="mt-8">
+            {next ? (
+              <NextStep recommendation={next} />
+            ) : (
+              <section
+                aria-labelledby="nothing-heading"
+                className="surface rounded-2xl p-6 sm:p-8"
+              >
+                <h2
+                  id="nothing-heading"
+                  className="flex items-center gap-2 text-xs font-medium uppercase tracking-label text-subtle-foreground"
+                >
+                  <Compass className="size-3.5" aria-hidden />
+                  What should I do next?
+                </h2>
+                <p className="pretty mt-4 max-w-prose text-sm leading-relaxed text-muted-foreground">
+                  There is nothing outstanding we can point you at right now. That
+                  usually means your roadmap has no content authored for it yet —
+                  exploring careers or the Git and AI academies is a good use of the
+                  time in the meantime.
+                </p>
+                <div className="mt-6 flex flex-wrap gap-2">
+                  <Button asChild>
+                    <Link href="/careers">
+                      Explore careers
+                      <ArrowRight aria-hidden />
+                    </Link>
+                  </Button>
+                  <Button variant="ghost" asChild>
+                    <Link href="/academy/git">Git &amp; GitHub</Link>
+                  </Button>
+                </div>
+              </section>
+            )}
+          </div>
+
+          {/* ── Secondary recommendations ──────────────────────── */}
+          <div className="mt-10">
+            <TrackPanels tracks={tracks} />
+          </div>
+
+          {/* ── Plan and progress ──────────────────────────────── */}
+          <div className="mt-10 grid gap-4 lg:grid-cols-2">
+            <TodaysPlan plan={plan} />
+            <ProgressOverview state={state} />
+          </div>
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <WeekInReview summary={weekly} />
+            <RecentActivity activities={activities} />
+          </div>
+
+          <div className="mt-4">
+            <MentorCard available={ai.configured} />
+          </div>
+
+          {/* ── Path controls ──────────────────────────────────── */}
+          {career ? (
+            <div className="mt-8 flex flex-wrap items-center gap-2">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/roadmap">View your roadmap</Link>
+              </Button>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href={`/careers/${career.slug}`}>About this path</Link>
+              </Button>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/careers">Change career</Link>
+              </Button>
             </div>
           ) : null}
         </div>
       </Container>
     </div>
   );
+}
+
+/**
+ * Time-of-day greeting.
+ *
+ * Uses the server's clock, which is approximate for a learner in another
+ * timezone — acceptable for a greeting, and the reason nothing else on this
+ * page is derived from it.
+ */
+function greeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
 }
