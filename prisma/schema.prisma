@@ -143,6 +143,33 @@ model Profile {
   /// solving (Phase 10). Defaults to the conservative setting.
   mentorSolutionPolicy MentorSolutionPolicy @default(HINTS_ONLY)
 
+  // ── Public profile (Phase 11) ─────────────────────────────────────────
+  //
+  // Six settings and a username, on Profile rather than in a table of their
+  // own: every profile has all of them, so a 1:1 table would be a join with
+  // no upside.
+  //
+  // Everything here defaults to private. A learner opts in to being visible,
+  // and then opts in again to each section — the public page renders only
+  // what is explicitly switched on.
+
+  /// The public identifier, chosen by the learner. Null until they pick one.
+  /// Unique, lowercase, and validated against a reserved list — see
+  /// lib/profile/username. Never a database id: /u/<cuid> would leak the key
+  /// used everywhere else in the schema.
+  username String? @unique
+
+  /// The master switch. With this off, /u/<username> is a 404 even for a
+  /// username that exists.
+  isPublic Boolean @default(false)
+
+  publicShowProjects Boolean @default(true)
+  publicShowSkills   Boolean @default(true)
+  publicShowProgress Boolean @default(true)
+  /// Off by default even though the others are on: a GitHub handle is an
+  /// identity elsewhere, and linking it should be a deliberate act.
+  publicShowGitHub   Boolean @default(false)
+
   onboardingCompleted Boolean @default(false)
 
   createdAt DateTime @default(now())
@@ -1990,4 +2017,131 @@ model AIUsage {
 
   @@index([userId, createdAt])
   @@map("ai_usage")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Techie Profile & Developer Readiness (Phase 11)
+//
+//   Capability → CapabilitySource → (Topic | PracticeProblem | Project |
+//                                    Git exercise | AI tool | AI workflow)
+//
+// The question this phase answers is "what can I actually do?", and the answer
+// has to be evidence, not a percentage. A capability is therefore a *claim*
+// with sources attached, and a learner's level in it is computed by
+// intersecting those sources with the progress they have genuinely made.
+//
+// There is deliberately no CapabilityEvidence table.
+//
+// Evidence is derived on read, exactly like Phase 10's LearnerState. Storing a
+// row per learner per capability per source would mean a write on every lesson,
+// problem, project, exercise and workflow — six more places to keep in sync,
+// each of which could drift from the truth it is meant to record. Deriving it
+// means completing a lesson changes the level on the next read, with nothing to
+// invalidate and nothing that can silently disagree with the progress tables.
+// The cost is a handful of indexed reads on the profile page, which is the
+// right trade for a number that is never wrong.
+//
+// Public profile settings live on Profile rather than in a table of their own.
+// They are six booleans and a username that every profile has, so a 1:1 table
+// would be a join with no upside. They default to private: a learner opts in.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Where a capability sits in the skills view. Which categories are shown, and
+/// in what order, depends on the learner's career — an empty category is never
+/// rendered.
+enum CapabilityCategory {
+  PROGRAMMING
+  WEB_DEVELOPMENT
+  FRAMEWORKS
+  DATA
+  DEVELOPER_TOOLS
+  VERSION_CONTROL
+  AI_SKILLS
+  PROJECT_DELIVERY
+}
+
+/// What kind of thing counts as evidence for a capability.
+///
+/// PRACTICE_TOPIC points at a Topic and means "the practice problems attached
+/// to this topic", rather than naming individual problems — problems are added
+/// to topics over time, and a capability should pick those up without being
+/// re-authored.
+enum CapabilitySourceKind {
+  TOPIC
+  PRACTICE_TOPIC
+  PROJECT
+  GIT_EXERCISE
+  AI_TOOL
+  AI_WORKFLOW
+}
+
+/// How much of a capability a learner has demonstrated.
+///
+/// The vocabulary is deliberately modest. There is no "Expert", "Master" or
+/// "Professional", and there never will be from evidence collected inside one
+/// learning platform: CONFIDENT is the ceiling and it already requires
+/// completed topics, solved problems and more than one finished project.
+/// Telling a beginner they are an expert is not encouragement, it is setting
+/// them up to be embarrassed in a room full of people who are.
+enum CapabilityLevel {
+  EXPLORING
+  LEARNING
+  PRACTICING
+  APPLYING
+  CONFIDENT
+}
+
+/// A thing a learner can claim to be able to do.
+///
+/// Authored content, identical for everyone, seeded and never written by the
+/// application. It carries no user data at all — the per-learner part is
+/// computed from its sources.
+model Capability {
+  id   String @id @default(cuid())
+  slug String @unique
+  name String
+
+  /// One line for the card.
+  description     String
+  /// What "being able to do this" actually means, for the detail page.
+  longDescription String
+
+  category CapabilityCategory
+  /// Lucide icon name, resolved through a registry at render time.
+  icon     String             @default("Code2")
+
+  sortOrder Int @default(0)
+
+  sources CapabilitySource[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@map("capabilities")
+}
+
+/// One thing that counts as evidence for a capability.
+///
+/// `ref` is a content slug rather than a foreign key, and that is deliberate:
+/// the six source kinds live in five different tables, and a polymorphic
+/// pointer keeps this one small table instead of five join tables that would
+/// all need the same treatment. The seed validator resolves every ref and
+/// fails loudly on a typo, which is the guarantee a foreign key would have
+/// given — enforced at authoring time rather than at write time, because
+/// nothing at runtime writes these rows.
+model CapabilitySource {
+  id           String     @id @default(cuid())
+  capabilityId String
+  capability   Capability @relation(fields: [capabilityId], references: [id], onDelete: Cascade)
+
+  kind CapabilitySourceKind
+  /// Topic slug, project slug, exercise slug, tool slug or workflow slug.
+  ref  String
+
+  order Int @default(0)
+
+  @@unique([capabilityId, kind, ref])
+  @@index([kind, ref])
+  @@map("capability_sources")
 }
