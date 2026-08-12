@@ -216,6 +216,36 @@ let total = price * quantity;`,
           "A page with only HTML still works: it is plain, but readable and clickable. A page with only CSS and JavaScript and no HTML is nothing at all. Structure comes first, and everything else decorates it.",
       },
       {
+        type: "CODE",
+        title: "The same button, described three times",
+        content:
+          "You are not expected to write any of this yet — the point is to see the division of labour once, so the three phases that follow have somewhere to attach. Read it as three answers to three different questions: what is it, what does it look like, what does it do?",
+        code: `<!-- HTML: what it is. -->
+<button id="save">Save</button>
+
+<style>
+  /* CSS: what it looks like. */
+  #save {
+    background: #4f46e5;
+    color: white;
+    padding: 8px 16px;
+  }
+</style>
+
+<script>
+  // JavaScript: what it does.
+  document.querySelector("#save").addEventListener("click", () => {
+    alert("Saved.");
+  });
+</script>`,
+        language: "html",
+      },
+      {
+        type: "TEXT",
+        content:
+          "Delete the CSS and you still have a working button — an ugly one. Delete the JavaScript and you still have a button that looks right but does nothing. Delete the HTML and the other two have nothing to style or listen to.\n\nThat asymmetry is the whole argument for keeping them separate, and it is why this roadmap teaches them in that order.",
+      },
+      {
         type: "HEADING",
         content: "What happens after the HTML arrives",
       },
@@ -761,6 +791,21 @@ api.example.com.    A       93.184.216.35`,
         ],
       },
     ],
+    // No code example, deliberately. This lesson is about what a thing is *for*,
+    // and the distinction it draws — same materials, different job — has no
+    // syntax to demonstrate. A snippet here would be decoration added to satisfy
+    // a metric, which is exactly the kind of filler the depth floors exist to
+    // catch rather than to encourage.
+    resources: [
+      {
+        title: "Rendering on the web",
+        url: "https://web.dev/articles/rendering-on-the-web",
+        source: "web.dev",
+        type: "ARTICLE",
+        description:
+          "The decision this lesson foreshadows, in depth: which pages are prepared ahead of time and which are built per request.",
+      },
+    ],
   },
 
   // ── 6. Client and server basics ────────────────────────────────────────
@@ -914,6 +959,16 @@ if (quantity < 1 || quantity > 10) {
           { text: "It reduces the load on the database" },
           { text: "It is required for the server check to work" },
         ],
+      },
+    ],
+    resources: [
+      {
+        title: "Client–server overview",
+        url: "https://developer.mozilla.org/en-US/docs/Learn_web_development/Extensions/Server-side/First_steps/Client-Server_overview",
+        source: "MDN",
+        type: "DOCUMENTATION",
+        description:
+          "The same split, followed further: what a server does with a request once it arrives.",
       },
     ],
   },
