@@ -280,6 +280,58 @@ describe("authored content validation", () => {
     expect(reached).toContain("fetch-api");
   });
 
+  it("renders every inline convention the authored prose actually uses", async () => {
+    const { INLINE_PATTERN } = await import("@/lib/learn/inline");
+    const tokens = (text: string) => text.match(new RegExp(INLINE_PATTERN)) ?? [];
+
+    // The three the renderer supports.
+    expect(tokens("use `map` here")).toEqual(["`map`"]);
+    expect(tokens("this is **important**")).toEqual(["**important**"]);
+    expect(tokens("it is *derived* data")).toEqual(["*derived*"]);
+
+    // `**strong**` must win over emphasis, or a double asterisk would be read
+    // as an empty emphasis wrapping a stray one.
+    expect(tokens("**Local UI state** — an open menu")).toEqual([
+      "**Local UI state**",
+    ]);
+
+    // And prose with two unrelated asterisks must not have the middle
+    // swallowed: the delimiters have to hug their text.
+    expect(tokens("2 * 3 and 4 * 5")).toEqual([]);
+  });
+
+  it("leaves no emphasis in the curriculum that would render as literal asterisks", () => {
+    // Every lesson file uses `*emphasis*`, and for a long time the renderer
+    // handled only backticks and `**strong**`, so those spans reached the page
+    // with their asterisks showing. This asserts the convention is closed:
+    // whatever the prose opens, the renderer can close.
+    const unrendered: string[] = [];
+
+    for (const lesson of LESSONS) {
+      for (const section of lesson.sections) {
+        const text = [
+          section.title ?? "",
+          section.content,
+          ...(section.items ?? []),
+        ].join("\n\n");
+
+        // Strip everything the renderer understands; a leftover asterisk that
+        // is not part of a pair is prose, and fine.
+        const remaining = text.replace(
+          /`[^`]+`|\*\*[^*]+\*\*|\*\S(?:[^*\n]*\S)?\*/g,
+          "",
+        );
+        const orphanPairs = remaining.match(/\*[^*\n]*\*/g) ?? [];
+
+        for (const orphan of orphanPairs) {
+          unrendered.push(`${lesson.topicSlug}: ${orphan}`);
+        }
+      }
+    }
+
+    expect(unrendered).toEqual([]);
+  });
+
   it("links only to https resources, with a named source", () => {
     for (const lesson of LESSONS) {
       for (const resource of lesson.resources ?? []) {

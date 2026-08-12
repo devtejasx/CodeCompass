@@ -1,6 +1,7 @@
 import { AlertTriangle, Lightbulb } from "lucide-react";
 
 import { CodeBlock } from "@/components/learn/code-block";
+import { splitInline } from "@/lib/learn/inline";
 import type { LessonSectionView } from "@/lib/learn/queries";
 
 /**
@@ -129,9 +130,10 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Splits authored prose on blank lines and renders `backticks` as inline code.
- * Deliberately not a full markdown parser — lesson content uses exactly these
- * two conventions, and anything richer has its own section type.
+ * Splits authored prose on blank lines and renders `backticks` as inline code,
+ * `**strong**` and `*emphasis*`. Deliberately not a full markdown parser —
+ * lesson content uses exactly these conventions, and anything richer has its
+ * own section type.
  */
 function Paragraphs({ text, tone }: { text: string; tone?: "callout" }) {
   const size =
@@ -154,7 +156,7 @@ function Paragraphs({ text, tone }: { text: string; tone?: "callout" }) {
 }
 
 function renderInline(text: string): React.ReactNode {
-  return text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g).map((chunk, index) => {
+  return splitInline(text).map((chunk, index) => {
     if (/^`[^`]+`$/.test(chunk)) {
       return (
         <code
@@ -170,6 +172,13 @@ function renderInline(text: string): React.ReactNode {
         <strong key={index} className="font-semibold text-foreground">
           {chunk.slice(2, -2)}
         </strong>
+      );
+    }
+    if (/^\*[^*\n]+\*$/.test(chunk)) {
+      return (
+        <em key={index} className="italic text-foreground/90">
+          {chunk.slice(1, -1)}
+        </em>
       );
     }
     return chunk;
