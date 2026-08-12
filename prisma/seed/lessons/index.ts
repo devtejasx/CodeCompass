@@ -4,6 +4,7 @@ import { FRONTEND_FOUNDATION_LESSONS } from "./frontend-foundations";
 import { FRONTEND_CSS_LESSONS } from "./frontend-css";
 import { FRONTEND_HTML_LESSONS } from "./frontend-html";
 import { FRONTEND_JAVASCRIPT_LESSONS } from "./frontend-javascript";
+import { FRONTEND_JS_BROWSER_LESSONS } from "./frontend-javascript-browser";
 import { FULLSTACK_LESSONS } from "./fullstack";
 import type { SeedLesson } from "./types";
 
@@ -23,6 +24,7 @@ export const FRONTEND_LESSONS: SeedLesson[] = [
   ...FRONTEND_HTML_LESSONS,
   ...FRONTEND_CSS_LESSONS,
   ...FRONTEND_JAVASCRIPT_LESSONS,
+  ...FRONTEND_JS_BROWSER_LESSONS,
   ...FRONTEND_CORE_LESSONS,
 ];
 
