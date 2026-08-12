@@ -51,6 +51,7 @@ async function reactTopics() {
       id: true,
       slug: true,
       title: true,
+      description: true,
       isRequired: true,
       lesson: {
         select: {
@@ -125,7 +126,11 @@ async function complete(userId: string, topicIds: string[]) {
  * roadmap is satisfied the way a real learner satisfies it rather than by
  * writing progress rows against topics that delegate.
  */
-async function reachReact(userId: string, upToSlug: string) {
+async function reachReact(
+  userId: string,
+  upToSlug: string,
+  { academy = true } = {},
+) {
   const roadmap = await db.roadmap.findFirstOrThrow({
     where: { career: { slug: "frontend-developer" }, isActive: true },
     select: {
@@ -151,6 +156,10 @@ async function reachReact(userId: string, upToSlug: string) {
   // The Academy modules behind every delegated Git topic. Delegation is derived
   // on read from these rows, so completing them is what makes the Git phase
   // count — there is no progress row on the delegated topic itself.
+  //
+  // Skipped when a test needs a learner who has reached Git and not done it.
+  if (!academy) return;
+
   const academySlugs = [
     ...new Set(Object.values(DELEGATED_TOPICS).flatMap((entry) => entry.requires)),
   ];
@@ -358,6 +367,138 @@ describe("React prerequisites", () => {
 
     for (const slug of REACT_SLUGS) walk(slug, []);
     expect(cycles).toEqual([]);
+  });
+});
+
+describe("Git before React, without pretending React needs Git", () => {
+  /**
+   * The Frontend roadmap puts Git & GitHub in phase 5 and React in phase 6, but
+   * no prerequisite edge connects them — and that is deliberate. React does not
+   * technically require Git, so a graph edge would be a lie told to enforce an
+   * ordering the roadmap already expresses.
+   *
+   * What that means in practice is asserted here rather than left implicit,
+   * because the behaviour is easy to "fix" into something worse.
+   */
+  async function statesFor(userId: string) {
+    const { deriveTopicStates } = await import("@/lib/learn/progress");
+    const { getCompletedTopicIds } = await import("@/lib/learn/queries");
+
+    const roadmap = await db.roadmap.findFirstOrThrow({
+      where: { career: { slug: "frontend-developer" }, isActive: true },
+      select: {
+        id: true,
+        phases: {
+          orderBy: { order: "asc" },
+          select: {
+            topics: {
+              orderBy: { order: "asc" },
+              select: {
+                id: true,
+                slug: true,
+                isRequired: true,
+                prerequisites: { select: { prerequisiteId: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const inOrder = roadmap.phases.flatMap((phase) => phase.topics);
+    const completed = await getCompletedTopicIds(userId, roadmap.id);
+
+    const states = deriveTopicStates(
+      inOrder.map((topic) => ({
+        id: topic.id,
+        isRequired: topic.isRequired,
+        prerequisiteIds: topic.prerequisites.map((edge) => edge.prerequisiteId),
+      })),
+      completed,
+    );
+
+    return new Map(inOrder.map((topic) => [topic.slug, states.get(topic.id)!]));
+  }
+
+  it("makes Git the current step, and React merely available, when Git is unfinished", async () => {
+    const user = await makeUser("react-git-order@example.com");
+    signedInAs(user.id);
+    // Everything up to Git, and no Academy work at all.
+    await reachReact(user.id, "git-fundamentals", { academy: false });
+
+    const states = await statesFor(user.id);
+
+    // Git is what CodeCompass says to do next.
+    expect(states.get("git-fundamentals")).toBe("CURRENT");
+
+    // React is reachable, because its actual prerequisites are met — but it is
+    // not the recommendation. AVAILABLE says "you may" where LOCKED would say
+    // "you may not", and only one of those is true.
+    expect(states.get("react-fundamentals")).toBe("AVAILABLE");
+  });
+
+  it("moves the current step to React once the Academy work behind Git is real", async () => {
+    const user = await makeUser("react-git-done@example.com");
+    signedInAs(user.id);
+    await reachReact(user.id, "react-fundamentals");
+
+    const states = await statesFor(user.id);
+
+    // Delegation is derived from Academy progress, so this transition is proof
+    // the Git phase was satisfied by real work rather than by a progress row.
+    for (const slug of ["git-fundamentals", "git-commit", "github-workflow"]) {
+      expect(states.get(slug), slug).toBe("COMPLETED");
+    }
+    expect(states.get("react-fundamentals")).toBe("CURRENT");
+  });
+
+  it("keeps React free of any prerequisite on a Git topic", async () => {
+    const topics = await reactTopics();
+
+    for (const topic of topics) {
+      for (const edge of topic.prerequisites) {
+        expect(
+          edge.prerequisite.slug.startsWith("git"),
+          `${topic.slug} depends on ${edge.prerequisite.slug}`,
+        ).toBe(false);
+      }
+    }
+  });
+});
+
+describe("what the React roadmap tells a learner it covers", () => {
+  /**
+   * JSX, events, conditional rendering, lists, keys and custom hooks have no
+   * topics of their own — they are taught inside the topic that owns them. The
+   * roadmap card shows a topic's title and description and nothing else, so the
+   * description is the only place a learner can find out they are covered.
+   *
+   * This test is the decision, written down: nine topics, and the descriptions
+   * carry the concepts. Splitting them into their own topics would double the
+   * phase's length for concepts that take a section each.
+   */
+  it("names the concepts that are taught inside a topic rather than beside it", async () => {
+    const topics = await reactTopics();
+    const describedBy = new Map(
+      topics.map((topic) => [topic.slug, topic.description.toLowerCase()]),
+    );
+
+    expect(describedBy.get("react-fundamentals")).toContain("jsx");
+    expect(describedBy.get("react-components")).toContain("conditional");
+    expect(describedBy.get("react-components")).toContain("lists");
+    expect(describedBy.get("react-components")).toContain("keys");
+    expect(describedBy.get("react-props")).toContain("children");
+    expect(describedBy.get("react-state")).toContain("events");
+    expect(describedBy.get("react-hooks")).toContain("your own hooks");
+  });
+
+  it("keeps the phase at the nine topics the curriculum was authored against", async () => {
+    const topics = await reactTopics();
+
+    // A structural change here is a curriculum decision, not a refactor: the
+    // lessons, the capability, the projects and the practice all name these
+    // slugs. This fails loudly if someone adds topics without the rest.
+    expect(topics.map((topic) => topic.slug)).toEqual(REACT_SLUGS);
   });
 });
 

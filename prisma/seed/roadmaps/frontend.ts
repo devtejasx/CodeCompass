@@ -512,7 +512,7 @@ export const FRONTEND_ROADMAP: SeedRoadmap = {
           slug: "react-fundamentals",
           title: "React fundamentals",
           description:
-            "What problem React solves, and how describing UI beats manipulating it step by step.",
+            "What problem React solves, how describing UI beats manipulating it step by step, and how to read JSX.",
           difficulty: "INTERMEDIATE",
           estimatedTime: "2 hours",
           prerequisites: ["js-modules", "js-dom"],
@@ -521,7 +521,7 @@ export const FRONTEND_ROADMAP: SeedRoadmap = {
           slug: "react-components",
           title: "Components",
           description:
-            "Splitting an interface into pieces that can be understood and reused on their own.",
+            "Splitting an interface into pieces that stand on their own — plus conditional rendering, lists and keys.",
           difficulty: "INTERMEDIATE",
           estimatedTime: "2 hours",
           prerequisites: ["react-fundamentals"],
@@ -529,7 +529,8 @@ export const FRONTEND_ROADMAP: SeedRoadmap = {
         {
           slug: "react-props",
           title: "Props",
-          description: "Passing data down, and keeping components predictable.",
+          description:
+            "Passing data down, wrapping content with children, and keeping components predictable.",
           difficulty: "INTERMEDIATE",
           estimatedTime: "1.5 hours",
           prerequisites: ["react-components"],
@@ -538,7 +539,7 @@ export const FRONTEND_ROADMAP: SeedRoadmap = {
           slug: "react-state",
           title: "State",
           description:
-            "Data that changes over time, and what should and shouldn't live in it.",
+            "Data that changes over time, the events that change it, and what should and shouldn't live in it.",
           difficulty: "INTERMEDIATE",
           estimatedTime: "2.5 hours",
           prerequisites: ["react-props"],
@@ -547,7 +548,7 @@ export const FRONTEND_ROADMAP: SeedRoadmap = {
           slug: "react-hooks",
           title: "Hooks",
           description:
-            "useState, useEffect and friends — and when an effect is the wrong tool.",
+            "useState, useEffect and writing your own hooks — and when an effect is the wrong tool.",
           difficulty: "INTERMEDIATE",
           estimatedTime: "3 hours",
           prerequisites: ["react-state", "js-scope"],
