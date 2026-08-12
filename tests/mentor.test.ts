@@ -433,6 +433,66 @@ describe("cost controls", () => {
 
 // ── 4. Grounding ───────────────────────────────────────────────────────────
 
+describe("mentor transcript formatting", () => {
+  it("renders every inline convention a reply actually contains", async () => {
+    const { splitInline } = await import("@/lib/learn/inline");
+
+    // The transcript used to print `{message.content}` straight into a
+    // `whitespace-pre-wrap` div, so a learner read "you are on **Components**"
+    // with the asterisks showing. Models write markdown whether or not
+    // anything renders it, so the mentor now shares the lessons' tokenizer.
+    const reply = [
+      "**Simulated response** — no *real* AI provider is configured.",
+      "",
+      "Your roadmap says you are on **Components**.",
+      "",
+      "Set `AI_PROVIDER=anthropic` to enable real guidance.",
+    ].join("\n");
+
+    const formatted = splitInline(reply).filter((chunk) =>
+      /^(`.+`|\*\*.+\*\*|\*[^*]+\*)$/.test(chunk),
+    );
+
+    expect(formatted).toEqual([
+      "**Simulated response**",
+      "*real*",
+      "**Components**",
+      "`AI_PROVIDER=anthropic`",
+    ]);
+  });
+
+  it("leaves the line breaks alone, since the transcript still depends on them", async () => {
+    const { splitInline } = await import("@/lib/learn/inline");
+
+    // InlineText only touches spans within a line; `whitespace-pre-wrap`
+    // carries the paragraph breaks. Rejoining the chunks must reproduce the
+    // reply exactly, newlines included.
+    const reply = "First line with **bold**.\n\nSecond line.";
+
+    expect(splitInline(reply).join("")).toBe(reply);
+  });
+
+  it("formats what the development provider actually replies with", async () => {
+    const { splitInline } = await import("@/lib/learn/inline");
+
+    const reply = await new MockProvider().generate({
+      system: "## Their path\nCurrent topic: Components",
+      messages: [{ role: "user", content: "What should I learn next?" }],
+      maxOutputTokens: 500,
+      timeoutMs: 1_000,
+    });
+
+    // The provider a developer sees by default must not be the one that looks
+    // broken, so its own formatting is asserted rather than assumed.
+    const rendered = splitInline(reply.text).filter((chunk) =>
+      /^(`.+`|\*\*.+\*\*|\*[^*]+\*)$/.test(chunk),
+    );
+
+    expect(rendered).toContain("**Components**");
+    expect(rendered).toContain("**Simulated response**");
+  });
+});
+
 describe("mentor grounding", () => {
   it("includes the learner's real position", async () => {
     const user = await makeUser();

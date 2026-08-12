@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Send, Sparkles, User } from "lucide-react";
 
+import { InlineText } from "@/components/inline-text";
 import { Button } from "@/components/ui/button";
 import { sendMentorMessage } from "@/app/actions/mentor";
 // From ./constants, not ./limits: the latter is server-only, and the composer
@@ -238,13 +239,20 @@ function Message({ message }: { message: ChatMessage }) {
         <p className="text-xs font-medium text-subtle-foreground">
           {isUser ? "You" : "Mentor"}
         </p>
+        {/*
+          The same inline vocabulary the lessons use. A model writes `**bold**`
+          and backticked identifiers whether or not anything renders them, so
+          without this the learner reads the punctuation. `whitespace-pre-wrap`
+          still carries the line breaks — InlineText only touches spans within
+          a line.
+        */}
         <div
           className={cn(
             "pretty mt-1 whitespace-pre-wrap text-sm leading-relaxed",
             isUser ? "text-foreground" : "text-muted-foreground",
           )}
         >
-          {message.content}
+          <InlineText text={message.content} />
         </div>
       </div>
     </div>
