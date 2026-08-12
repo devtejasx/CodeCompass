@@ -361,6 +361,44 @@ describe("starter code", () => {
     expect(toSnakeCase("factorial")).toBe("factorial");
   });
 
+  it("never evaluates learner code inside the application", async () => {
+    // The rule this pins is stated in src/lib/practice/execution/types.ts, and
+    // it is also the reason immutability cannot be graded here: detecting that
+    // a solution mutated its argument means snapshotting the inputs around the
+    // call, and CodeCompass never makes that call. Grading happens in an
+    // external sandbox; this process only sends code and reads verdicts.
+    //
+    // So the honest options are "change the sandbox" or "do not enforce it".
+    // What must never happen is someone adding mutation detection by running
+    // the code here, which is why this is a test rather than a comment.
+    const { readdir, readFile } = await import("node:fs/promises");
+    const path = await import("node:path");
+
+    const dir = path.resolve(import.meta.dirname, "../src/lib/practice/execution");
+    const files = (await readdir(dir)).filter((name) => name.endsWith(".ts"));
+
+    expect(files.length).toBeGreaterThan(0);
+
+    const offenders: string[] = [];
+    for (const file of files) {
+      const source = await readFile(path.join(dir, file), "utf8");
+      // Comments legitimately name these to explain the prohibition, so only
+      // executable uses count: a call, or an import of the module.
+      const uses = [
+        /\beval\s*\(/,
+        /new\s+Function\s*\(/,
+        /require\s*\(\s*["']node:?(vm|child_process|worker_threads)["']\s*\)/,
+        /from\s+["']node:?(vm|child_process|worker_threads)["']/,
+      ];
+
+      for (const pattern of uses) {
+        if (pattern.test(source)) offenders.push(`${file}: ${pattern}`);
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
+
   it("solves every problem with its own reference solution", () => {
     // The answer key is what an attempt is graded against, so a wrong one is
     // worse than a missing one: the learner is told a correct solution failed.
@@ -405,6 +443,44 @@ describe("starter code", () => {
     }
 
     expect(failures).toEqual([]);
+  });
+
+  it("keeps every React reference solution free of argument mutation", async () => {
+    // The grader compares return values, so it cannot fail a solution that
+    // mutates its argument and returns it — that limitation is a property of
+    // the execution architecture and is not fixable here.
+    //
+    // What *is* fixable is the answer key. These problems exist to teach that
+    // a state updater builds a new value, and the solution a learner is shown
+    // when they get it right is the one that models it. If a reference
+    // solution ever quietly starts using `push` or `splice` on its input, the
+    // problem is teaching the opposite of its own explanation.
+    const { REACT_PROBLEMS } = await import("../prisma/seed/problems");
+
+    const mutated: string[] = [];
+
+    for (const problem of REACT_PROBLEMS) {
+      const source = renderSource(
+        problem.signature,
+        "JAVASCRIPT",
+        problem.solutions.JAVASCRIPT!,
+      );
+      const solve = new Function(
+        `${source}\nreturn ${problem.signature.name};`,
+      )() as (...args: unknown[]) => unknown;
+
+      for (const [index, test] of problem.tests.entries()) {
+        const before = JSON.stringify(test.args);
+        solve(...(test.args as unknown[]));
+        const after = JSON.stringify(test.args);
+
+        if (before !== after) {
+          mutated.push(`${problem.slug} case ${index + 1}: ${before} → ${after}`);
+        }
+      }
+    }
+
+    expect(mutated).toEqual([]);
   });
 
   it("never ships the reference solution to the browser", async () => {
