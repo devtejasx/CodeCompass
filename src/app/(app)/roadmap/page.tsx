@@ -71,12 +71,21 @@ export default async function RoadmapPage() {
   );
 
   const donePhaseOrders = completedPhaseOrders(roadmap.phases, completedTopicIds);
-  const stateMap = derivePhaseStates(roadmap.phases, donePhaseOrders);
-  const states: Record<string, PhaseStatus> = Object.fromEntries(stateMap);
 
-  const topicStates: Record<string, TopicState> = Object.fromEntries(
-    deriveTopicStates(topicsInOrder, completedTopicIds),
-  );
+  const topicStateMap = deriveTopicStates(topicsInOrder, completedTopicIds);
+  const topicStates: Record<string, TopicState> = Object.fromEntries(topicStateMap);
+
+  // A phase is only "locked" when everything inside it is. Derived from the
+  // same topic states the list below renders, so the badge and the topics can
+  // never disagree.
+  const openPhaseIds = roadmap.phases
+    .filter((phase) =>
+      phase.topics.some((topic) => topicStateMap.get(topic.id) !== "LOCKED"),
+    )
+    .map((phase) => phase.id);
+
+  const stateMap = derivePhaseStates(roadmap.phases, donePhaseOrders, openPhaseIds);
+  const states: Record<string, PhaseStatus> = Object.fromEntries(stateMap);
 
   const topicsWithLessons = roadmap.phases
     .flatMap((phase) => phase.topics)

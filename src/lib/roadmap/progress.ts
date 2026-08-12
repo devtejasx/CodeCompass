@@ -27,17 +27,32 @@ export const PHASE_STATE_LABEL: Record<PhaseState, string> = {
 };
 
 /**
- * Derives each phase's state by position.
+ * Derives each phase's state.
+ *
+ * Position decides which phase is *current*; the topics decide which are
+ * *locked*. Those are different questions, and conflating them produced a real
+ * contradiction: phase 5 of the Frontend roadmap was drawn as "Locked" while
+ * its first topic had no prerequisites and was genuinely available to start.
+ * The badge said one thing and the topic list beneath it said another.
+ *
+ * A phase is locked only when every topic in it is locked. That keeps the badge
+ * honest about what the learner can actually do, and it is the truthful answer
+ * for Git in particular — Git does not depend on JavaScript, so a learner who
+ * wants it early is not doing anything wrong.
  *
  * @param completedPhaseOrders Orders of the phases whose required topics are
- *   all complete. Empty for a learner who has just started, which is what makes
- *   the first phase "start here" and the rest locked.
+ *   all complete.
+ * @param openPhaseIds Phases containing at least one topic that is not locked.
+ *   Omit to fall back to position alone, which is what callers without topic
+ *   states get.
  */
 export function derivePhaseStates(
   phases: Pick<RoadmapDetail["phases"][number], "id" | "order">[],
   completedPhaseOrders: number[] = [],
+  openPhaseIds?: Iterable<string>,
 ): Map<string, PhaseStatus> {
   const completed = new Set(completedPhaseOrders);
+  const open = openPhaseIds ? new Set(openPhaseIds) : null;
   const states = new Map<string, PhaseStatus>();
 
   // The first phase that has not been completed is where the learner stands.
@@ -52,6 +67,9 @@ export function derivePhaseStates(
       // "Available" rather than "current": nothing has been started yet, and
       // claiming otherwise would be a progress lie.
       state = completed.size > 0 ? "CURRENT" : "AVAILABLE";
+    } else if (open?.has(phase.id)) {
+      // Later in the roadmap, but something inside it is genuinely startable.
+      state = "AVAILABLE";
     } else {
       state = "LOCKED";
     }
