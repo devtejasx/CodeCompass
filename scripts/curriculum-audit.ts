@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { DEPTH_FLOOR } from "../prisma/seed/lessons/coverage";
 
 /**
  * Curriculum audit for one career roadmap.
@@ -33,6 +34,8 @@ async function main() {
               lesson: {
                 select: {
                   _count: { select: { sections: true, knowledgeChecks: true } },
+                  sections: { select: { code: true } },
+                  resources: { select: { id: true } },
                 },
               },
               prerequisites: { select: { prerequisite: { select: { slug: true } } } },
@@ -110,6 +113,59 @@ async function main() {
   if (broken.length) console.log("  " + broken.join("\n  "));
   console.log(`Reachable via prerequisite graph: ${reachable}/${all.length}`);
   if (firstBlock) console.log(`Unreachable required topic: ${firstBlock}`);
+
+  // A cycle would make every topic in it permanently locked, so it is worth
+  // reporting explicitly rather than inferring it from the reachability count.
+  const edges = new Map(
+    all.map((t) => [t.slug, t.prerequisites.map((e) => e.prerequisite.slug)]),
+  );
+  const cycles: string[] = [];
+  const state = new Map<string, "open" | "done">();
+  const walk = (slug: string, trail: string[]) => {
+    if (state.get(slug) === "done") return;
+    if (state.get(slug) === "open") {
+      cycles.push([...trail.slice(trail.indexOf(slug)), slug].join(" -> "));
+      return;
+    }
+    state.set(slug, "open");
+    for (const next of edges.get(slug) ?? []) walk(next, [...trail, slug]);
+    state.set(slug, "done");
+  };
+  for (const t of all) walk(t.slug, []);
+  console.log(`Circular prerequisites: ${cycles.length}`);
+  if (cycles.length) console.log("  " + cycles.join("\n  "));
+
+  // ── Content depth ────────────────────────────────────────────────────
+  // Coverage means nothing if a "covered" topic is a stub, so the same floors
+  // the test suite enforces are reported here against the seeded rows.
+  const lessons = all.filter((t) => t.lesson);
+  const shallow = lessons.filter(
+    (t) =>
+      t.lesson!._count.sections < DEPTH_FLOOR.sections ||
+      t.lesson!._count.knowledgeChecks < DEPTH_FLOOR.knowledgeChecks,
+  );
+  const checkCounts = lessons.map((t) => t.lesson!._count.knowledgeChecks);
+  const sectionCounts = lessons.map((t) => t.lesson!._count.sections);
+  const avg = (xs: number[]) =>
+    xs.length ? (xs.reduce((a, b) => a + b, 0) / xs.length).toFixed(1) : "0";
+
+  console.log(
+    `\nKnowledge checks per lesson: min ${Math.min(...checkCounts)}, avg ${avg(checkCounts)}, max ${Math.max(...checkCounts)}`,
+  );
+  console.log(
+    `Sections per lesson: min ${Math.min(...sectionCounts)}, avg ${avg(sectionCounts)}, max ${Math.max(...sectionCounts)}`,
+  );
+  console.log(`Lessons below the depth floor: ${shallow.length}`);
+  if (shallow.length) console.log("  " + shallow.map((t) => t.slug).join(", "));
+
+  // Code and resources are expectations rather than hard rules — a conceptual
+  // topic legitimately needs neither — so these are listed, not failed.
+  const noCode = lessons.filter((t) => t.lesson!.sections.every((s) => !s.code));
+  const noResources = lessons.filter((t) => t.lesson!.resources.length === 0);
+  console.log(`Lessons with no code example: ${noCode.length}`);
+  if (noCode.length) console.log("  " + noCode.map((t) => t.slug).join(", "));
+  console.log(`Lessons with no linked resource: ${noResources.length}`);
+  if (noResources.length) console.log("  " + noResources.map((t) => t.slug).join(", "));
 
   // The learner-facing question: how far can they get before hitting a topic
   // with no lesson, following the roadmap in order?

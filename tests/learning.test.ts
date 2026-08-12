@@ -226,6 +226,59 @@ describe("authored content validation", () => {
     }
   });
 
+  it("keeps the Frontend roadmap learnable from its first topic without gaps", async () => {
+    // The property that actually matters, asserted as a property rather than a
+    // number: walking the roadmap in order, a learner must not meet a topic
+    // whose prerequisites are unmet, and the authored run must reach at least
+    // the end of JavaScript. Authoring more content can only improve this.
+    const roadmap = await db.roadmap.findFirstOrThrow({
+      where: { career: { slug: "frontend-developer" }, isActive: true },
+      select: {
+        phases: {
+          orderBy: { order: "asc" },
+          select: {
+            title: true,
+            topics: {
+              orderBy: { order: "asc" },
+              select: {
+                slug: true,
+                lesson: { select: { id: true } },
+                prerequisites: {
+                  select: { prerequisite: { select: { slug: true } } },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const done = new Set<string>();
+    const reached: string[] = [];
+
+    for (const phase of roadmap.phases) {
+      for (const topic of phase.topics) {
+        const ready = topic.prerequisites.every((edge) =>
+          done.has(edge.prerequisite.slug),
+        );
+        // A topic whose prerequisites are not met by everything before it in
+        // roadmap order means the ordering and the graph disagree.
+        expect(ready, `${topic.slug} is unreachable in roadmap order`).toBe(true);
+        if (!topic.lesson) break;
+        done.add(topic.slug);
+        reached.push(topic.slug);
+      }
+      if (phase.topics.some((topic) => !topic.lesson)) break;
+    }
+
+    // Foundations, HTML, CSS and JavaScript are authored, so the chain must
+    // run at least to the end of the JavaScript phase.
+    expect(reached).toContain("html-fundamentals");
+    expect(reached).toContain("css-fundamentals");
+    expect(reached).toContain("js-dom");
+    expect(reached).toContain("fetch-api");
+  });
+
   it("links only to https resources, with a named source", () => {
     for (const lesson of LESSONS) {
       for (const resource of lesson.resources ?? []) {
