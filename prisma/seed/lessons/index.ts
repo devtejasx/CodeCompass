@@ -1,6 +1,7 @@
 import { BACKEND_LESSONS } from "./backend";
 import { FRONTEND_LESSONS as FRONTEND_CORE_LESSONS } from "./frontend";
 import { FRONTEND_FOUNDATION_LESSONS } from "./frontend-foundations";
+import { FRONTEND_HTML_LESSONS } from "./frontend-html";
 import { FULLSTACK_LESSONS } from "./fullstack";
 import type { SeedLesson } from "./types";
 
@@ -17,6 +18,7 @@ import type { SeedLesson } from "./types";
  */
 export const FRONTEND_LESSONS: SeedLesson[] = [
   ...FRONTEND_FOUNDATION_LESSONS,
+  ...FRONTEND_HTML_LESSONS,
   ...FRONTEND_CORE_LESSONS,
 ];
 
