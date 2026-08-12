@@ -89,7 +89,9 @@ export default async function RoadmapPage() {
     .map((topic) => topic.id);
 
   const progress = {
-    ...summariseProgress(roadmap, donePhaseOrders),
+    ...summariseProgress(roadmap, donePhaseOrders, completedTopicIds),
+    // Required topics, not phases: the same definition the dashboard and the
+    // profile use, so a learner never sees two numbers for one thing.
     percentComplete: roadmapPercent({ requiredTopicIds, completedTopicIds }),
   };
 

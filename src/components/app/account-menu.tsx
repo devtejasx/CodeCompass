@@ -56,6 +56,10 @@ export function AccountMenu({ name, email }: AccountMenuProps) {
         aria-expanded={open}
         aria-haspopup="menu"
         aria-controls="account-menu"
+        // Below `sm` the visible name is display:none and both remaining
+        // children are aria-hidden, which would leave the button with no
+        // accessible name at all. The label carries it at every width.
+        aria-label={`Account menu for ${name}`}
         className={cn(
           "flex items-center gap-2 rounded-lg border border-border bg-surface/60 py-1.5 pl-1.5 pr-2.5",
           "text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground",

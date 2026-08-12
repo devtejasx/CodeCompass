@@ -20,6 +20,7 @@ import { ChoosePathButton } from "@/components/careers/choose-path-button";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { getCareerBySlug } from "@/lib/careers/queries";
+import { careerHasRoadmap } from "@/lib/roadmap/queries";
 import { careerIcon } from "@/lib/careers/icons";
 import {
   CATEGORY_LABEL,
@@ -66,6 +67,11 @@ export default async function CareerDetailPage({
   const Icon = careerIcon(career.icon);
   const isCurrent = profile?.selectedCareerId === career.id;
   const related = career.relatedTo.map((edge) => edge.relatedCareer);
+
+  // Said before the commitment, not after it. Choosing a career with no
+  // authored roadmap is allowed — the interest is still worth recording — but
+  // the page has to be straight about what happens next.
+  const hasRoadmap = await careerHasRoadmap(career.id);
 
   return (
     <div className="relative flex-1 overflow-hidden pb-24">
@@ -131,7 +137,7 @@ export default async function CareerDetailPage({
               </dl>
             </div>
 
-            <div className="shrink-0 lg:pt-2">
+            <div className="flex shrink-0 flex-col items-start gap-2 lg:pt-2">
               <ChoosePathButton
                 careerId={career.id}
                 careerName={career.name}
@@ -139,6 +145,13 @@ export default async function CareerDetailPage({
                 isAuthenticated={Boolean(user)}
                 isCurrent={isCurrent}
               />
+              {!hasRoadmap ? (
+                <p className="max-w-[26ch] text-xs leading-relaxed text-amber-400">
+                  We haven&apos;t written the roadmap for this path yet. You can still
+                  choose it — we&apos;ll record the direction — but there is nothing
+                  to follow here until it lands.
+                </p>
+              ) : null}
             </div>
           </div>
         </div>

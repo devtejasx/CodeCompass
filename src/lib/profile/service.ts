@@ -134,13 +134,21 @@ export async function getTechieProfile(userId: string): Promise<TechieProfile> {
     listRecentActivity(userId, 40),
   ]);
 
-  const [projects, practice] = await Promise.all([
+  const [projects, practice, milestoneFacts] = await Promise.all([
     loadProjects(userId),
     loadPractice(userId),
+    loadMilestoneFacts(userId),
   ]);
 
   const strengths = detectStrengths(capabilities);
   const improvements = detectImprovements(capabilities);
+
+  // loadProjects returns everything the learner has touched, in progress as
+  // well as finished. Anything that counts *completed* projects has to filter,
+  // or the profile claims work that has not been done.
+  const completedProjects = projects.filter(
+    (project) => project.status === "COMPLETED",
+  ).length;
 
   return {
     displayName: user.name,
@@ -148,14 +156,14 @@ export async function getTechieProfile(userId: string): Promise<TechieProfile> {
     isPublic: user.profile?.isPublic ?? false,
     joinedAt: user.createdAt,
     state,
-    summary: buildSummary({ state, capabilities, projects: projects.length }),
+    summary: buildSummary({ state, capabilities, completedProjects }),
     capabilities,
     categories: groupByCategory(capabilities),
     strengths,
     improvements,
-    milestones: detectMilestones(activities, user.createdAt),
+    milestones: detectMilestones(milestoneFacts, activities, user.createdAt),
     timeline: buildTimeline(activities, user.createdAt),
-    completion: profileCompletion(state, projects.filter((p) => p.status === "COMPLETED").length),
+    completion: profileCompletion(state, completedProjects),
     projects,
     practice,
     nextAction: guidance.next
@@ -179,11 +187,13 @@ export async function getTechieProfile(userId: string): Promise<TechieProfile> {
 function buildSummary({
   state,
   capabilities,
-  projects,
+  completedProjects,
 }: {
   state: LearnerState;
   capabilities: CapabilityView[];
-  projects: number;
+  /** Finished projects only. Naming it plainly is what stops the sentence
+   * claiming an in-progress build as a completed one. */
+  completedProjects: number;
 }): string {
   const career = state.career?.name;
 
@@ -207,8 +217,8 @@ function buildSummary({
       : `${named.slice(0, -1).join(", ")} and ${named[named.length - 1]}`;
 
   const built =
-    projects > 0
-      ? ` You have completed ${projects} ${projects === 1 ? "project" : "projects"}.`
+    completedProjects > 0
+      ? ` You have completed ${completedProjects} ${completedProjects === 1 ? "project" : "projects"}.`
       : "";
 
   return career
@@ -471,14 +481,82 @@ function practiceInsights(
 }
 
 /**
- * Meaningful firsts, taken from recorded activity.
+ * Whether each milestone has actually happened, read from the tables that own
+ * the answer.
+ *
+ * One query per milestone, each one a cheap indexed existence check.
+ */
+async function loadMilestoneFacts(userId: string) {
+  const [career, topic, problem, project, git, ai] = await Promise.all([
+    db.profile.findFirst({
+      where: { userId, selectedCareerId: { not: null } },
+      select: { updatedAt: true },
+    }),
+    db.userTopicProgress.findFirst({
+      where: { userId, status: "COMPLETED" },
+      orderBy: { completedAt: "asc" },
+      select: { completedAt: true },
+    }),
+    db.userProblemProgress.findFirst({
+      where: { userId, status: "SOLVED" },
+      orderBy: { solvedAt: "asc" },
+      select: { solvedAt: true },
+    }),
+    db.userProject.findFirst({
+      where: { userId, status: "COMPLETED" },
+      orderBy: { completedAt: "asc" },
+      select: { completedAt: true },
+    }),
+    db.userGitExercise.findFirst({
+      where: { userId, status: "COMPLETED" },
+      orderBy: { completedAt: "asc" },
+      select: { completedAt: true },
+    }),
+    // A row here *is* the completion — the workflow table has no pending
+    // state, so existence is the fact and completedAt is never null.
+    db.userAIWorkflowProgress.findFirst({
+      where: { userId },
+      orderBy: { completedAt: "asc" },
+      select: { completedAt: true },
+    }),
+  ]);
+
+  return {
+    career: Boolean(career),
+    topic: topic?.completedAt ?? null,
+    topicDone: Boolean(topic),
+    problem: problem?.solvedAt ?? null,
+    problemDone: Boolean(problem),
+    project: project?.completedAt ?? null,
+    projectDone: Boolean(project),
+    git: git?.completedAt ?? null,
+    gitDone: Boolean(git),
+    ai: ai?.completedAt ?? null,
+    aiDone: Boolean(ai),
+  };
+}
+
+/**
+ * Meaningful firsts.
  *
  * Six of them, not sixty. Each one marks a genuine change in what somebody can
  * do — the first time they finished a project is different in kind from the
  * fourteenth topic — and there is no points system, no badge wall and nothing
  * to collect.
+ *
+ * **Whether** a milestone happened comes from the entity tables; the activity
+ * log only supplies **when**, and only as a fallback where the owning table has
+ * no timestamp of its own. That split matters: `recordActivity` deliberately
+ * swallows its own failures, so a log-only derivation meant one failed insert
+ * permanently told a learner they had never chosen a career or finished a
+ * project — while the rest of the same page showed both.
+ *
+ * A milestone that is real but whose timestamp was lost shows as achieved with
+ * the learner's join date behind it, which is honest: it happened, and the
+ * exact moment is not worth inventing.
  */
 export function detectMilestones(
+  facts: Awaited<ReturnType<typeof loadMilestoneFacts>>,
   activities: { type: ActivityType; createdAt: Date }[],
   joinedAt: Date,
 ): Milestone[] {
@@ -489,14 +567,44 @@ export function detectMilestones(
     return matching[0]?.createdAt ?? null;
   };
 
+  /** Achieved-at for something we know happened, best timestamp available. */
+  const when = (done: boolean, owned: Date | null, type: ActivityType) =>
+    done ? (owned ?? firstOf(type) ?? joinedAt) : null;
+
   return [
     { key: "joined", title: "Started CodeCompass", achievedAt: joinedAt },
-    { key: "career", title: "Chose a career path", achievedAt: firstOf("CAREER_SELECTED") },
-    { key: "topic", title: "Completed a first topic", achievedAt: firstOf("LESSON_COMPLETED") },
-    { key: "problem", title: "Solved a first coding problem", achievedAt: firstOf("PROBLEM_SOLVED") },
-    { key: "project", title: "Completed a first project", achievedAt: firstOf("PROJECT_COMPLETED") },
-    { key: "git", title: "Solved a first Git exercise", achievedAt: firstOf("GIT_EXERCISE_COMPLETED") },
-    { key: "ai", title: "Used a first AI workflow", achievedAt: firstOf("AI_WORKFLOW_COMPLETED") },
+    {
+      key: "career",
+      title: "Chose a career path",
+      // Profile has no "chose at" column, so the activity row is the only real
+      // timestamp; the *fact* still comes from selectedCareerId being set.
+      achievedAt: when(facts.career, null, "CAREER_SELECTED"),
+    },
+    {
+      key: "topic",
+      title: "Completed a first topic",
+      achievedAt: when(facts.topicDone, facts.topic, "LESSON_COMPLETED"),
+    },
+    {
+      key: "problem",
+      title: "Solved a first coding problem",
+      achievedAt: when(facts.problemDone, facts.problem, "PROBLEM_SOLVED"),
+    },
+    {
+      key: "project",
+      title: "Completed a first project",
+      achievedAt: when(facts.projectDone, facts.project, "PROJECT_COMPLETED"),
+    },
+    {
+      key: "git",
+      title: "Solved a first Git exercise",
+      achievedAt: when(facts.gitDone, facts.git, "GIT_EXERCISE_COMPLETED"),
+    },
+    {
+      key: "ai",
+      title: "Used a first AI workflow",
+      achievedAt: when(facts.aiDone, facts.ai, "AI_WORKFLOW_COMPLETED"),
+    },
   ];
 }
 

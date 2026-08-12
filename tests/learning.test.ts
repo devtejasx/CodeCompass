@@ -31,12 +31,18 @@ const {
   completedPhaseOrders,
   PASSING_SCORE,
 } = await import("@/lib/learn/progress");
-const { startTopic, setSectionComplete, submitKnowledgeCheck } =
-  await import("@/app/actions/learn");
+const {
+  startTopic,
+  setSectionComplete,
+  submitKnowledgeCheck,
+  markTopicUnderstood,
+} = await import("@/app/actions/learn");
+const { outstandingPrerequisites } = await import("@/lib/learn/prerequisites");
 const { requireUser } = await import("@/lib/session");
 const { db } = await import("@/lib/db");
 const { validateLesson } = await import("../prisma/seed/lessons/validate");
 const { LESSONS } = await import("../prisma/seed/lessons");
+const { findShallowLessons } = await import("../prisma/seed/lessons/coverage");
 
 async function makeUser(email = "learner@example.com") {
   return db.user.create({
@@ -53,8 +59,60 @@ function signedInAs(id: string) {
   auth.mockResolvedValue({ user: { id } });
 }
 
-/** Answers every question in a lesson, optionally getting some wrong. */
-async function answerAll(topicSlug: string, { wrong = 0 } = {}) {
+/**
+ * Marks every transitive prerequisite of a topic complete.
+ *
+ * submitKnowledgeCheck refuses an out-of-order completion, so a test that wants
+ * to exercise `js-functions` has to put the learner where a real one would be
+ * by the time they reach it. Written against the database directly: this is
+ * arranging a starting position, not the behaviour under test.
+ */
+async function unlock(userId: string, topicSlug: string) {
+  const seen = new Set<string>();
+  const queue = [topicSlug];
+
+  while (queue.length > 0) {
+    const slug = queue.shift()!;
+    const topic = await db.topic.findUnique({
+      where: { slug },
+      select: {
+        prerequisites: {
+          select: { prerequisite: { select: { id: true, slug: true } } },
+        },
+      },
+    });
+    if (!topic) continue;
+
+    for (const { prerequisite } of topic.prerequisites) {
+      if (seen.has(prerequisite.id)) continue;
+      seen.add(prerequisite.id);
+      queue.push(prerequisite.slug);
+
+      await db.userTopicProgress.upsert({
+        where: { userId_topicId: { userId, topicId: prerequisite.id } },
+        create: {
+          userId,
+          topicId: prerequisite.id,
+          status: "COMPLETED",
+          percentComplete: 100,
+          completedAt: new Date(),
+        },
+        update: { status: "COMPLETED", percentComplete: 100 },
+      });
+    }
+  }
+}
+
+/**
+ * Answers every question in a lesson, optionally getting some wrong.
+ *
+ * Unlocks the topic's prerequisites for this learner first, so the test is
+ * about grading rather than about ordering. The tests that are specifically
+ * about ordering call submitKnowledgeCheck without going through here.
+ */
+async function answerAll(userId: string, topicSlug: string, { wrong = 0 } = {}) {
+  await unlock(userId, topicSlug);
+
   const lesson = await db.lesson.findFirstOrThrow({
     where: { topic: { slug: topicSlug } },
     select: {
@@ -140,6 +198,34 @@ describe("authored content validation", () => {
   it("accepts every shipped lesson", () => {
     for (const lesson of LESSONS) {
       expect(validateLesson(lesson), lesson.topicSlug).toEqual([]);
+    }
+  });
+
+  it("ships no lesson too thin to learn from", () => {
+    // Coverage is only worth counting if each covered topic actually teaches.
+    // This is the guard against adding stubs to move a percentage.
+    expect(findShallowLessons(LESSONS)).toEqual([]);
+  });
+
+  it("gives every lesson a worked example or a code sample where it claims one", () => {
+    for (const lesson of LESSONS) {
+      for (const section of lesson.sections) {
+        if (section.type === "CODE" || section.type === "EXAMPLE") {
+          // An EXAMPLE without code is prose wearing a label.
+          expect(Boolean(section.code), `${lesson.topicSlug}: ${section.title}`).toBe(
+            true,
+          );
+        }
+      }
+    }
+  });
+
+  it("links only to https resources, with a named source", () => {
+    for (const lesson of LESSONS) {
+      for (const resource of lesson.resources ?? []) {
+        expect(resource.url.startsWith("https://"), resource.url).toBe(true);
+        expect(resource.source.length, resource.title).toBeGreaterThan(1);
+      }
     }
   });
 
@@ -393,7 +479,7 @@ describe("knowledge check", () => {
     const user = await makeUser();
     signedInAs(user.id);
 
-    const { topicId, answers } = await answerAll("js-functions");
+    const { topicId, answers } = await answerAll(user.id, "js-functions");
     const result = await submitKnowledgeCheck({ topicId, answers });
 
     expect(result.ok).toBe(true);
@@ -410,7 +496,7 @@ describe("knowledge check", () => {
     const user = await makeUser();
     signedInAs(user.id);
 
-    const { topicId, answers } = await answerAll("js-functions", { wrong: 2 });
+    const { topicId, answers } = await answerAll(user.id, "js-functions", { wrong: 2 });
     const result = await submitKnowledgeCheck({ topicId, answers });
 
     expect(result.results!.length).toBe(answers.length);
@@ -425,7 +511,7 @@ describe("knowledge check", () => {
     signedInAs(user.id);
 
     // 5 questions, 4 wrong → 20%.
-    const { topicId, answers } = await answerAll("js-functions", { wrong: 4 });
+    const { topicId, answers } = await answerAll(user.id, "js-functions", { wrong: 4 });
     const result = await submitKnowledgeCheck({ topicId, answers });
 
     expect(result.passed).toBe(false);
@@ -439,10 +525,10 @@ describe("knowledge check", () => {
     const user = await makeUser();
     signedInAs(user.id);
 
-    const failed = await answerAll("js-arrays", { wrong: 4 });
+    const failed = await answerAll(user.id, "js-arrays", { wrong: 4 });
     await submitKnowledgeCheck({ topicId: failed.topicId, answers: failed.answers });
 
-    const passed = await answerAll("js-arrays");
+    const passed = await answerAll(user.id, "js-arrays");
     const result = await submitKnowledgeCheck({
       topicId: passed.topicId,
       answers: passed.answers,
@@ -460,10 +546,10 @@ describe("knowledge check", () => {
     const user = await makeUser();
     signedInAs(user.id);
 
-    const good = await answerAll("js-variables");
+    const good = await answerAll(user.id, "js-variables");
     await submitKnowledgeCheck({ topicId: good.topicId, answers: good.answers });
 
-    const bad = await answerAll("js-variables", { wrong: 4 });
+    const bad = await answerAll(user.id, "js-variables", { wrong: 4 });
     await submitKnowledgeCheck({ topicId: bad.topicId, answers: bad.answers });
 
     const progress = await getTopicProgress(user.id, good.topicId);
@@ -475,7 +561,7 @@ describe("knowledge check", () => {
     const user = await makeUser();
     signedInAs(user.id);
 
-    const { topicId, answers } = await answerAll("js-functions");
+    const { topicId, answers } = await answerAll(user.id, "js-functions");
     // Submit only the first answer.
     const result = await submitKnowledgeCheck({ topicId, answers: [answers[0]] });
 
@@ -490,7 +576,7 @@ describe("progress persistence and integration", () => {
     const user = await makeUser();
     signedInAs(user.id);
 
-    const { topicId, answers } = await answerAll("js-functions");
+    const { topicId, answers } = await answerAll(user.id, "js-functions");
     await submitKnowledgeCheck({ topicId, answers });
 
     // Completely fresh query — what a page load after a refresh would do.
@@ -513,7 +599,7 @@ describe("progress persistence and integration", () => {
 
     expect(await getCompletedTopicIds(user.id, topic.phase.roadmapId)).toHaveLength(0);
 
-    const { topicId, answers } = await answerAll("js-functions");
+    const { topicId, answers } = await answerAll(user.id, "js-functions");
     await submitKnowledgeCheck({ topicId, answers });
 
     const completed = await getCompletedTopicIds(user.id, topic.phase.roadmapId);
@@ -542,6 +628,133 @@ describe("progress persistence and integration", () => {
     const next = await getNextTopic(lastOfPhase.id);
     expect(next).not.toBeNull();
     expect(next!.slug).toBe("git-fundamentals");
+  });
+});
+
+describe("prerequisites", () => {
+  it("refuses a knowledge check whose prerequisites are outstanding", async () => {
+    const user = await makeUser("ahead@example.com");
+    signedInAs(user.id);
+
+    // Deliberately no unlock(): js-functions comes after js-loops.
+    const lesson = await db.lesson.findFirstOrThrow({
+      where: { topic: { slug: "js-functions" } },
+      select: {
+        topicId: true,
+        knowledgeChecks: {
+          select: { id: true, options: { select: { id: true, isCorrect: true } } },
+        },
+      },
+    });
+    const answers = lesson.knowledgeChecks.map((check) => ({
+      questionId: check.id,
+      optionId: check.options.find((option) => option.isCorrect)!.id,
+    }));
+
+    const result = await submitKnowledgeCheck({ topicId: lesson.topicId, answers });
+
+    expect(result.ok).toBe(false);
+    // Names what is outstanding, and does not scold them for looking ahead.
+    expect(result.error).toMatch(/finish/i);
+    expect(result.error).toMatch(/read ahead/i);
+    expect(await getTopicProgress(user.id, lesson.topicId)).toBeNull();
+  });
+
+  it("accepts the same attempt once the prerequisites are done", async () => {
+    const user = await makeUser("inorder@example.com");
+    signedInAs(user.id);
+
+    const { topicId, answers } = await answerAll(user.id, "js-functions");
+    const result = await submitKnowledgeCheck({ topicId, answers });
+
+    expect(result.ok).toBe(true);
+    expect(result.passed).toBe(true);
+  });
+
+  it("lets a learner mark a lesson-less topic as understood, unlocking what follows", async () => {
+    const user = await makeUser("understood@example.com");
+    signedInAs(user.id);
+
+    // Found rather than named: as lessons are authored, any given slug stops
+    // being lesson-less. The behaviour under test is about topics that have no
+    // lesson, whichever those currently are.
+    const topic = await db.topic.findFirstOrThrow({
+      where: { lesson: { is: null }, requiredBy: { some: {} } },
+      select: {
+        id: true,
+        slug: true,
+        requiredBy: { take: 1, select: { topicId: true } },
+      },
+    });
+    const nextId = topic.requiredBy[0].topicId;
+
+    await unlock(user.id, topic.slug);
+    expect((await markTopicUnderstood({ topicId: topic.id })).ok).toBe(true);
+
+    const progress = await getTopicProgress(user.id, topic.id);
+    expect(progress!.status).toBe("COMPLETED");
+    expect(progress!.percentComplete).toBe(100);
+
+    // Which is the whole point: it no longer holds up what depends on it.
+    // The dependent may have other prerequisites of its own; this one is done.
+    const stillOutstanding = await outstandingPrerequisites(user.id, nextId);
+    expect(stillOutstanding.map((entry) => entry.id)).not.toContain(topic.id);
+  });
+
+  it("refuses to mark a topic understood when it has a real lesson", async () => {
+    const user = await makeUser("shortcut@example.com");
+    signedInAs(user.id);
+
+    const topic = await db.topic.findUniqueOrThrow({
+      where: { slug: "js-variables" },
+      select: { id: true },
+    });
+
+    const result = await markTopicUnderstood({ topicId: topic.id });
+
+    // Otherwise this would be a one-click bypass of every knowledge check.
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/knowledge check/i);
+    expect(await getTopicProgress(user.id, topic.id)).toBeNull();
+  });
+
+  it("refuses to mark a topic understood out of order", async () => {
+    const user = await makeUser("skipahead@example.com");
+    signedInAs(user.id);
+
+    // A lesson-less topic that does have prerequisites, none of them met.
+    const topic = await db.topic.findFirstOrThrow({
+      where: { lesson: { is: null }, prerequisites: { some: {} } },
+      select: { id: true },
+    });
+
+    expect((await markTopicUnderstood({ topicId: topic.id })).ok).toBe(false);
+    expect(await getTopicProgress(user.id, topic.id)).toBeNull();
+  });
+
+  it("never downgrades a topic completed the proper way", async () => {
+    const user = await makeUser("noregress@example.com");
+    signedInAs(user.id);
+
+    const { topicId, answers } = await answerAll(user.id, "js-variables");
+    await submitKnowledgeCheck({ topicId, answers });
+
+    // Refused because the topic has a lesson, and the pass stands regardless.
+    await markTopicUnderstood({ topicId });
+
+    const progress = await getTopicProgress(user.id, topicId);
+    expect(progress!.status).toBe("COMPLETED");
+    expect(progress!.bestScore).toBe(100);
+  });
+
+  it("requires a session", async () => {
+    auth.mockResolvedValue(null);
+    const topic = await db.topic.findUniqueOrThrow({
+      where: { slug: "how-computers-work" },
+      select: { id: true },
+    });
+
+    expect((await markTopicUnderstood({ topicId: topic.id })).ok).toBe(false);
   });
 });
 
@@ -578,7 +791,7 @@ describe("access control", () => {
 
     signedInAs(alice.id);
 
-    const { topicId, answers } = await answerAll("js-functions");
+    const { topicId, answers } = await answerAll(alice.id, "js-functions");
     // A hostile payload naming Bob alongside a valid topic.
     await submitKnowledgeCheck({ topicId, answers, userId: bob.id });
 
@@ -602,13 +815,13 @@ describe("access control", () => {
     const bob = await makeUser("bob2@example.com");
 
     signedInAs(alice.id);
-    const a = await answerAll("js-functions");
+    const a = await answerAll(alice.id, "js-functions");
     await submitKnowledgeCheck({ topicId: a.topicId, answers: a.answers });
 
     signedInAs(bob.id);
     expect(await getTopicProgress(bob.id, a.topicId)).toBeNull();
 
-    const b = await answerAll("js-functions", { wrong: 4 });
+    const b = await answerAll(bob.id, "js-functions", { wrong: 4 });
     await submitKnowledgeCheck({ topicId: b.topicId, answers: b.answers });
 
     expect((await getTopicProgress(alice.id, a.topicId))!.status).toBe("COMPLETED");

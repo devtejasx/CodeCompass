@@ -28,4 +28,16 @@ export const onboardingSchema = z.object({
 
 export type OnboardingInput = z.infer<typeof onboardingSchema>;
 
+/**
+ * One step's worth of answers.
+ *
+ * The wizard saves as it goes, so a refresh, a closed tab or a flat battery
+ * three questions in does not throw the answers away. Every field is optional
+ * here and each one is still validated against the same enum, so saving early
+ * cannot write a value the final submission would have refused.
+ */
+export const partialOnboardingSchema = onboardingSchema.partial();
+
+export type PartialOnboardingInput = z.infer<typeof partialOnboardingSchema>;
+
 export const ONBOARDING_STEP_COUNT = 4;

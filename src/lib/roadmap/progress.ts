@@ -3,14 +3,13 @@ import type { RoadmapDetail } from "@/lib/roadmap/queries";
 /**
  * Phase state.
  *
- * Phase 4 has no learner progress — there is no table recording what anyone has
- * finished, and inventing one here would be fabricating data. So state is
- * *derived*, and deliberately conservative: the first phase is available to
- * start, everything after it is locked.
+ * Derived rather than stored: a phase is complete when every *required* topic
+ * in it is complete, and the first phase that is not complete is where the
+ * learner stands. Callers pass in the completed phase orders, which come from
+ * real `UserTopicProgress` rows via `completedPhaseOrders` in lib/learn.
  *
- * COMPLETED exists in the union because the UI must already render it. When
- * Phase 5 adds real progress, only this function changes; every component that
- * consumes it stays as it is.
+ * Nothing here is cached, so a phase changes state the moment the topic that
+ * finished it is recorded.
  */
 export type PhaseState = "COMPLETED" | "CURRENT" | "AVAILABLE" | "LOCKED";
 
@@ -30,8 +29,9 @@ export const PHASE_STATE_LABEL: Record<PhaseState, string> = {
 /**
  * Derives each phase's state by position.
  *
- * @param completedPhaseOrders Reserved for Phase 5. Empty today, which is what
- *   makes the first phase "start here" and the rest locked.
+ * @param completedPhaseOrders Orders of the phases whose required topics are
+ *   all complete. Empty for a learner who has just started, which is what makes
+ *   the first phase "start here" and the rest locked.
  */
 export function derivePhaseStates(
   phases: Pick<RoadmapDetail["phases"][number], "id" | "order">[],
@@ -63,11 +63,21 @@ export function derivePhaseStates(
 }
 
 export interface RoadmapProgress {
-  /** 0–100. Always 0 in Phase 4 — there is nothing recorded to count. */
+  /**
+   * Completed phases over total phases, 0–100.
+   *
+   * The roadmap page replaces this with the required-topic figure from
+   * `roadmapPercent`, which is what the dashboard and the profile also use.
+   * Phase completion is coarse — nine phases means the bar can only move in
+   * 11% steps — so it survives as a secondary count, not as *the* number.
+   */
   percentComplete: number;
   totalPhases: number;
   completedPhases: number;
   totalTopics: number;
+  /** Denominator of the headline percentage, so a caption can match it. */
+  totalRequiredTopics: number;
+  completedRequiredTopics: number;
   /** The phase the learner should open first. */
   currentPhaseTitle: string | null;
   upcomingPhaseTitles: string[];
@@ -76,14 +86,14 @@ export interface RoadmapProgress {
 export function summariseProgress(
   roadmap: Pick<RoadmapDetail, "phases">,
   completedPhaseOrders: number[] = [],
+  completedTopicIds: string[] = [],
 ): RoadmapProgress {
   const totalPhases = roadmap.phases.length;
   const completedPhases = completedPhaseOrders.length;
-  const totalTopics = roadmap.phases.reduce(
-    (sum, phase) => sum + phase.topics.length,
-    0,
-  );
+  const allTopics = roadmap.phases.flatMap((phase) => phase.topics);
+  const requiredTopics = allTopics.filter((topic) => topic.isRequired);
 
+  const doneTopics = new Set(completedTopicIds);
   const completed = new Set(completedPhaseOrders);
   const remaining = roadmap.phases.filter((phase) => !completed.has(phase.order));
 
@@ -92,7 +102,10 @@ export function summariseProgress(
       totalPhases === 0 ? 0 : Math.round((completedPhases / totalPhases) * 100),
     totalPhases,
     completedPhases,
-    totalTopics,
+    totalTopics: allTopics.length,
+    totalRequiredTopics: requiredTopics.length,
+    completedRequiredTopics: requiredTopics.filter((topic) => doneTopics.has(topic.id))
+      .length,
     currentPhaseTitle: remaining[0]?.title ?? null,
     upcomingPhaseTitles: remaining.slice(1, 5).map((phase) => phase.title),
   };

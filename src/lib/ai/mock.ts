@@ -26,7 +26,7 @@ export class MockProvider implements AIProvider {
     const currentTopic = request.system.match(/Current topic: (.+)/)?.[1] ?? null;
 
     const text = [
-      "**Simulated response** — no AI provider is configured on this deployment, so this is a placeholder rather than real guidance.",
+      "**Simulated response** — no *real* AI provider is configured on this deployment, so CodeCompass is using the simulated provider. This is a placeholder rather than real guidance.",
       "",
       currentTopic
         ? `Your roadmap says you are on **${currentTopic}**. Continuing there is your next step.`
@@ -36,7 +36,7 @@ export class MockProvider implements AIProvider {
         ? `You asked: "${truncate(question, 160)}"`
         : "Ask a question to see how the mentor works.",
       "",
-      "Set `AI_PROVIDER` and the matching API key to enable real guidance.",
+      "Set `AI_PROVIDER=anthropic` and `ANTHROPIC_API_KEY` to enable real guidance.",
     ].join("\n");
 
     return {

@@ -194,12 +194,16 @@ export function buildRecommendations(input: RecommendationInput): Recommendation
       entityId: current.id,
       title: started ? `Learn ${current.title}` : `Start with ${current.title}`,
       reason: reasonForTopic(state, current),
+      // A topic whose lesson is not written yet still has a page, and that page
+      // is where the learner says they already know it and moves on. Sending
+      // them to /roadmap instead used to be a dead end — the roadmap's only
+      // suggestion was the topic they had just come from.
       action: current.hasLesson
         ? started
           ? "Continue learning"
           : "Start learning"
-        : "View roadmap",
-      href: current.hasLesson ? `/learn/${current.slug}` : "/roadmap",
+        : "Open topic",
+      href: `/learn/${current.slug}`,
       priority: PRIORITY.NEXT_TOPIC,
       estimatedTime: current.estimatedTime,
     });

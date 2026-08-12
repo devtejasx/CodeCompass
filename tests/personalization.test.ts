@@ -950,8 +950,16 @@ describe("activity recording", () => {
     signedInAs(user.id);
     await chooseCareer(user.id, "frontend-developer");
 
+    // A lesson with no prerequisites, so this test is about the activity being
+    // recorded once rather than about ordering. submitKnowledgeCheck refuses an
+    // out-of-order completion, which is covered by its own tests.
     const lesson = await db.lesson.findFirstOrThrow({
-      where: { topic: { phase: { roadmap: { career: { slug: "frontend-developer" } } } } },
+      where: {
+        topic: {
+          phase: { roadmap: { career: { slug: "frontend-developer" } } },
+          prerequisites: { none: {} },
+        },
+      },
       select: {
         topicId: true,
         knowledgeChecks: {
@@ -1010,14 +1018,13 @@ describe("guidance", () => {
 
     expect(guidance.next?.type).toBe("START_ROADMAP");
     expect(guidance.next?.reason.length).toBeGreaterThan(30);
-    // Links to the lesson where one is authored, and to the roadmap where one
-    // is not — never to a page that would render "content coming soon".
-    expect(guidance.next?.href).toMatch(
-      guidance.state.currentTopic?.hasLesson ? /^\/learn\// : /^\/roadmap$/,
-    );
+    // Always the topic's own page. Where the lesson is not written yet that
+    // page is what lets the learner say they know it and move on, so it is a
+    // real destination rather than a dead end.
+    expect(guidance.next?.href).toMatch(/^\/learn\//);
   });
 
-  it("sends a learner to the roadmap when the next topic has no lesson yet", () => {
+  it("still opens the topic when its lesson has not been written", () => {
     const next = nextAction(
       buildRecommendations(
         input({
@@ -1039,10 +1046,11 @@ describe("guidance", () => {
       ),
     );
 
-    // A link to /learn/unwritten-topic would render "content coming soon",
-    // which is a worse answer than pointing at the roadmap.
-    expect(next?.href).toBe("/roadmap");
-    expect(next?.action).toBe("View roadmap");
+    // Pointing at /roadmap used to be the answer here, and it was a dead end:
+    // the roadmap's only suggestion was the very topic the learner had come
+    // from. The topic page is where the sequence can actually continue.
+    expect(next?.href).toBe("/learn/unwritten-topic");
+    expect(next?.action).toBe("Open topic");
   });
 
   it("recalculates after progress, with no cache to invalidate", async () => {

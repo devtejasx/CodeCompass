@@ -59,9 +59,15 @@ export function RoadmapSidebar({
               style={{ width: `${progress.percentComplete}%` }}
             />
           </div>
+          {/*
+            The caption has to describe the number above it. The percentage is
+            completed *required topics*, so leading with phases made the two
+            disagree — 1% beside "0 of 9 phases" reads like a bug.
+          */}
           <p className="mt-2 text-xs text-subtle-foreground">
-            {progress.completedPhases} of {progress.totalPhases} phases ·{" "}
-            {progress.totalTopics} topics
+            {progress.completedRequiredTopics} of {progress.totalRequiredTopics}{" "}
+            required topics · {progress.completedPhases} of {progress.totalPhases}{" "}
+            phases
           </p>
         </div>
 

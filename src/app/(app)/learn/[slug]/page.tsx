@@ -8,11 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Container } from "@/components/shared/container";
 import { GridBackdrop } from "@/components/shared/backdrops";
 import { LessonExperience } from "@/components/learn/lesson-experience";
+import { TopicOpened } from "@/components/learn/topic-opened";
+import { TopicUnderstood } from "@/components/learn/topic-understood";
 import { TopicPracticeCard } from "@/components/practice/topic-practice-card";
 import { TopicProjectCard } from "@/components/projects/topic-project-card";
 import { DIFFICULTY_BADGE, DIFFICULTY_SHORT } from "@/lib/careers/labels";
 import { requireUser } from "@/lib/session";
 import { PASSING_SCORE } from "@/lib/learn/progress";
+import { outstandingPrerequisites } from "@/lib/learn/prerequisites";
 import {
   getCompletedSectionIds,
   getNextTopic,
@@ -57,14 +60,18 @@ export default async function LearnTopicPage({
   const backHref = isAcademy ? "/academy/git" : "/roadmap";
   const backLabel = isAcademy ? "Back to Git & GitHub" : "Back to roadmap";
 
-  const [progress, nextTopic, practiceProblems, topicProjects] = await Promise.all([
-    getTopicProgress(user.id, topic.id),
-    getNextTopic(topic.id),
-    // Practice and projects for this topic come from their join tables, never
-    // from a hardcoded list in this component.
-    getProblemsForTopic(topic.id, user.id),
-    getProjectsForTopic(topic.id, user.id),
-  ]);
+  const [progress, nextTopic, practiceProblems, topicProjects, missingPrerequisites] =
+    await Promise.all([
+      getTopicProgress(user.id, topic.id),
+      getNextTopic(topic.id),
+      // Practice and projects for this topic come from their join tables, never
+      // from a hardcoded list in this component.
+      getProblemsForTopic(topic.id, user.id),
+      getProjectsForTopic(topic.id, user.id),
+      // Reading ahead stays allowed; what this drives is whether the page
+      // offers to *record* completion. The same check runs in the action.
+      outstandingPrerequisites(user.id, topic.id),
+    ]);
 
   const completedSectionIds = topic.lesson
     ? await getCompletedSectionIds(user.id, topic.lesson.id)
@@ -137,6 +144,41 @@ export default async function LearnTopicPage({
           ) : null}
         </header>
 
+        <TopicOpened topicId={topic.id} />
+
+        {/*
+          Reading ahead is allowed, so this is a notice rather than a wall. What
+          it explains is why the page will not let them *record* completion yet —
+          the same rule the server action enforces.
+        */}
+        {missingPrerequisites.length > 0 && !isCompleted ? (
+          <div className="mt-10 max-w-[60ch] rounded-xl border border-amber-500/30 bg-amber-500/[0.07] p-5">
+            <h2 className="text-sm font-medium text-foreground">
+              You&apos;re a little ahead of the roadmap
+            </h2>
+            <p className="pretty mt-1.5 text-sm leading-relaxed text-muted-foreground">
+              Read as much of this as you like. Your progress for this topic will
+              be recorded once you have finished{" "}
+              {missingPrerequisites.map((prerequisite, index) => (
+                <span key={prerequisite.id}>
+                  <Link
+                    href={`/learn/${prerequisite.slug}`}
+                    className="rounded text-foreground underline underline-offset-4"
+                  >
+                    {prerequisite.title}
+                  </Link>
+                  {index < missingPrerequisites.length - 2
+                    ? ", "
+                    : index === missingPrerequisites.length - 2
+                      ? " and "
+                      : ""}
+                </span>
+              ))}
+              .
+            </p>
+          </div>
+        ) : null}
+
         <div className="mt-12">
           {topic.lesson ? (
             <LessonExperience
@@ -153,7 +195,12 @@ export default async function LearnTopicPage({
               }
             />
           ) : (
-            <ComingSoon nextSlug={nextTopic?.slug ?? null} />
+            <ComingSoon
+              topicId={topic.id}
+              nextSlug={nextTopic?.slug ?? null}
+              canContinue={missingPrerequisites.length === 0}
+              isCompleted={isCompleted}
+            />
           )}
         </div>
 
@@ -186,10 +233,23 @@ export default async function LearnTopicPage({
 }
 
 /**
- * Twelve of 154 topics have authored lessons. The rest say so plainly rather
- * than showing an empty page or generating filler.
+ * Most roadmap topics do not have an authored lesson yet. They say so plainly
+ * rather than showing an empty page or generating filler — and they still offer
+ * an honest way forward, because a topic nobody can complete would freeze the
+ * prerequisite chain behind it.
  */
-function ComingSoon({ nextSlug }: { nextSlug: string | null }) {
+function ComingSoon({
+  topicId,
+  nextSlug,
+  canContinue,
+  isCompleted,
+}: {
+  topicId: string;
+  nextSlug: string | null;
+  /** False when prerequisites are outstanding — the notice above explains why. */
+  canContinue: boolean;
+  isCompleted: boolean;
+}) {
   return (
     <div className="surface max-w-[60ch] rounded-xl p-8">
       <h2 className="text-lg font-medium tracking-tight text-foreground">
@@ -197,9 +257,13 @@ function ComingSoon({ nextSlug }: { nextSlug: string | null }) {
       </h2>
       <p className="pretty mt-2 text-sm leading-relaxed text-muted-foreground">
         This topic is part of your roadmap, but we haven&apos;t written its lesson yet.
-        It still counts toward the sequence — you can read what it covers on the roadmap
-        and come back when the content lands.
+        Rather than leave you stuck behind it, you can tell us you already know this
+        and carry on — and come back when the content lands.
       </p>
+
+      {canContinue ? (
+        <TopicUnderstood topicId={topicId} initiallyCompleted={isCompleted} />
+      ) : null}
 
       <div className="mt-6 flex flex-wrap gap-2">
         <Button variant="secondary" asChild>

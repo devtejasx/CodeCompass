@@ -30,6 +30,24 @@ import type { CodeLanguage, SubmissionStatus } from "@/generated/prisma/client";
 const GENERIC_ERROR = "Something went wrong. Please try again in a moment.";
 const UNAVAILABLE_ERROR =
   "Code execution is temporarily unavailable. Your code has not been lost.";
+const RATE_LIMITED_ERROR =
+  "You have run a lot of code in the last hour. Take a short break — your work is saved, and everything else in CodeCompass still works.";
+
+/**
+ * Whether this learner may start another run.
+ *
+ * Counted from rows in a rolling window rather than an in-memory counter, for
+ * the same reason the AI limiter does it: correct across restarts and across
+ * instances. Enforced here, before a submission row exists, so a loop cannot
+ * fill the table on its way to the execution service.
+ */
+async function withinRunLimit(userId: string): Promise<boolean> {
+  const since = new Date(Date.now() - EXECUTION_LIMITS.runWindowMs);
+  const used = await db.submission.count({
+    where: { userId, createdAt: { gte: since } },
+  });
+  return used < EXECUTION_LIMITS.maxRunsPerWindow;
+}
 
 export interface PracticeResult {
   ok: boolean;
@@ -106,6 +124,10 @@ export async function startSubmission(input: unknown): Promise<StartSubmissionRe
   const { problemId, language, kind, code } = parsed.data;
 
   try {
+    if (!(await withinRunLimit(user.id))) {
+      return { ok: false, error: RATE_LIMITED_ERROR };
+    }
+
     // The problem must exist and must offer this language. Both are checked
     // against the database, never taken from the client's word for it.
     const configured = await db.practiceLanguage.findFirst({

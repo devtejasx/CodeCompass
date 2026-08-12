@@ -6,6 +6,10 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { gradeAttempt, topicPercent } from "@/lib/learn/progress";
+import {
+  outstandingPrerequisites,
+  prerequisiteMessage,
+} from "@/lib/learn/prerequisites";
 import { syncToolsForTopic } from "@/lib/ai-tools/progress";
 import { recordActivity, recordActivityOnce } from "@/lib/personalization/activity";
 
@@ -16,6 +20,10 @@ import { recordActivity, recordActivityOnce } from "@/lib/personalization/activi
  * to write. Topic and section ids are checked against the database before use,
  * so a crafted request cannot write progress for something that doesn't exist
  * or belong where it claims.
+ *
+ * Prerequisites are enforced here rather than only in the roadmap's rendering.
+ * A locked card that is merely not clickable is a suggestion; the rule is that
+ * nothing records a completion out of order, whatever route the request took.
  */
 
 export interface LearnResult {
@@ -222,6 +230,13 @@ export async function submitKnowledgeCheck(input: unknown): Promise<AttemptResul
       return { ok: false, error: "This topic has no knowledge check yet." };
     }
 
+    // Reading ahead is fine; recording a pass out of order is not. Checked
+    // before grading so a refused attempt costs the learner nothing.
+    const missing = await outstandingPrerequisites(user.id, parsed.data.topicId);
+    if (missing.length > 0) {
+      return { ok: false, error: prerequisiteMessage(missing) };
+    }
+
     const answers = new Map(
       parsed.data.answers.map((answer) => [answer.questionId, answer.optionId]),
     );
@@ -322,6 +337,107 @@ export async function submitKnowledgeCheck(input: unknown): Promise<AttemptResul
     console.error("[submitKnowledgeCheck] failed to grade attempt");
     return { ok: false, error: GENERIC_ERROR };
   }
+}
+
+const understoodInput = z.object({ topicId: z.string().min(1) });
+
+/**
+ * Marks a topic that has no authored lesson as understood.
+ *
+ * This exists because a topic nobody can complete freezes everything behind it.
+ * Most roadmap topics have no lesson yet, and several of them are the *first*
+ * topic on a path — so without this, a new learner's roadmap is a wall of
+ * locked cards with nothing to open, which is the exact experience CodeCompass
+ * exists to prevent.
+ *
+ * It is an attestation, like a project's self-evaluation, and the UI says so:
+ * CodeCompass has not taught this topic and is in no position to test it. What
+ * it records is "the learner says they know this", which is honest, and which
+ * lets the sequence continue.
+ *
+ * Three guards make it narrow:
+ *
+ *   1. Refused when the topic *does* have a lesson. Otherwise this would be a
+ *      one-click bypass of every knowledge check in the product.
+ *   2. Refused when prerequisites are outstanding, exactly as a real pass is.
+ *   3. Idempotent, and never downgrades a topic completed the proper way.
+ */
+export async function markTopicUnderstood(input: unknown): Promise<LearnResult> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Please sign in to save your progress." };
+
+  const parsed = understoodInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "That topic could not be found." };
+
+  try {
+    const topic = await db.topic.findUnique({
+      where: { id: parsed.data.topicId },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        lesson: { select: { id: true } },
+      },
+    });
+
+    if (!topic) return { ok: false, error: "That topic could not be found." };
+
+    if (topic.lesson) {
+      return {
+        ok: false,
+        error:
+          "This topic has a lesson — work through it and pass the knowledge check to complete it.",
+      };
+    }
+
+    const missing = await outstandingPrerequisites(user.id, topic.id);
+    if (missing.length > 0) {
+      return { ok: false, error: prerequisiteMessage(missing) };
+    }
+
+    const existing = await db.userTopicProgress.findUnique({
+      where: { userId_topicId: { userId: user.id, topicId: topic.id } },
+      select: { status: true },
+    });
+
+    if (existing?.status === "COMPLETED") return { ok: true };
+
+    await db.userTopicProgress.upsert({
+      where: { userId_topicId: { userId: user.id, topicId: topic.id } },
+      create: {
+        userId: user.id,
+        topicId: topic.id,
+        status: "COMPLETED",
+        percentComplete: 100,
+        startedAt: new Date(),
+        completedAt: new Date(),
+      },
+      update: {
+        status: "COMPLETED",
+        percentComplete: 100,
+        completedAt: new Date(),
+        lastAccessedAt: new Date(),
+      },
+    });
+
+    // Same event as any other completed topic: the weekly summary and the
+    // milestones are counting topics, not lessons.
+    await syncToolsForTopic({ userId: user.id, topicId: topic.id });
+    await recordActivity({
+      userId: user.id,
+      type: "LESSON_COMPLETED",
+      entityId: topic.id,
+      entitySlug: topic.slug,
+      label: topic.title,
+    });
+  } catch {
+    console.error("[markTopicUnderstood] failed to record topic completion");
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath("/roadmap");
+  revalidatePath("/dashboard");
+  return { ok: true };
 }
 
 // NOTE: a "use server" file may export *only* async functions. Re-exporting a

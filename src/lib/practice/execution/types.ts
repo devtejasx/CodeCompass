@@ -105,4 +105,15 @@ export const EXECUTION_LIMITS = {
   maxMemoryLimitMb: 512,
   /** How long we wait on the execution service before giving up on it. */
   serviceTimeoutMs: 20_000,
+  /**
+   * Runs one learner may start in a rolling window.
+   *
+   * Execution is the most expensive thing a learner can trigger and the easiest
+   * to trigger in a loop, so the ceiling is enforced before a submission row is
+   * created rather than inside the sandbox. Set well above honest use: hammering
+   * Run while debugging is normal, and 60 an hour is roughly one every minute
+   * without pause.
+   */
+  maxRunsPerWindow: 60,
+  runWindowMs: 60 * 60 * 1000,
 } as const;

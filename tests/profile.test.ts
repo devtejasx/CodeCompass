@@ -613,10 +613,26 @@ describe("strengths and improvements", () => {
 // ── 4. Milestones and completion ───────────────────────────────────────────
 
 describe("milestones and profile completion", () => {
-  it("marks a milestone only when the activity exists", () => {
+  /** Nothing achieved. Individual tests turn on only what they are about. */
+  const NO_FACTS = {
+    career: false,
+    topic: null,
+    topicDone: false,
+    problem: null,
+    problemDone: false,
+    project: null,
+    projectDone: false,
+    git: null,
+    gitDone: false,
+    ai: null,
+    aiDone: false,
+  };
+
+  it("marks a milestone only when it actually happened", () => {
     const joined = new Date("2026-01-01");
     const milestones = detectMilestones(
-      [{ type: "LESSON_COMPLETED", createdAt: new Date("2026-02-01") }],
+      { ...NO_FACTS, topicDone: true, topic: new Date("2026-02-01") },
+      [],
       joined,
     );
 
@@ -624,16 +640,14 @@ describe("milestones and profile completion", () => {
     const project = milestones.find((entry) => entry.key === "project")!;
 
     expect(topic.achievedAt).toEqual(new Date("2026-02-01"));
-    // Never fabricated: no activity means no milestone.
+    // Never fabricated: nothing completed means no milestone.
     expect(project.achievedAt).toBeNull();
   });
 
-  it("uses the earliest occurrence of each milestone", () => {
+  it("uses the owning table's timestamp, not the activity log's", () => {
     const milestones = detectMilestones(
-      [
-        { type: "PROBLEM_SOLVED", createdAt: new Date("2026-03-01") },
-        { type: "PROBLEM_SOLVED", createdAt: new Date("2026-02-01") },
-      ],
+      { ...NO_FACTS, problemDone: true, problem: new Date("2026-02-01") },
+      [{ type: "PROBLEM_SOLVED", createdAt: new Date("2026-03-01") }],
       new Date("2026-01-01"),
     );
 
@@ -642,8 +656,39 @@ describe("milestones and profile completion", () => {
     );
   });
 
+  it("falls back to the activity log when the table has no timestamp", () => {
+    // Choosing a career is the real case: Profile has no "chose at" column.
+    const milestones = detectMilestones(
+      { ...NO_FACTS, career: true },
+      [
+        { type: "CAREER_SELECTED", createdAt: new Date("2026-03-01") },
+        { type: "CAREER_SELECTED", createdAt: new Date("2026-02-01") },
+      ],
+      new Date("2026-01-01"),
+    );
+
+    // Earliest occurrence, so switching careers later does not move the first.
+    expect(milestones.find((entry) => entry.key === "career")!.achievedAt).toEqual(
+      new Date("2026-02-01"),
+    );
+  });
+
+  it("still reports a milestone whose activity row was never written", () => {
+    // recordActivity swallows its own failures, so a lost row must not make the
+    // profile deny work the learner actually did.
+    const joined = new Date("2026-01-01");
+    const milestones = detectMilestones(
+      { ...NO_FACTS, career: true, projectDone: true, project: null },
+      [],
+      joined,
+    );
+
+    expect(milestones.find((entry) => entry.key === "career")!.achievedAt).toEqual(joined);
+    expect(milestones.find((entry) => entry.key === "project")!.achievedAt).toEqual(joined);
+  });
+
   it("keeps milestones to a meaningful handful, not a badge wall", () => {
-    const milestones = detectMilestones([], new Date());
+    const milestones = detectMilestones(NO_FACTS, [], new Date());
     expect(milestones.length).toBeLessThanOrEqual(8);
   });
 
@@ -693,6 +738,61 @@ describe("techie profile", () => {
 
     expect(profile.summary).toContain("Frontend Developer");
     expect(profile.summary).toContain("HTML & CSS");
+  });
+
+  it("never counts a project still in progress as completed", async () => {
+    const user = await makeUser();
+    await chooseCareer(user.id, "frontend-developer");
+    await completeTopics(user.id, [
+      "html-fundamentals",
+      "css-fundamentals",
+      "flexbox",
+      "css-grid",
+    ]);
+
+    const project = await db.project.findFirstOrThrow({ select: { id: true } });
+    await db.userProject.create({
+      data: { userId: user.id, projectId: project.id, status: "IN_PROGRESS" },
+    });
+
+    const profile = await getTechieProfile(user.id);
+
+    // The project appears — it is real work — but the headline sentence must
+    // not describe it as finished, and the counter must agree with it.
+    expect(profile.projects).toHaveLength(1);
+    expect(profile.summary).not.toMatch(/completed \d+ project/i);
+    expect(
+      profile.milestones.find((entry) => entry.key === "project")!.achievedAt,
+    ).toBeNull();
+  });
+
+  it("counts it once it is actually finished", async () => {
+    const user = await makeUser("finished@example.com");
+    await chooseCareer(user.id, "frontend-developer");
+    await completeTopics(user.id, [
+      "html-fundamentals",
+      "css-fundamentals",
+      "flexbox",
+      "css-grid",
+    ]);
+
+    const project = await db.project.findFirstOrThrow({ select: { id: true } });
+    await db.userProject.create({
+      data: {
+        userId: user.id,
+        projectId: project.id,
+        status: "COMPLETED",
+        completedAt: new Date(),
+      },
+    });
+
+    const profile = await getTechieProfile(user.id);
+
+    expect(profile.summary).toMatch(/completed 1 project/i);
+    // Derived from the project table, so it holds even with no activity row.
+    expect(
+      profile.milestones.find((entry) => entry.key === "project")!.achievedAt,
+    ).not.toBeNull();
   });
 
   it("never names a capability the learner has no evidence for", async () => {

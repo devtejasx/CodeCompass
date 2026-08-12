@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Loader2, Sparkles } from "lucide-react";
 
-import { finishOnboarding, saveOnboardingAnswers } from "@/app/actions/onboarding";
+import {
+  finishOnboarding,
+  saveOnboardingAnswers,
+  saveOnboardingProgress,
+} from "@/app/actions/onboarding";
 import { Button } from "@/components/ui/button";
 import { OptionCard } from "@/components/onboarding/option-card";
 import { StepProgress } from "@/components/onboarding/step-progress";
@@ -40,12 +44,30 @@ const EMPTY: Answers = {
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 
-export function OnboardingWizard({ firstName }: { firstName: string }) {
+export function OnboardingWizard({
+  firstName,
+  initialAnswers = EMPTY,
+}: {
+  firstName: string;
+  /** Whatever was already saved, so a refresh resumes rather than restarts. */
+  initialAnswers?: Answers;
+}) {
   const router = useRouter();
   const reduced = useReducedMotion();
 
-  const [step, setStep] = React.useState(1);
-  const [answers, setAnswers] = React.useState<Answers>(EMPTY);
+  // Open on the first unanswered question. Someone returning to a half-finished
+  // questionnaire should not have to click past the answers they already gave.
+  const [step, setStep] = React.useState(() => {
+    const order: (keyof Answers)[] = [
+      "experienceLevel",
+      "selectedCareer",
+      "dailyLearningTime",
+      "selectedLanguage",
+    ];
+    const firstUnanswered = order.findIndex((key) => initialAnswers[key] === null);
+    return firstUnanswered === -1 ? ONBOARDING_STEP_COUNT : firstUnanswered + 1;
+  });
+  const [answers, setAnswers] = React.useState<Answers>(initialAnswers);
   const [direction, setDirection] = React.useState<1 | -1>(1);
   const [submitting, setSubmitting] = React.useState(false);
   const [done, setDone] = React.useState(false);
@@ -118,6 +140,10 @@ export function OnboardingWizard({ firstName }: { firstName: string }) {
     if (!canContinue) return;
 
     if (step < ONBOARDING_STEP_COUNT) {
+      // Save what they have answered so far before moving on. Fire and forget:
+      // the final step writes the whole set anyway, so a failed partial save
+      // must not block someone from continuing.
+      void saveOnboardingProgress({ [active.key]: currentValue });
       setDirection(1);
       setStep((s) => s + 1);
       return;

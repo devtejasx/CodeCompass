@@ -239,7 +239,16 @@ export function KnowledgeCheck({
           )}
         >
           <p className="text-lg font-semibold text-foreground">
-            {passed ? "You passed." : "You're close."}
+            {/*
+              Encouraging, but never at the cost of being true: telling someone
+              who scored 0% that they are "close" is the kind of hollow praise
+              that makes every other message here worth less.
+            */}
+            {passed
+              ? "You passed."
+              : (score ?? 0) >= passingScore / 2
+                ? "You're close."
+                : "Worth another read."}
           </p>
           <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
             {passed

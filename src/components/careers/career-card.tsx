@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Clock3 } from "lucide-react";
+import { ArrowRight, Clock3, Hourglass } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { careerIcon } from "@/lib/careers/icons";
@@ -72,6 +72,17 @@ export function CareerCard({ career, action, className }: CareerCardProps) {
           <Clock3 className="size-3.5" aria-hidden />
           {career.estimatedLearningTime}
         </span>
+        {/*
+          Said here rather than discovered after choosing. A learner who picks a
+          path only to find an empty roadmap has been let down by the one
+          promise this product makes.
+        */}
+        {career.roadmaps.length === 0 ? (
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/25 bg-amber-500/[0.08] px-2 py-0.5 text-xs text-amber-400">
+            <Hourglass className="size-3" aria-hidden />
+            Roadmap in progress
+          </span>
+        ) : null}
       </div>
 
       {action ? <div className="relative z-10 mt-3">{action}</div> : null}

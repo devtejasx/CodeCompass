@@ -17,6 +17,19 @@ export const CAREER_SUMMARY_SELECT = {
   difficulty: true,
   estimatedLearningTime: true,
   demandLevel: true,
+  /**
+   * Enough to tell whether a curated roadmap exists for this career.
+   *
+   * Most careers do not have one yet, and choosing one that doesn't leads to a
+   * roadmap page with nothing on it. The explorer says so on the card instead
+   * of finding out after the commitment — `take: 1` because the answer is
+   * "any", not "how many".
+   */
+  roadmaps: {
+    where: { isActive: true },
+    take: 1,
+    select: { id: true },
+  },
 } as const;
 
 export type CareerSummary = Awaited<ReturnType<typeof getCareerSummaries>>[number];

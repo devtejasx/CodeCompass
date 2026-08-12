@@ -25,7 +25,11 @@ const STATE_ICON: Record<TopicState, typeof Check> = {
 /**
  * Topics inside an expanded roadmap phase.
  *
- * A topic links to its lesson only when one exists and the topic isn't locked.
+ * Every unlocked topic links to its page, including the ones whose lesson has
+ * not been written yet — that page is where a learner says "I already know
+ * this" and moves on. Linking only lesson-bearing topics is what used to leave
+ * a new learner staring at a roadmap with nothing to click.
+ *
  * State is shown with an icon and a text label as well as colour — "locked" is
  * not something a learner should have to infer from a hue.
  */
@@ -37,7 +41,7 @@ export function TopicList({ topics, states, topicsWithLessons }: TopicListProps)
       {topics.map((topic) => {
         const state = states[topic.id] ?? "LOCKED";
         const StateIcon = STATE_ICON[state];
-        const linkable = hasLesson.has(topic.id) && state !== "LOCKED";
+        const linkable = state !== "LOCKED";
 
         const body = (
           <>
@@ -122,7 +126,11 @@ export function TopicList({ topics, states, topicsWithLessons }: TopicListProps)
               >
                 {body}
                 <span className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-indigo-300">
-                  {state === "COMPLETED" ? "Review lesson" : "Start learning"}
+                  {!hasLesson.has(topic.id)
+                    ? "Lesson coming soon — open to continue"
+                    : state === "COMPLETED"
+                      ? "Review lesson"
+                      : "Start learning"}
                   <ArrowRight className="size-3.5" aria-hidden />
                 </span>
               </Link>

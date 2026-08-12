@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
-import { onboardingSchema } from "@/lib/validation/onboarding";
+import {
+  onboardingSchema,
+  partialOnboardingSchema,
+} from "@/lib/validation/onboarding";
 
 export interface OnboardingResult {
   ok: boolean;
@@ -22,6 +25,44 @@ export interface OnboardingResult {
  * So the answers are saved first (nothing is lost if the user wanders off) and
  * the profile is only marked complete when they actually click through.
  */
+
+/**
+ * Persists whatever has been answered so far. Does NOT mark onboarding
+ * complete, and never fails loudly.
+ *
+ * Called as the learner moves between steps, so closing the tab at question
+ * three does not discard questions one and two. It is a convenience, not the
+ * commit — `saveOnboardingAnswers` still writes the full set at the end, so a
+ * dropped partial save costs nothing but the re-answering it was meant to
+ * prevent. That is why the result is deliberately ignored by the caller.
+ */
+export async function saveOnboardingProgress(input: unknown): Promise<OnboardingResult> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "Your session has expired." };
+
+  const parsed = partialOnboardingSchema.safeParse(input);
+  // Each field is checked against the same enum as the final submission, so an
+  // early save can never smuggle in a value the last step would have refused.
+  if (!parsed.success) return { ok: false, error: "That answer could not be read." };
+
+  const answers = Object.fromEntries(
+    Object.entries(parsed.data).filter(([, value]) => value !== undefined),
+  );
+  if (Object.keys(answers).length === 0) return { ok: true };
+
+  try {
+    await db.profile.upsert({
+      where: { userId: user.id },
+      create: { userId: user.id, ...answers },
+      update: answers,
+    });
+  } catch {
+    console.error("[saveOnboardingProgress] failed to persist partial answers");
+    return { ok: false, error: "We couldn't save that just yet." };
+  }
+
+  return { ok: true };
+}
 
 /** Persists the four answers. Does NOT mark onboarding complete. */
 export async function saveOnboardingAnswers(input: unknown): Promise<OnboardingResult> {
