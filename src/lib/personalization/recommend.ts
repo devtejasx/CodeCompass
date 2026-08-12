@@ -189,20 +189,33 @@ export function buildRecommendations(input: RecommendationInput): Recommendation
   if (current && current.id !== state.resumeTopic?.id) {
     const started = state.completedTopicIds.length > 0;
 
-    out.push({
-      type: started ? "CONTINUE_LESSON" : "START_ROADMAP",
-      entityId: current.id,
-      title: started ? `Learn ${current.title}` : `Start with ${current.title}`,
-      reason: reasonForTopic(state, current),
-      // A topic whose lesson is not written yet still has a page, and that page
-      // is where the learner says they already know it and moves on. Sending
-      // them to /roadmap instead used to be a dead end — the roadmap's only
-      // suggestion was the topic they had just come from.
-      action: current.hasLesson
+    // A topic the roadmap delegates is taught in an Academy, so the action
+    // names that destination. It still sits at NEXT_TOPIC priority and still
+    // links through the topic page, which explains the handover and shows
+    // which Academy modules are outstanding — sending someone straight to the
+    // Academy would drop that context.
+    const action = current.delegatedTo
+      ? `Open ${current.delegatedTo.name}`
+      : current.hasLesson
         ? started
           ? "Continue learning"
           : "Start learning"
-        : "Open topic",
+        : // A topic whose lesson is not written yet still has a page, and that
+          // page is where the learner says they already know it and moves on.
+          "Open topic";
+
+    out.push({
+      type: started ? "CONTINUE_LESSON" : "START_ROADMAP",
+      entityId: current.id,
+      title: current.delegatedTo
+        ? `Learn ${current.title} in the ${current.delegatedTo.name}`
+        : started
+          ? `Learn ${current.title}`
+          : `Start with ${current.title}`,
+      reason: current.delegatedTo
+        ? `${current.title} is next on your roadmap, and CodeCompass teaches it in the ${current.delegatedTo.name} rather than repeating it inside every career path. Your progress there counts towards this roadmap automatically.`
+        : reasonForTopic(state, current),
+      action,
       href: `/learn/${current.slug}`,
       priority: PRIORITY.NEXT_TOPIC,
       estimatedTime: current.estimatedTime,

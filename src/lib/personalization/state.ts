@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getActiveRoadmapForCareer } from "@/lib/roadmap/queries";
 import { deriveTopicStates, roadmapPercent } from "@/lib/learn/progress";
+import { delegationFor, satisfiedDelegatedTopicIds } from "@/lib/learn/delegation";
 import { getGitProgressSummary } from "@/lib/git/queries";
 import { getAIProgressSummary } from "@/lib/ai-tools/queries";
 import { GIT_EXERCISE_SLUGS } from "@/lib/git/exercises";
@@ -38,6 +39,11 @@ export interface LearnerTopic {
   estimatedTime: string;
   isRequired: boolean;
   hasLesson: boolean;
+  /**
+   * Where this topic is taught, when the roadmap names it but an Academy owns
+   * the content. Null for ordinary topics.
+   */
+  delegatedTo: { href: string; name: string } | null;
   phaseTitle: string;
   phaseOrder: number;
   /** Why this phase sits where it does — authored, not generated. */
@@ -256,9 +262,25 @@ export async function getLearnerState(userId: string): Promise<LearnerState> {
     },
   });
 
-  const completedTopicIds = topicProgress
-    .filter((row) => row.status === "COMPLETED")
-    .map((row) => row.topicId);
+  // Delegated topics (the Git ones, taught in the Academy) have no progress row
+  // of their own, so they are folded in here from the Academy work behind them.
+  // Doing it at the state level means the dashboard, the study plan and the
+  // mentor's context all agree without each re-deriving it.
+  const delegatedComplete = await satisfiedDelegatedTopicIds(
+    userId,
+    roadmap.phases.flatMap((phase) =>
+      phase.topics.map((topic) => ({ id: topic.id, slug: topic.slug })),
+    ),
+  );
+
+  const completedTopicIds = [
+    ...new Set([
+      ...topicProgress
+        .filter((row) => row.status === "COMPLETED")
+        .map((row) => row.topicId),
+      ...delegatedComplete,
+    ]),
+  ];
 
   /** Flattened in roadmap order, carrying the phase context each topic needs. */
   const topicsInOrder: LearnerTopic[] = roadmap.phases.flatMap((phase) =>
@@ -270,6 +292,12 @@ export async function getLearnerState(userId: string): Promise<LearnerState> {
       estimatedTime: topic.estimatedTime,
       isRequired: topic.isRequired,
       hasLesson: topic.lesson !== null,
+      delegatedTo: delegationFor(topic.slug)
+        ? {
+            href: delegationFor(topic.slug)!.academyHref,
+            name: delegationFor(topic.slug)!.academyName,
+          }
+        : null,
       phaseTitle: phase.title,
       phaseOrder: phase.order,
       phaseReason: phase.whyThisComesNext,

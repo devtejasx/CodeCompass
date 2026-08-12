@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/shared/container";
 import { GridBackdrop } from "@/components/shared/backdrops";
+import { AcademyBridge } from "@/components/learn/academy-bridge";
 import { LessonExperience } from "@/components/learn/lesson-experience";
 import { TopicOpened } from "@/components/learn/topic-opened";
 import { TopicUnderstood } from "@/components/learn/topic-understood";
@@ -15,6 +16,7 @@ import { TopicProjectCard } from "@/components/projects/topic-project-card";
 import { DIFFICULTY_BADGE, DIFFICULTY_SHORT } from "@/lib/careers/labels";
 import { requireUser } from "@/lib/session";
 import { PASSING_SCORE } from "@/lib/learn/progress";
+import { delegationFor, getDelegationStatuses } from "@/lib/learn/delegation";
 import { outstandingPrerequisites } from "@/lib/learn/prerequisites";
 import {
   getCompletedSectionIds,
@@ -72,6 +74,12 @@ export default async function LearnTopicPage({
       // offers to *record* completion. The same check runs in the action.
       outstandingPrerequisites(user.id, topic.id),
     ]);
+
+  // Null for every ordinary topic. Set for the ones a roadmap names but an
+  // Academy teaches, which render a bridge rather than a lesson.
+  const delegation = delegationFor(topic.slug)
+    ? ((await getDelegationStatuses(user.id)).get(topic.slug) ?? null)
+    : null;
 
   const completedSectionIds = topic.lesson
     ? await getCompletedSectionIds(user.id, topic.lesson.id)
@@ -194,6 +202,10 @@ export default async function LearnTopicPage({
                   : null
               }
             />
+          ) : delegation ? (
+            // Taught elsewhere rather than unwritten — hand the learner over
+            // instead of offering a self-attestation for content that exists.
+            <AcademyBridge status={delegation} />
           ) : (
             <ComingSoon
               topicId={topic.id}

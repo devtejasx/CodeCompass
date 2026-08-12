@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
 
+import { DELEGATED_TOPICS, satisfiedDelegatedTopicIds } from "./delegation";
+
 /**
  * Prerequisite enforcement.
  *
@@ -56,13 +58,23 @@ export async function outstandingPrerequisites(
     },
   });
 
-  return links
+  const outstanding = links
     .filter(({ prerequisite }) => prerequisite.progress[0]?.status !== "COMPLETED")
     .map(({ prerequisite }) => ({
       id: prerequisite.id,
       slug: prerequisite.slug,
       title: prerequisite.title,
     }));
+
+  // A prerequisite the roadmap delegates has no progress row of its own — it is
+  // satisfied by the Academy work behind it. Without this, finishing Git in the
+  // Academy would leave every topic after it permanently locked.
+  const delegated = outstanding.filter((topic) => topic.slug in DELEGATED_TOPICS);
+  if (delegated.length === 0) return outstanding;
+
+  const satisfied = new Set(await satisfiedDelegatedTopicIds(userId, delegated));
+
+  return outstanding.filter((topic) => !satisfied.has(topic.id));
 }
 
 /**

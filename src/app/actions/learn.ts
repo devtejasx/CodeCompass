@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { gradeAttempt, topicPercent } from "@/lib/learn/progress";
+import { delegationFor } from "@/lib/learn/delegation";
 import {
   outstandingPrerequisites,
   prerequisiteMessage,
@@ -387,6 +388,18 @@ export async function markTopicUnderstood(input: unknown): Promise<LearnResult> 
         ok: false,
         error:
           "This topic has a lesson — work through it and pass the knowledge check to complete it.",
+      };
+    }
+
+    // A delegated topic has no lesson *here* because it is taught in an
+    // Academy. Self-attestation would let a learner skip content that exists,
+    // so it is refused: this topic is satisfied by real Academy progress and
+    // nothing else. Enforced server-side, whatever the client sends.
+    const delegation = delegationFor(topic.slug);
+    if (delegation) {
+      return {
+        ok: false,
+        error: `This topic is taught in the ${delegation.academyName}. Complete it there and your roadmap will move on by itself.`,
       };
     }
 

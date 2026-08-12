@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
 
+import { DELEGATED_TOPIC_SLUGS, satisfiedDelegatedTopicIds } from "./delegation";
+
 /**
  * Learning reads.
  *
@@ -174,17 +176,31 @@ export async function getNextTopic(topicId: string) {
 /**
  * Every completed topic id for a user within one roadmap. Used by the roadmap
  * page and the dashboard so both compute progress from the same source.
+ *
+ * Includes topics the roadmap delegates to an Academy and whose Academy work is
+ * finished. Folding that in here rather than at each call site is what lets
+ * prerequisites, phase state, progress percentages and the recommendation
+ * engine all honour delegation without knowing it exists.
  */
 export async function getCompletedTopicIds(userId: string, roadmapId: string) {
-  const rows = await db.userTopicProgress.findMany({
-    where: {
-      userId,
-      status: "COMPLETED",
-      topic: { phase: { roadmapId } },
-    },
-    select: { topicId: true },
-  });
-  return rows.map((row) => row.topicId);
+  const [rows, roadmapTopics] = await Promise.all([
+    db.userTopicProgress.findMany({
+      where: {
+        userId,
+        status: "COMPLETED",
+        topic: { phase: { roadmapId } },
+      },
+      select: { topicId: true },
+    }),
+    db.topic.findMany({
+      where: { phase: { roadmapId }, slug: { in: DELEGATED_TOPIC_SLUGS } },
+      select: { id: true, slug: true },
+    }),
+  ]);
+
+  const delegated = await satisfiedDelegatedTopicIds(userId, roadmapTopics);
+
+  return [...new Set([...rows.map((row) => row.topicId), ...delegated])];
 }
 
 /** The topic a learner was last working on, for "continue where you left off". */
