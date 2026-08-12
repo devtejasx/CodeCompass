@@ -233,9 +233,11 @@ export const MEDIUM_PROBLEMS: SeedProblem[] = [
     tests: [
       { args: [[2, 7, 11, 15], 9], expected: [0, 1] },
       { args: [[3, 3], 6], expected: [0, 1] },
-      { args: [[1, 4, 9, 2], 11], expected: [1, 2] },
+      { args: [[1, 4, 9, 2], 11], expected: [2, 3] },
       { args: [[-3, 5, 8], 5], expected: [0, 2], hidden: true },
-      { args: [[0, 0, 4], 4], expected: [0, 2], hidden: true },
+      // Deliberately not [0, 0, 4]: with two zeros, both [0, 2] and [1, 2] are
+      // valid, and the problem promises exactly one pair.
+      { args: [[0, 1, 4], 4], expected: [0, 2], hidden: true },
     ],
     solutions: {
       JAVASCRIPT:

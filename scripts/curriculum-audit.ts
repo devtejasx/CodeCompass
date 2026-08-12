@@ -10,7 +10,12 @@ import { DELEGATED_TOPICS } from "../src/lib/learn/delegation";
  * Answers the question this phase exists to answer: how far can a learner
  * actually get before the authored content runs out? Run with:
  *
- *   npx tsx scripts/curriculum-audit.ts [career-slug]
+ *   npx tsx scripts/curriculum-audit.ts [career-slug] [phase-filter]
+ *
+ * The optional phase filter adds a per-topic table for the phase being
+ * authored — lesson depth, practice and project links, prerequisites — because
+ * the roadmap-wide totals say a phase is covered without saying whether any
+ * individual topic in it is connected to anything.
  */
 const db = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
@@ -18,6 +23,7 @@ const db = new PrismaClient({
 
 async function main() {
   const slug = process.argv[2] ?? "frontend-developer";
+  const phaseFilter = process.argv[3];
   const rm = await db.roadmap.findFirstOrThrow({
     where: { career: { slug }, isActive: true },
     select: {
@@ -31,6 +37,7 @@ async function main() {
             orderBy: { order: "asc" },
             select: {
               slug: true,
+              title: true,
               isRequired: true,
               lesson: {
                 select: {
@@ -207,6 +214,43 @@ async function main() {
     `\nUnbroken authored chain from topic 1: ${walked} topics` +
       (stoppedAt ? `, then ${stoppedAt}` : " — the whole roadmap"),
   );
+
+  // ── One phase, topic by topic ────────────────────────────────────────
+  // The totals above can report a phase as fully covered while every topic in
+  // it is unconnected to any practice or project, so the phase being authored
+  // gets listed in full.
+  if (phaseFilter) {
+    const matches = rm.phases.filter((p) =>
+      p.title.toLowerCase().includes(phaseFilter.toLowerCase()),
+    );
+
+    if (matches.length === 0) {
+      console.log(`\nNo phase matching "${phaseFilter}".`);
+    }
+
+    for (const phase of matches) {
+      console.log(`\n${phase.order}. ${phase.title}\n`);
+      console.log(
+        "| # | Topic | Slug | Prerequisites | Sections | Checks | Resources | Practice | Projects |",
+      );
+      console.log("|---:|---|---|---|---:|---:|---:|---:|---:|");
+
+      for (const [index, t] of phase.topics.entries()) {
+        const prerequisites =
+          t.prerequisites.map((e) => e.prerequisite.slug).join(", ") || "—";
+        const lesson = t.lesson;
+        const delegated = t.slug in DELEGATED_TOPICS;
+
+        console.log(
+          `| ${index + 1} | ${t.title} | ${t.slug} | ${prerequisites} | ` +
+            `${lesson ? lesson._count.sections : delegated ? "academy" : "—"} | ` +
+            `${lesson ? lesson._count.knowledgeChecks : "—"} | ` +
+            `${lesson ? lesson.resources.length : "—"} | ` +
+            `${t.problems.length || "—"} | ${t.projects.length || "—"} |`,
+        );
+      }
+    }
+  }
 
   await db.$disconnect();
 }

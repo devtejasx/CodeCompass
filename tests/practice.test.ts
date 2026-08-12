@@ -361,6 +361,52 @@ describe("starter code", () => {
     expect(toSnakeCase("factorial")).toBe("factorial");
   });
 
+  it("solves every problem with its own reference solution", () => {
+    // The answer key is what an attempt is graded against, so a wrong one is
+    // worse than a missing one: the learner is told a correct solution failed.
+    // Nothing else checks this — the submission tests grade against a mock
+    // provider, which agrees with whatever the seed says by construction.
+    //
+    // JavaScript only, because that is the language this test runner can
+    // execute. The other four share the same test cases, so a disagreement
+    // between a case and the intended behaviour surfaces here regardless.
+    const failures: string[] = [];
+
+    for (const problem of PROBLEMS) {
+      const body = problem.solutions.JAVASCRIPT;
+      if (!body) continue;
+
+      const source = renderSource(problem.signature, "JAVASCRIPT", body);
+      const solve = new Function(
+        `${source}\nreturn ${problem.signature.name};`,
+      )() as (...args: unknown[]) => unknown;
+
+      for (const [index, test] of problem.tests.entries()) {
+        // A fresh copy per case, so a solution that mutates its argument
+        // cannot corrupt a later case's inputs.
+        const actual = solve(
+          ...test.args.map((arg) => (Array.isArray(arg) ? [...arg] : arg)),
+        );
+
+        const matches =
+          typeof test.expected === "number" &&
+          typeof actual === "number" &&
+          !Number.isInteger(test.expected)
+            ? Math.abs(actual - test.expected) < 1e-6
+            : JSON.stringify(actual) === JSON.stringify(test.expected);
+
+        if (!matches) {
+          failures.push(
+            `${problem.slug} case ${index + 1}: got ${JSON.stringify(actual)}, ` +
+              `expected ${JSON.stringify(test.expected)}`,
+          );
+        }
+      }
+    }
+
+    expect(failures).toEqual([]);
+  });
+
   it("never ships the reference solution to the browser", async () => {
     const problem = await getProblemForPractice("find-maximum");
 
