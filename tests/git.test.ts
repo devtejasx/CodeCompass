@@ -26,6 +26,15 @@ const { GIT_COMMANDS, searchCommands } = await import("@/lib/git/commands");
 const { getGitAcademy, listExercises, getGitProgressSummary } =
   await import("@/lib/git/queries");
 const { recordExerciseAttempt } = await import("@/app/actions/git");
+const {
+  DELEGATED_TOPIC_SLUGS,
+  delegationFor,
+  getDelegationStatuses,
+  satisfiedDelegatedTopicIds,
+} = await import("@/lib/learn/delegation");
+const { getCompletedTopicIds } = await import("@/lib/learn/queries");
+const { outstandingPrerequisites } = await import("@/lib/learn/prerequisites");
+const { markTopicUnderstood } = await import("@/app/actions/learn");
 
 const { sealToken, openToken, safeEquals, randomToken, isEncryptionConfigured } =
   await import("@/lib/github/crypto");
@@ -1153,5 +1162,164 @@ describe("access control", () => {
   it("redirects an unauthenticated visitor to login", async () => {
     auth.mockResolvedValue(null);
     await expect(requireUser("/academy/git")).rejects.toThrow(/REDIRECT:\/login/);
+  });
+});
+
+// ── Frontend → Git Academy delegation ──────────────────────────────────────
+
+describe("git academy delegation", () => {
+  /** Marks an Academy topic complete the way passing its lesson would. */
+  async function completeAcademyTopic(userId: string, slug: string) {
+    const topic = await db.topic.findUniqueOrThrow({
+      where: { slug },
+      select: { id: true },
+    });
+    await db.userTopicProgress.upsert({
+      where: { userId_topicId: { userId, topicId: topic.id } },
+      create: {
+        userId,
+        topicId: topic.id,
+        status: "COMPLETED",
+        percentComplete: 100,
+        completedAt: new Date(),
+      },
+      update: { status: "COMPLETED", percentComplete: 100 },
+    });
+  }
+
+  async function frontendTopic(slug: string) {
+    return db.topic.findFirstOrThrow({
+      where: { slug, phase: { roadmap: { career: { slug: "frontend-developer" } } } },
+      select: { id: true, slug: true },
+    });
+  }
+
+  it("names an Academy destination for every delegated Frontend topic", async () => {
+    for (const slug of DELEGATED_TOPIC_SLUGS) {
+      const delegation = delegationFor(slug)!;
+      expect(delegation.academyHref, slug).toBe("/academy/git");
+      expect(delegation.requires.length, slug).toBeGreaterThan(0);
+
+      // Every referenced Academy topic must exist and carry a real lesson —
+      // delegation is only honest if the destination actually teaches it.
+      for (const required of delegation.requires) {
+        const topic = await db.topic.findUnique({
+          where: { slug: required },
+          select: { lesson: { select: { id: true } } },
+        });
+        expect(topic, `${slug} -> ${required}`).not.toBeNull();
+        expect(topic!.lesson, `${slug} -> ${required} has no lesson`).not.toBeNull();
+      }
+    }
+  });
+
+  it("does not duplicate Git teaching inside the Frontend roadmap", async () => {
+    // The whole point: these topics stay lesson-less because the Academy owns
+    // the content. A lesson appearing here would mean two Git curriculums.
+    for (const slug of DELEGATED_TOPIC_SLUGS) {
+      const topic = await db.topic.findFirstOrThrow({
+        where: { slug },
+        select: { lesson: { select: { id: true } } },
+      });
+      expect(topic.lesson, `${slug} should delegate, not teach`).toBeNull();
+    }
+  });
+
+  it("treats a delegated topic as unsatisfied until its modules are done", async () => {
+    const user = await makeUser("delegation-none@example.com");
+    const topic = await frontendTopic("git-commit");
+
+    const statuses = await getDelegationStatuses(user.id);
+    expect(statuses.get("git-commit")!.satisfied).toBe(false);
+    expect(await satisfiedDelegatedTopicIds(user.id, [topic])).toEqual([]);
+  });
+
+  it("stays unsatisfied when only some required modules are done", async () => {
+    const user = await makeUser("delegation-partial@example.com");
+    const topic = await frontendTopic("git-fundamentals");
+
+    // git-fundamentals needs two modules; finish one.
+    await completeAcademyTopic(user.id, "git-academy-version-control");
+
+    const status = (await getDelegationStatuses(user.id)).get("git-fundamentals")!;
+    expect(status.satisfied).toBe(false);
+    expect(status.modules.filter((m) => m.completed)).toHaveLength(1);
+    expect(await satisfiedDelegatedTopicIds(user.id, [topic])).toEqual([]);
+  });
+
+  it("satisfies the Frontend topic once every required module is complete", async () => {
+    const user = await makeUser("delegation-done@example.com");
+    const topic = await frontendTopic("git-fundamentals");
+
+    await completeAcademyTopic(user.id, "git-academy-version-control");
+    await completeAcademyTopic(user.id, "git-academy-git-basics");
+
+    expect((await getDelegationStatuses(user.id)).get("git-fundamentals")!.satisfied).toBe(
+      true,
+    );
+    expect(await satisfiedDelegatedTopicIds(user.id, [topic])).toEqual([topic.id]);
+  });
+
+  it("counts a satisfied delegated topic as completed on the roadmap", async () => {
+    const user = await makeUser("delegation-roadmap@example.com");
+    const roadmap = await db.roadmap.findFirstOrThrow({
+      where: { career: { slug: "frontend-developer" }, isActive: true },
+      select: { id: true },
+    });
+    const topic = await frontendTopic("git-commit");
+
+    expect(await getCompletedTopicIds(user.id, roadmap.id)).not.toContain(topic.id);
+
+    await completeAcademyTopic(user.id, "git-academy-commits");
+
+    // No progress row was written for the Frontend topic — it is derived.
+    expect(
+      await db.userTopicProgress.findUnique({
+        where: { userId_topicId: { userId: user.id, topicId: topic.id } },
+      }),
+    ).toBeNull();
+    expect(await getCompletedTopicIds(user.id, roadmap.id)).toContain(topic.id);
+  });
+
+  it("unlocks the topic that comes after a delegated one", async () => {
+    const user = await makeUser("delegation-unlock@example.com");
+    const branch = await frontendTopic("git-branch");
+
+    // git-branch comes after git-commit, which is delegated.
+    const before = await outstandingPrerequisites(user.id, branch.id);
+    expect(before.map((t) => t.slug)).toContain("git-commit");
+
+    await completeAcademyTopic(user.id, "git-academy-commits");
+
+    const after = await outstandingPrerequisites(user.id, branch.id);
+    expect(after.map((t) => t.slug)).not.toContain("git-commit");
+  });
+
+  it("refuses to let a learner self-attest a delegated topic", async () => {
+    const user = await makeUser("delegation-attest@example.com");
+    signedInAs(user.id);
+    const topic = await frontendTopic("git-fundamentals");
+
+    const result = await markTopicUnderstood({ topicId: topic.id });
+
+    // The content exists — sending them to it beats letting them skip it.
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/Academy/i);
+    expect(
+      await db.userTopicProgress.findUnique({
+        where: { userId_topicId: { userId: user.id, topicId: topic.id } },
+      }),
+    ).toBeNull();
+  });
+
+  it("keeps one learner's Academy progress out of another's roadmap", async () => {
+    const alice = await makeUser("delegation-alice@example.com");
+    const bob = await makeUser("delegation-bob@example.com");
+    const topic = await frontendTopic("git-commit");
+
+    await completeAcademyTopic(alice.id, "git-academy-commits");
+
+    expect(await satisfiedDelegatedTopicIds(alice.id, [topic])).toEqual([topic.id]);
+    expect(await satisfiedDelegatedTopicIds(bob.id, [topic])).toEqual([]);
   });
 });

@@ -38,6 +38,7 @@ const {
   markTopicUnderstood,
 } = await import("@/app/actions/learn");
 const { outstandingPrerequisites } = await import("@/lib/learn/prerequisites");
+const { DELEGATED_TOPIC_SLUGS } = await import("@/lib/learn/delegation");
 const { requireUser } = await import("@/lib/session");
 const { db } = await import("@/lib/db");
 const { validateLesson } = await import("../prisma/seed/lessons/validate");
@@ -737,8 +738,16 @@ describe("prerequisites", () => {
     // Found rather than named: as lessons are authored, any given slug stops
     // being lesson-less. The behaviour under test is about topics that have no
     // lesson, whichever those currently are.
+    //
+    // Delegated topics are excluded on purpose. They are also lesson-less, but
+    // their content exists in an Academy, so self-attestation is refused for
+    // them — that is its own test in git.test.ts.
     const topic = await db.topic.findFirstOrThrow({
-      where: { lesson: { is: null }, requiredBy: { some: {} } },
+      where: {
+        lesson: { is: null },
+        requiredBy: { some: {} },
+        slug: { notIn: DELEGATED_TOPIC_SLUGS },
+      },
       select: {
         id: true,
         slug: true,
@@ -781,9 +790,15 @@ describe("prerequisites", () => {
     const user = await makeUser("skipahead@example.com");
     signedInAs(user.id);
 
-    // A lesson-less topic that does have prerequisites, none of them met.
+    // A lesson-less, non-delegated topic that does have prerequisites, none of
+    // them met — so the refusal under test is the prerequisite rule, not the
+    // separate delegation rule.
     const topic = await db.topic.findFirstOrThrow({
-      where: { lesson: { is: null }, prerequisites: { some: {} } },
+      where: {
+        lesson: { is: null },
+        prerequisites: { some: {} },
+        slug: { notIn: DELEGATED_TOPIC_SLUGS },
+      },
       select: { id: true },
     });
 

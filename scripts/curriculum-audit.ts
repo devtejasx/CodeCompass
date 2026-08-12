@@ -2,6 +2,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { DEPTH_FLOOR } from "../prisma/seed/lessons/coverage";
+import { DELEGATED_TOPICS } from "../src/lib/learn/delegation";
 
 /**
  * Curriculum audit for one career roadmap.
@@ -94,9 +95,23 @@ async function main() {
     }
   }
 
+  // A topic taught in an Academy is covered, not missing. Counting delegation
+  // as a gap would overstate the work left and understate what a learner can
+  // actually reach.
+  const delegated = all.filter((t) => !t.lesson && t.slug in DELEGATED_TOPICS);
+  const missing = all.filter((t) => !t.lesson && !(t.slug in DELEGATED_TOPICS));
+
   console.log(`\nTopics: ${all.length} (required ${all.filter((t) => t.isRequired).length})`);
-  console.log(`Topics with a lesson: ${withLesson}`);
-  console.log(`Topics without a lesson: ${all.length - withLesson}`);
+  console.log(`Taught by a Frontend lesson: ${withLesson}`);
+  console.log(
+    `Delegated to an Academy: ${delegated.length}` +
+      (delegated.length ? ` (${delegated.map((t) => t.slug).join(", ")})` : ""),
+  );
+  console.log(`Genuinely missing a lesson: ${missing.length}`);
+  console.log(
+    `Covered one way or the other: ${withLesson + delegated.length}/${all.length}` +
+      ` (${Math.round(((withLesson + delegated.length) / all.length) * 100)}%)`,
+  );
   console.log(`Topics with practice problems: ${all.filter((t) => t.problems.length).length}`);
   console.log(`Topics with projects: ${all.filter((t) => t.projects.length).length}`);
   console.log(`Topics with prerequisites: ${all.filter((t) => t.prerequisites.length).length}`);
@@ -179,7 +194,8 @@ async function main() {
         stoppedAt = `${t.slug} (prerequisites not met in roadmap order)`;
         break outer;
       }
-      if (!t.lesson) {
+      // Delegation is not a stop: the learner keeps going, in an Academy.
+      if (!t.lesson && !(t.slug in DELEGATED_TOPICS)) {
         stoppedAt = `${t.slug} (no lesson — completable only by self-attestation)`;
         break outer;
       }
