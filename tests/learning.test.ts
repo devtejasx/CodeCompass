@@ -332,6 +332,61 @@ describe("authored content validation", () => {
     expect(unrendered).toEqual([]);
   });
 
+  it("cannot be passed by always choosing the same option position", async () => {
+    const { answerPositions } = await import("../prisma/seed/lessons/shuffle");
+
+    // Lessons are authored with the correct option first so a reviewer can
+    // check the answer key by reading down the page. Seeded verbatim, that
+    // made "always pick the first option" a correct strategy for every
+    // knowledge check in the product — 228 of them — which is not an
+    // assessment. Options are rotated at seed time; this is the assertion
+    // that they are.
+    const positions = answerPositions(LESSONS.flatMap((lesson) => lesson.knowledgeChecks));
+
+    expect(positions.length).toBeGreaterThan(200);
+
+    // No single position may account for most of the answers. With four
+    // options and a rotation keyed off the question, each lands near a
+    // quarter; the bar is set well below that so the test fails on a real
+    // regression rather than on the distribution being slightly lumpy.
+    const counts = new Map<number, number>();
+    for (const position of positions) {
+      counts.set(position, (counts.get(position) ?? 0) + 1);
+    }
+
+    for (const [position, count] of counts) {
+      expect(
+        count / positions.length,
+        `option ${position + 1} holds the answer ${count}/${positions.length} times`,
+      ).toBeLessThan(0.5);
+    }
+
+    // And every position must actually be used, or the rotation is not
+    // distributing at all.
+    expect(counts.size).toBeGreaterThan(1);
+  });
+
+  it("rotates options deterministically, so a re-seed does not move them", async () => {
+    const { positionOptions } = await import("../prisma/seed/lessons/shuffle");
+
+    const check = LESSONS[0].knowledgeChecks[0];
+
+    // Same input, same output — a learner's course must not reshuffle under
+    // them because someone re-ran the seed.
+    expect(positionOptions(check)).toEqual(positionOptions(check));
+
+    // A rotation, not a shuffle: options are often written as a sequence, and
+    // every option keeps its neighbours.
+    const rotated = positionOptions(check).map((option) => option.text);
+    const authored = check.options.map((option) => option.text);
+    const offset = authored.indexOf(rotated[0]);
+
+    expect(rotated).toEqual([
+      ...authored.slice(offset),
+      ...authored.slice(0, offset),
+    ]);
+  });
+
   it("links only to https resources, with a named source", () => {
     for (const lesson of LESSONS) {
       for (const resource of lesson.resources ?? []) {

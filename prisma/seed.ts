@@ -11,6 +11,7 @@ import { ROADMAPS } from "./seed/roadmaps";
 import { assertValidRoadmaps } from "./seed/roadmaps/validate";
 import { LESSONS } from "./seed/lessons";
 import { ACADEMY_LESSONS, ACADEMY_ROADMAPS } from "./seed/academy";
+import { positionOptions } from "./seed/lessons/shuffle";
 import { assertValidLessons } from "./seed/lessons/validate";
 import { PROBLEMS } from "./seed/problems";
 import { assertValidProblems } from "./seed/problems/validate";
@@ -938,7 +939,11 @@ async function seedLessons() {
         select: { id: true },
       });
 
-      for (const [optionIndex, option] of check.options.entries()) {
+      // Rotated, not stored as authored: lessons are written with the answer
+      // first so they can be reviewed, and seeding that verbatim made "always
+      // pick option one" a correct strategy for the entire curriculum. See
+      // ./seed/lessons/shuffle.ts.
+      for (const [optionIndex, option] of positionOptions(check).entries()) {
         await db.knowledgeCheckOption.create({
           data: {
             knowledgeCheckId: createdCheck.id,
