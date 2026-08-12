@@ -176,8 +176,14 @@ describe("lesson loading", () => {
   });
 
   it("returns a topic with no lesson rather than failing", async () => {
-    // 154 topics, 12 lessons — most topics are in this state.
-    const topic = await getTopicForLearning("css-grid");
+    // Most topics are still in this state, and which ones changes as the
+    // curriculum is authored — so the topic is found, not named.
+    const unwritten = await db.topic.findFirstOrThrow({
+      where: { lesson: { is: null } },
+      select: { slug: true },
+    });
+
+    const topic = await getTopicForLearning(unwritten.slug);
 
     expect(topic).not.toBeNull();
     expect(topic!.lesson).toBeNull();
