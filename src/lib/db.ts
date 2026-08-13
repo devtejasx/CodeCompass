@@ -34,12 +34,28 @@ const globalForPrisma = globalThis as unknown as {
   prisma: Client | undefined;
 };
 
+/**
+ * Memoised unconditionally, including in production.
+ *
+ * The usual Next.js guard caches on globalThis only outside production,
+ * because there the client is a module-level constant that Node evaluates
+ * once. Here it is not: it is built inside this function, which the proxy
+ * below calls on *every property access*. Skipping the cache in production
+ * therefore meant `db.user.findUnique(...)` and `db.topic.findMany(...)` each
+ * constructed a fresh PrismaClient with a fresh pg connection pool, so a
+ * single page render opened one pool per query and Postgres refused new
+ * clients within a few requests (P2037). Development was unaffected, which is
+ * why it survived this long.
+ *
+ * One client per process is what the pool is for, so caching it always is both
+ * the fix and the intended behaviour.
+ */
 function client(): Client {
   const existing = globalForPrisma.prisma;
   if (existing) return existing;
 
   const created = createClient();
-  if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = created;
+  globalForPrisma.prisma = created;
   return created;
 }
 
