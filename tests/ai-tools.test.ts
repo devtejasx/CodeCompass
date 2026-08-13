@@ -99,6 +99,129 @@ beforeEach(() => {
 
 // ── 1. Catalog ─────────────────────────────────────────────────────────────
 
+describe("AI Academy assessment integrity", () => {
+  /**
+   * The Academy's knowledge checks were never audited when option rotation was
+   * introduced, because it was assumed they were seeded some other way. They
+   * are not: `AIToolLesson` rows carry no questions at all, and the Academy's
+   * checks are ordinary `SeedLesson`s seeded through the same function as the
+   * career curriculum. The rotation therefore already covers them.
+   *
+   * That was worth confirming rather than believing, and it is worth pinning:
+   * these tests fail if the Academy is ever moved onto a seeding path that
+   * skips the rotation.
+   */
+  it("is authored answer-first, like every other lesson set", async () => {
+    const { AI_ACADEMY_LESSONS } = await import("../prisma/seed/ai");
+
+    const checks = AI_ACADEMY_LESSONS.flatMap((lesson) => lesson.knowledgeChecks);
+    expect(checks.length).toBeGreaterThan(50);
+
+    // Not a defect in itself — it is how a few hundred questions stay
+    // reviewable. It is only a defect if it survives to the database, which
+    // is what the next test is about.
+    const authoredFirst = checks.filter((check) =>
+      check.options[0]?.isCorrect,
+    ).length;
+    expect(authoredFirst).toBe(checks.length);
+  });
+
+  it("does not reach the database answer-first", async () => {
+    const { AI_ACADEMY_LESSONS } = await import("../prisma/seed/ai");
+    const { answerPositions } = await import("../prisma/seed/lessons/shuffle");
+
+    const positions = answerPositions(
+      AI_ACADEMY_LESSONS.flatMap((lesson) => lesson.knowledgeChecks),
+    );
+
+    const counts = new Map<number, number>();
+    for (const position of positions) {
+      counts.set(position, (counts.get(position) ?? 0) + 1);
+    }
+
+    for (const [position, count] of counts) {
+      expect(
+        count / positions.length,
+        `option ${position + 1} holds ${count}/${positions.length} answers`,
+      ).toBeLessThan(0.5);
+    }
+    expect(counts.size).toBeGreaterThan(1);
+  });
+
+  it("keeps correctness and explanations attached to the right option", async () => {
+    const { AI_ACADEMY_LESSONS } = await import("../prisma/seed/ai");
+    const { positionOptions } = await import("../prisma/seed/lessons/shuffle");
+
+    // Rotation moves options; it must never move correctness between them,
+    // or the grader marks the wrong text right and the explanation describes
+    // an answer nobody chose.
+    for (const lesson of AI_ACADEMY_LESSONS) {
+      for (const check of lesson.knowledgeChecks) {
+        const authored = check.options.find((option) => option.isCorrect)!;
+        const rotated = positionOptions(check).filter((option) => option.isCorrect);
+
+        expect(rotated, `${lesson.topicSlug}: ${check.question}`).toHaveLength(1);
+        expect(rotated[0].text).toBe(authored.text);
+        // The same options, reordered — nothing rewritten, nothing dropped.
+        const texts = (options: { text: string }[]) =>
+          options.map((option) => option.text).sort();
+        expect(texts(positionOptions(check))).toEqual(texts(check.options));
+        expect(check.explanation.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("seeds the Academy's questions in their rotated order", async () => {
+    // The end-to-end assertion: what a learner is actually served.
+    const roadmap = await db.roadmap.findFirstOrThrow({
+      where: { kind: "ACADEMY", slug: "ai-tools" },
+      select: {
+        phases: {
+          select: {
+            topics: {
+              select: {
+                lesson: {
+                  select: {
+                    knowledgeChecks: {
+                      select: {
+                        options: {
+                          orderBy: { order: "asc" },
+                          select: { isCorrect: true },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const checks = roadmap.phases
+      .flatMap((phase) => phase.topics)
+      .flatMap((topic) => topic.lesson?.knowledgeChecks ?? []);
+
+    expect(checks.length).toBeGreaterThan(50);
+
+    const counts = new Map<number, number>();
+    for (const check of checks) {
+      // Exactly one correct option survives seeding.
+      expect(check.options.filter((option) => option.isCorrect)).toHaveLength(1);
+      const position = check.options.findIndex((option) => option.isCorrect);
+      counts.set(position, (counts.get(position) ?? 0) + 1);
+    }
+
+    for (const [position, count] of counts) {
+      expect(
+        count / checks.length,
+        `seeded option ${position + 1} holds ${count}/${checks.length}`,
+      ).toBeLessThan(0.5);
+    }
+  });
+});
+
 describe("AI tool catalog", () => {
   it("loads every seeded tool with its category", async () => {
     const user = await makeUser();

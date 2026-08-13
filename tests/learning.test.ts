@@ -366,6 +366,61 @@ describe("authored content validation", () => {
     expect(counts.size).toBeGreaterThan(1);
   });
 
+  it("distributes answers in every seeded course, not just the career ones", async () => {
+    // The previous version of this assertion covered the career curriculum
+    // only, which is how the two Academies went unaudited: they are authored
+    // answer-first like everything else, and nothing checked what reached the
+    // database. Reading it back per roadmap means a course seeded through a
+    // path that skips the rotation cannot hide inside a healthy average.
+    const checks = await db.knowledgeCheck.findMany({
+      select: {
+        options: { orderBy: { order: "asc" }, select: { isCorrect: true } },
+        lesson: {
+          select: {
+            topic: {
+              select: { phase: { select: { roadmap: { select: { title: true } } } } },
+            },
+          },
+        },
+      },
+    });
+
+    expect(checks.length).toBeGreaterThan(300);
+
+    const byRoadmap = new Map<string, number[]>();
+    for (const check of checks) {
+      const title = check.lesson.topic.phase.roadmap.title;
+      const position = check.options.findIndex((option) => option.isCorrect);
+      expect(position, `${title}: a check with no correct option`).toBeGreaterThan(-1);
+      if (!byRoadmap.has(title)) byRoadmap.set(title, []);
+      byRoadmap.get(title)!.push(position);
+    }
+
+    // Every roadmap with enough questions to measure. Small sets are left out
+    // because a 50% share of eleven questions is noise, not a pattern.
+    for (const [title, positions] of byRoadmap) {
+      if (positions.length < 30) continue;
+
+      const counts = new Map<number, number>();
+      for (const position of positions) {
+        counts.set(position, (counts.get(position) ?? 0) + 1);
+      }
+
+      for (const [position, count] of counts) {
+        expect(
+          count / positions.length,
+          `${title}: option ${position + 1} holds ${count}/${positions.length} answers`,
+        ).toBeLessThan(0.5);
+      }
+      expect(counts.size, title).toBeGreaterThan(1);
+    }
+
+    // And the Academies specifically, since they are the ones that were missed.
+    expect([...byRoadmap.keys()]).toEqual(
+      expect.arrayContaining(["AI Tools Academy", "Git & GitHub"]),
+    );
+  });
+
   it("rotates options deterministically, so a re-seed does not move them", async () => {
     const { positionOptions } = await import("../prisma/seed/lessons/shuffle");
 
