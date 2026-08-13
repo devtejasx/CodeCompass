@@ -58,11 +58,59 @@ Fill in `DATABASE_URL`, `TEST_DATABASE_URL` and `AUTH_SECRET` (generate one with
 npm install && npm run db:migrate && npm run db:seed && npm run dev
 ```
 
-`db:seed` loads the career catalog. It is idempotent — running it again always
-converges on exactly the catalog declared in `prisma/seed/careers.ts`.
+`db:seed` loads the catalog. It is idempotent — running it again always
+converges on exactly the content declared under `prisma/seed/`.
 
 `TEST_DATABASE_URL` must point at a **separate** database — the test suite
 truncates it between tests.
+
+### Seeding is destructive, and only runs outside production
+
+The seed rebuilds the catalog rather than patching it: roadmaps are deleted and
+recreated so that phase and topic ordering stays authoritative. Learner
+progress hangs off those rows and cascades with them.
+
+**Running the seed deletes learner progress.** Specifically:
+
+| Deleted | Because it cascades from |
+| --- | --- |
+| `UserTopicProgress` | `Topic` |
+| `UserSectionProgress` | `LessonSection` |
+| `UserProjectMilestone` | `ProjectMilestone` |
+| `UserProjectRequirement` | `ProjectRequirement` |
+
+User accounts, profiles, practice submissions, Git exercise progress, AI tool
+progress and the activity feed are **not** touched — those hang off `User` or
+off catalog rows the seed updates in place rather than replaces.
+
+On a development database that is exactly what you want. Against production it
+is unrecoverable, so the seed refuses to start there:
+
+```bash
+npm run db:seed        # development — rebuilds the catalog
+npm run db:seed:dev    # the same thing, named so the intent is obvious
+```
+
+```
+$ NODE_ENV=production npm run db:seed
+
+Destructive database seed is disabled in production.
+  Reason: NODE_ENV is production
+```
+
+The guard (`prisma/seed/guard.ts`) refuses when `NODE_ENV=production`, or when
+`VERCEL_ENV` is anything other than `development` — a preview deployment is
+somebody's real database too. It runs before the first write, so a blocked seed
+leaves the database exactly as it found it, and there is deliberately **no
+override flag**.
+
+> **Never run the destructive development seed against production.** To apply
+> schema changes there, use `npm run db:deploy`, which runs migrations and
+> touches no learner data. Seeding a production catalog would need a
+> non-destructive path that does not exist yet.
+
+When the target database does hold learner progress, the seed prints what it is
+about to delete before it starts.
 
 ---
 

@@ -11,6 +11,12 @@ import { ROADMAPS } from "./seed/roadmaps";
 import { assertValidRoadmaps } from "./seed/roadmaps/validate";
 import { LESSONS } from "./seed/lessons";
 import { ACADEMY_LESSONS, ACADEMY_ROADMAPS } from "./seed/academy";
+import {
+  assertDestructiveSeedAllowed,
+  countLearnerDataAtRisk,
+  describeLearnerDataAtRisk,
+  DestructiveSeedBlocked,
+} from "./seed/guard";
 import { positionOptions } from "./seed/lessons/shuffle";
 import { assertValidLessons } from "./seed/lessons/validate";
 import { PROBLEMS } from "./seed/problems";
@@ -60,6 +66,17 @@ function slugifyTechnology(name: string) {
 }
 
 async function main() {
+  // ── Safety ──────────────────────────────────────────────────────────────
+  // First, before a single write. Seeding rebuilds the catalog, and catalog
+  // rows cascade into learner progress — see ./seed/guard.ts.
+  assertDestructiveSeedAllowed(process.env);
+
+  const atRisk = await countLearnerDataAtRisk(db);
+  const warning = describeLearnerDataAtRisk(atRisk);
+  if (warning) {
+    console.warn(`\n${warning}\n`);
+  }
+
   // ── Technologies ────────────────────────────────────────────────────────
   const technologyNames = [...new Set(CAREERS.flatMap((c) => c.technologies))];
 
@@ -1094,7 +1111,14 @@ async function seedRoadmaps() {
 
 main()
   .catch((error) => {
-    console.error(error);
+    // A blocked seed is a correct outcome, not a crash. It gets its message
+    // without a stack trace, because the stack tells the reader nothing and
+    // buries the part explaining what to do instead.
+    if (error instanceof DestructiveSeedBlocked) {
+      console.error(`\n${error.message}\n`);
+    } else {
+      console.error(error);
+    }
     process.exitCode = 1;
   })
   .finally(async () => {
