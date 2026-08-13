@@ -225,9 +225,9 @@ export function GitSimulator({
 
         {state.commits.length > 0 ? (
           <div className="rounded-lg border border-border bg-surface/50 p-3">
-            <h4 className="text-xs font-medium uppercase tracking-label text-subtle-foreground">
+            <h3 className="text-xs font-medium uppercase tracking-label text-subtle-foreground">
               History
-            </h4>
+            </h3>
             <GitGraph state={state} className="mt-2" />
           </div>
         ) : null}
@@ -257,9 +257,12 @@ function Place({
         tone === "brand" && "border-primary/20 bg-primary/[0.04]",
       )}
     >
-      <h4 className="text-xs font-medium uppercase tracking-label text-subtle-foreground">
+      {/* h3, not h4: the Academy page's "Simulator" section is an h2, and a
+          level jump leaves a screen-reader user's heading list with a hole
+          where these panes should be. */}
+      <h3 className="text-xs font-medium uppercase tracking-label text-subtle-foreground">
         {title}
-      </h4>
+      </h3>
       <p className="mt-0.5 text-xs text-subtle-foreground">{hint}</p>
 
       {items.length === 0 ? (
