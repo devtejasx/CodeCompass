@@ -25,7 +25,29 @@ const createClient = () => {
     );
   }
 
-  return new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+  /**
+   * Pool size, which matters far more on serverless than on a long-lived
+   * server.
+   *
+   * Each Vercel function instance gets its own module scope and therefore its
+   * own pool, and many instances run concurrently. `pg` defaults to 10
+   * connections per pool, so a modest amount of traffic multiplies into
+   * hundreds of connections against a Postgres whose limit is typically 60–100
+   * — and the failure mode is the whole backend returning errors at once.
+   *
+   * An instance serves one request at a time, so a small pool is sufficient
+   * there; a single long-lived server genuinely wants more. `DB_POOL_MAX`
+   * overrides both, which is what a managed pooler in front of the database
+   * would want.
+   */
+  const configured = Number(process.env.DB_POOL_MAX);
+  const max = Number.isFinite(configured) && configured > 0
+    ? configured
+    : process.env.VERCEL
+      ? 3
+      : 10;
+
+  return new PrismaClient({ adapter: new PrismaPg({ connectionString, max }) });
 };
 
 type Client = ReturnType<typeof createClient>;

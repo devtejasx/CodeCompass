@@ -53,10 +53,39 @@ export interface GitHubOAuthConfig {
   callbackUrl: string;
 }
 
-/** The origin used to build the callback URL. */
+/**
+ * The origin used to build the OAuth callback URL.
+ *
+ * Order matters. An explicit `APP_URL`/`AUTH_URL` always wins, because a
+ * project on a custom domain must send GitHub back to that domain and nothing
+ * else can infer it.
+ *
+ * Failing that, the platform's own variables. On Vercel,
+ * `VERCEL_PROJECT_PRODUCTION_URL` is the stable production hostname and
+ * `VERCEL_URL` is the per-deployment one; both come without a scheme, and both
+ * are https. Preferring the production hostname keeps the callback URL stable
+ * across deploys, which matters because it has to match what is registered on
+ * the GitHub OAuth app — a per-deployment URL would need re-registering every
+ * time.
+ *
+ * localhost is the last resort and is correct only for local development.
+ * Before this order existed it was the *only* fallback, so any deployment
+ * without APP_URL set built `http://localhost:3000/api/github/callback` and
+ * GitHub refused the redirect — the integration could not work in production
+ * at all.
+ */
 export function appOrigin(): string {
   const configured = process.env.APP_URL?.trim() || process.env.AUTH_URL?.trim();
   if (configured) return configured.replace(/\/+$/, "");
+
+  const platform =
+    process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() ||
+    process.env.VERCEL_URL?.trim();
+  if (platform) {
+    // These carry no scheme, and Vercel serves them over https.
+    return platform.startsWith("http") ? platform : `https://${platform}`;
+  }
+
   return "http://localhost:3000";
 }
 
