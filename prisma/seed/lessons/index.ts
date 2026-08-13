@@ -9,6 +9,8 @@ import { FRONTEND_REACT_LESSONS } from "./frontend-react";
 import { FRONTEND_REACT_APPLICATION_LESSONS } from "./frontend-react-applications";
 import { FRONTEND_TYPESCRIPT_LESSONS } from "./frontend-typescript";
 import { FRONTEND_TYPESCRIPT_APPLIED_LESSONS } from "./frontend-typescript-applied";
+import { FRONTEND_MODERN_LESSONS } from "./frontend-modern";
+import { FRONTEND_MODERN_QUALITY_LESSONS } from "./frontend-modern-quality";
 import { FULLSTACK_LESSONS } from "./fullstack";
 import type { SeedLesson } from "./types";
 
@@ -33,6 +35,8 @@ export const FRONTEND_LESSONS: SeedLesson[] = [
   ...FRONTEND_REACT_APPLICATION_LESSONS,
   ...FRONTEND_TYPESCRIPT_LESSONS,
   ...FRONTEND_TYPESCRIPT_APPLIED_LESSONS,
+  ...FRONTEND_MODERN_LESSONS,
+  ...FRONTEND_MODERN_QUALITY_LESSONS,
   ...FRONTEND_CORE_LESSONS,
 ];
 
