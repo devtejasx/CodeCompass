@@ -12,6 +12,26 @@ import type { CodeLanguage, SubmissionStatus } from "@/generated/prisma/client";
  * Non-negotiable: no implementation of CodeExecutionService that lives inside
  * this repository may use eval, new Function, vm, child_process, worker_threads
  * or any equivalent. User code is hostile input.
+ *
+ * ── A consequence worth stating, because it looks like a bug ──────────────
+ *
+ * Grading compares the value a learner's function *returned*. It cannot see
+ * whether that function mutated the arguments it was given, because seeing
+ * that would mean holding the inputs either side of the call, and the call
+ * does not happen here — it happens in the sandbox, behind this interface.
+ *
+ * So a problem that asks for a new array back cannot be *enforced*: a solution
+ * that edits its argument in place and returns it passes. Practice problems
+ * that teach immutability (the React state-updater set) state the requirement
+ * because it is the habit that matters in React, and their reference
+ * solutions are tested to model it — but that is an answer-key guarantee, not
+ * learner mutation detection, and it should never be described as one.
+ *
+ * Closing the gap properly means teaching the sandbox to snapshot inputs
+ * around the call and report mutation as part of ExecutionTestOutcome. That is
+ * a change to the execution service and its wire format, not to this
+ * application. Running the code here to check would trade a teaching
+ * limitation for a sandbox escape.
  */
 
 /** A status an execution can *finish* in. QUEUED and RUNNING are ours, not the service's. */
