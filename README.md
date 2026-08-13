@@ -296,14 +296,33 @@ state rather than generated filler.
   `lib/learn/progress.ts`, so they cannot disagree. Roadmap percentage counts
   *required* topics only.
 
-Twelve of 154 topics have authored lessons; the rest show "learning content
-coming soon" rather than an empty page.
+90 of 181 topics have authored lessons; the rest show "learning content coming
+soon" rather than an empty page.
+
+The Frontend Developer roadmap is the one authored end to end so far. 64 of its
+76 topics are covered — 57 by a lesson here and 7 delegated to the Git & GitHub
+Academy, which teaches them properly rather than having the roadmap repeat
+them. A learner can follow it unbroken from the first topic through
+Foundations, HTML, CSS, JavaScript, Git, React and TypeScript before reaching
+the first topic with nothing authored behind it.
+
+`npx tsx scripts/curriculum-audit.ts [career-slug] [phase]` reports that
+coverage, the depth of every lesson, prerequisite cycles and where the authored
+chain stops — computed from the seeded database rather than tracked by hand.
 
 ## Coding Practice
 
 `Topic → ProblemTopic → PracticeProblem`, plus per-user progress and a
-submission log. 32 authored problems — 20 easy, 12 medium — across five
+submission log. 36 authored problems — 23 easy, 13 medium — across five
 languages.
+
+Four of those are the React set in `prisma/seed/problems/react.ts`, which sit
+slightly apart: the engine grades pure functions, so it cannot ask for a
+component, but the body of a state updater *is* a pure function and is where
+beginners actually go wrong. TypeScript has no practice for the same reason
+inverted — starter code is generated from the problem's signature, so a
+"TypeScript problem" would arrive with its types already written and nothing
+about typing would be graded.
 
 > **CodeCompass never executes learner code.** No file in this repository uses
 > `eval`, `new Function`, `vm`, `child_process` or any equivalent to run a
