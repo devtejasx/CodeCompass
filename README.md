@@ -98,19 +98,51 @@ Destructive database seed is disabled in production.
   Reason: NODE_ENV is production
 ```
 
-The guard (`prisma/seed/guard.ts`) refuses when `NODE_ENV=production`, or when
-`VERCEL_ENV` is anything other than `development` — a preview deployment is
-somebody's real database too. It runs before the first write, so a blocked seed
-leaves the database exactly as it found it, and there is deliberately **no
-override flag**.
+The guard (`prisma/seed/guard.ts`) decides from the environment *and* from
+what is in the database:
 
-> **Never run the destructive development seed against production.** To apply
-> schema changes there, use `npm run db:deploy`, which runs migrations and
-> touches no learner data. Seeding a production catalog would need a
-> non-destructive path that does not exist yet.
+| Environment | Database | Seed |
+| --- | --- | --- |
+| development / test | anything | runs |
+| production / any `VERCEL_ENV` | no users, no progress | runs once, to publish the initial catalog |
+| production / any `VERCEL_ENV` | any user or progress | **refused** |
 
-When the target database does hold learner progress, the seed prints what it is
-about to delete before it starts.
+The middle row is what makes a first deploy possible: a freshly provisioned
+database has no catalog, seeding is how the catalog gets there, and at that
+moment there is demonstrably nothing to lose. The moment anybody signs up, the
+same command is refused.
+
+Emptiness is derived from the database, never asserted by the caller, so there
+is deliberately **no override flag** — a refusal cannot be forced. The check
+runs before the first write, so a blocked seed leaves the database exactly as
+it found it, and when the target does hold progress the seed prints what it
+would delete before stopping.
+
+> To apply schema changes to a database in use, run `npm run db:deploy`
+> (`prisma migrate deploy`). It applies pending migrations and touches no
+> learner data. Vercel does this automatically — see below.
+
+### Deploying
+
+`npm run vercel-build` is what Vercel runs (it prefers a `vercel-build` script
+over `build`). It generates the client, applies pending migrations with
+`prisma migrate deploy`, then builds — so the deployed schema always matches
+the deployed code, and no migration step has to be remembered.
+
+Plain `npm run build` is left without the migration step on purpose, so a local
+or CI build still needs no database.
+
+The catalog is seeded separately, once, against the new database:
+
+```bash
+DATABASE_URL="<production connection string>" npm run db:seed
+```
+
+Required variables in Vercel → Settings → Environment Variables:
+`DATABASE_URL` and `AUTH_SECRET`. Optional, per feature: `AUTH_URL`/`APP_URL`
+(needed on a custom domain), `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET`/
+`GITHUB_TOKEN_ENCRYPTION_KEY`, `AI_PROVIDER`/`ANTHROPIC_API_KEY`,
+`CODE_EXECUTION_*`, and `DB_POOL_MAX`.
 
 ---
 

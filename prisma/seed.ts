@@ -12,7 +12,7 @@ import { assertValidRoadmaps } from "./seed/roadmaps/validate";
 import { LESSONS } from "./seed/lessons";
 import { ACADEMY_LESSONS, ACADEMY_ROADMAPS } from "./seed/academy";
 import {
-  assertDestructiveSeedAllowed,
+  assertSeedAllowed,
   countLearnerDataAtRisk,
   describeLearnerDataAtRisk,
   DestructiveSeedBlocked,
@@ -69,7 +69,15 @@ async function main() {
   // ── Safety ──────────────────────────────────────────────────────────────
   // First, before a single write. Seeding rebuilds the catalog, and catalog
   // rows cascade into learner progress — see ./seed/guard.ts.
-  assertDestructiveSeedAllowed(process.env);
+  const decision = await assertSeedAllowed(process.env, db);
+
+  if (decision.mode === "production-initialise") {
+    console.log(
+      "\nProduction environment with an empty database — seeding the initial\n" +
+        "catalog. This is allowed because there is no learner data to lose;\n" +
+        "it will be refused once anybody has signed up.\n",
+    );
+  }
 
   const atRisk = await countLearnerDataAtRisk(db);
   const warning = describeLearnerDataAtRisk(atRisk);

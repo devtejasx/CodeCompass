@@ -106,6 +106,7 @@ interface CountableClient {
   userSectionProgress: { count(): Promise<number> };
   userProjectMilestone: { count(): Promise<number> };
   userProjectRequirement: { count(): Promise<number> };
+  user: { count(): Promise<number> };
 }
 
 export async function countLearnerDataAtRisk(
@@ -127,6 +128,65 @@ export async function countLearnerDataAtRisk(
     total:
       topicProgress + sectionProgress + projectMilestones + projectRequirements,
   };
+}
+
+/**
+ * The decision the seed actually makes, combining environment with what is in
+ * the database.
+ *
+ * The environment check on its own left production with no way to be
+ * initialised at all: a freshly provisioned database has no catalog, seeding is
+ * how the catalog gets there, and the guard refused. The result was a deployed
+ * application whose pages rendered but whose every query returned nothing —
+ * no careers to choose, no roadmap, no lessons.
+ *
+ * The resolution is not a bypass flag. It is to notice that the guard exists to
+ * protect *learner data*, and an empty database has none: no users, no
+ * progress, nothing a seed could destroy. So a production seed is allowed
+ * exactly when there is demonstrably nothing to lose, and refused the moment
+ * there is — which is the same rule as before, stated against the database
+ * rather than against the environment.
+ *
+ * The emptiness check is a snapshot, so a signup landing between the check and
+ * the writes is theoretically possible. That is acceptable for a one-time
+ * initialisation of a database nobody has been given the URL to yet, and it is
+ * a far smaller risk than having no supported way to publish the catalog.
+ */
+export type SeedAllowed = { allowed: true; mode: "development" | "production-initialise" };
+export type SeedDecision = SeedAllowed | { allowed: false; reason: string };
+
+export async function decideSeed(
+  env: SeedEnvironment,
+  db: CountableClient,
+): Promise<SeedDecision> {
+  const reason = seedBlockReason(env);
+  if (!reason) return { allowed: true, mode: "development" };
+
+  const [atRisk, users] = await Promise.all([
+    countLearnerDataAtRisk(db),
+    db.user.count(),
+  ]);
+
+  if (atRisk.total === 0 && users === 0) {
+    return { allowed: true, mode: "production-initialise" };
+  }
+
+  return {
+    allowed: false,
+    reason:
+      `${reason}, and this database is in use ` +
+      `(${users} user${users === 1 ? "" : "s"}, ${atRisk.total} progress row${atRisk.total === 1 ? "" : "s"})`,
+  };
+}
+
+/** Throws unless this database may be seeded. Returns how it was allowed. */
+export async function assertSeedAllowed(
+  env: SeedEnvironment,
+  db: CountableClient,
+): Promise<SeedAllowed> {
+  const decision = await decideSeed(env, db);
+  if (!decision.allowed) throw new DestructiveSeedBlocked(decision.reason);
+  return decision;
 }
 
 /** One line per kind, or null when there is nothing to lose. */
