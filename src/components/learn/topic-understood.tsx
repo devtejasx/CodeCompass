@@ -65,16 +65,15 @@ export function TopicUnderstood({
           </>
         ) : (
           <>
-            <Check aria-hidden />
-            I already know this — continue
+            <Check aria-hidden />I already know this — continue
           </>
         )}
       </Button>
 
       <p className="mt-2 max-w-[52ch] text-xs leading-relaxed text-subtle-foreground">
-        This records your own judgement, not a test result. It unlocks the topics
-        that come after this one so your roadmap keeps moving while the lesson is
-        being written.
+        This records your own judgement, not a test result. It unlocks the topics that
+        come after this one so your roadmap keeps moving while the lesson is being
+        written.
       </p>
 
       {error ? (

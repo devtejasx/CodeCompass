@@ -49,8 +49,10 @@ export const EMPTY_FILTERS: AIToolFilters = {
  * finds its record, which is the entire reason the record is kept.
  */
 export function matchesFilters(tool: AIToolListItem, filters: AIToolFilters): boolean {
-  if (filters.category !== "ALL" && tool.category.slug !== filters.category) return false;
-  if (filters.difficulty !== "ALL" && tool.difficulty !== filters.difficulty) return false;
+  if (filters.category !== "ALL" && tool.category.slug !== filters.category)
+    return false;
+  if (filters.difficulty !== "ALL" && tool.difficulty !== filters.difficulty)
+    return false;
   if (filters.status !== "ALL" && tool.status !== filters.status) return false;
 
   if (filters.useCase !== "ALL" && !tool.useCaseKinds.includes(filters.useCase)) {

@@ -29,8 +29,8 @@ export default function AIToolNotFound() {
           </h1>
           <p className="pretty text-sm leading-relaxed text-muted-foreground">
             AI tools get renamed, acquired and discontinued often. The catalog keeps
-            superseded names and points them at whatever replaced them, so searching
-            for the name you know is usually the fastest way through.
+            superseded names and points them at whatever replaced them, so searching for
+            the name you know is usually the fastest way through.
           </p>
 
           <Button asChild className="mt-2">

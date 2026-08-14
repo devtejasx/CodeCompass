@@ -80,7 +80,8 @@ export const DELEGATED_TOPICS: Record<string, Delegation> = {
   "git-merge": {
     academyHref: "/academy/git",
     academyName: "Git & GitHub Academy",
-    summary: "Bringing a branch back, and resolving a conflict when two changes collide.",
+    summary:
+      "Bringing a branch back, and resolving a conflict when two changes collide.",
     requires: ["git-academy-branches", "git-academy-remotes"],
   },
   "git-pull-request": {

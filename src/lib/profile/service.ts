@@ -254,19 +254,21 @@ export function detectStrengths(capabilities: CapabilityView[]): Strength[] {
  * what would follow it.
  */
 export function detectImprovements(capabilities: CapabilityView[]): Improvement[] {
-  return capabilities
-    .filter((capability) => capability.level !== null && capability.next !== null)
-    // Furthest along first: somebody one project away from APPLYING is a better
-    // suggestion than somebody who has just opened a topic.
-    .sort((a, b) => LEVEL_RANK[b.level!] - LEVEL_RANK[a.level!])
-    .slice(0, 4)
-    .map((capability) => ({
-      slug: capability.slug,
-      name: capability.name,
-      reason: evidenceSentence(capability),
-      next: capability.next!.requirement,
-      href: `/profile/skills/${capability.slug}`,
-    }));
+  return (
+    capabilities
+      .filter((capability) => capability.level !== null && capability.next !== null)
+      // Furthest along first: somebody one project away from APPLYING is a better
+      // suggestion than somebody who has just opened a topic.
+      .sort((a, b) => LEVEL_RANK[b.level!] - LEVEL_RANK[a.level!])
+      .slice(0, 4)
+      .map((capability) => ({
+        slug: capability.slug,
+        name: capability.name,
+        reason: evidenceSentence(capability),
+        next: capability.next!.requirement,
+        href: `/profile/skills/${capability.slug}`,
+      }))
+  );
 }
 
 /** "1 project" / "2 projects", so the evidence never reads as a placeholder. */
@@ -320,20 +322,24 @@ function groupByCategory(capabilities: CapabilityView[]) {
     "PROJECT_DELIVERY",
   ];
 
-  return order
-    .map((category) => ({
-      category,
-      capabilities: capabilities
-        .filter((capability) => capability.category === category)
-        .sort(
-          (a, b) =>
-            (b.level ? LEVEL_RANK[b.level] : 0) - (a.level ? LEVEL_RANK[a.level] : 0) ||
-            a.sortOrder - b.sortOrder,
-        ),
-    }))
-    // An empty category is not rendered: a heading with nothing under it reads
-    // as something broken rather than as something not started.
-    .filter((group) => group.capabilities.some((capability) => capability.level !== null));
+  return (
+    order
+      .map((category) => ({
+        category,
+        capabilities: capabilities
+          .filter((capability) => capability.category === category)
+          .sort(
+            (a, b) =>
+              (b.level ? LEVEL_RANK[b.level] : 0) -
+                (a.level ? LEVEL_RANK[a.level] : 0) || a.sortOrder - b.sortOrder,
+          ),
+      }))
+      // An empty category is not rendered: a heading with nothing under it reads
+      // as something broken rather than as something not started.
+      .filter((group) =>
+        group.capabilities.some((capability) => capability.level !== null),
+      )
+  );
 }
 
 /** The projects a learner has actually engaged with, newest first. */
@@ -347,7 +353,9 @@ async function loadProjects(userId: string) {
       repositoryUrl: true,
       deployedUrl: true,
       githubRepoFullName: true,
-      _count: { select: { milestones: { where: { status: "COMPLETED" } }, confirmations: true } },
+      _count: {
+        select: { milestones: { where: { status: "COMPLETED" } }, confirmations: true },
+      },
       project: {
         select: {
           slug: true,
@@ -413,7 +421,9 @@ async function loadPractice(userId: string) {
     ...new Set(
       solved
         .map((row) => row.solvedLanguage)
-        .filter((language): language is NonNullable<typeof language> => Boolean(language)),
+        .filter((language): language is NonNullable<typeof language> =>
+          Boolean(language),
+        ),
     ),
   ];
 
@@ -610,7 +620,12 @@ export function detectMilestones(
 
 /** The journey, oldest first, from real activity. */
 function buildTimeline(
-  activities: { type: ActivityType; label: string; entitySlug: string | null; createdAt: Date }[],
+  activities: {
+    type: ActivityType;
+    label: string;
+    entitySlug: string | null;
+    createdAt: Date;
+  }[],
   joinedAt: Date,
 ): TimelineEntry[] {
   // Only the events that mark progress. Starting a lesson is noise in a
@@ -635,7 +650,12 @@ function buildTimeline(
       href: null,
     }));
 
-  entries.push({ type: "JOINED", label: "Started CodeCompass", at: joinedAt, href: null });
+  entries.push({
+    type: "JOINED",
+    label: "Started CodeCompass",
+    at: joinedAt,
+    href: null,
+  });
 
   return entries.sort((a, b) => a.at.getTime() - b.at.getTime()).slice(-12);
 }

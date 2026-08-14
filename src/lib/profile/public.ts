@@ -96,9 +96,7 @@ export async function getPublicProfile(
     profile.publicShowGitHub ? loadPublicGitHub(userId) : Promise.resolve(null),
   ]);
 
-  const progress = profile.publicShowProgress
-    ? await loadPublicProgress(userId)
-    : null;
+  const progress = profile.publicShowProgress ? await loadPublicProgress(userId) : null;
 
   return {
     username: profile.username,
@@ -112,7 +110,9 @@ export async function getPublicProfile(
     capabilities: capabilities
       ? capabilities
           .filter(
-            (capability): capability is typeof capability & { level: CapabilityLevel } =>
+            (
+              capability,
+            ): capability is typeof capability & { level: CapabilityLevel } =>
               capability.level !== null,
           )
           .sort((a, b) => LEVEL_RANK[b.level] - LEVEL_RANK[a.level])
@@ -178,16 +178,17 @@ async function loadPublicProjects(userId: string): Promise<PublicProject[]> {
 async function loadPublicProgress(
   userId: string,
 ): Promise<{ label: string; percent: number }[]> {
-  const [completedTopics, solvedProblems, completedProjects, totals] = await Promise.all([
-    db.userTopicProgress.count({ where: { userId, status: "COMPLETED" } }),
-    db.userProblemProgress.count({ where: { userId, status: "SOLVED" } }),
-    db.userProject.count({ where: { userId, status: "COMPLETED" } }),
-    Promise.all([
-      db.topic.count({ where: { isRequired: true } }),
-      db.practiceProblem.count(),
-      db.project.count(),
-    ]),
-  ]);
+  const [completedTopics, solvedProblems, completedProjects, totals] =
+    await Promise.all([
+      db.userTopicProgress.count({ where: { userId, status: "COMPLETED" } }),
+      db.userProblemProgress.count({ where: { userId, status: "SOLVED" } }),
+      db.userProject.count({ where: { userId, status: "COMPLETED" } }),
+      Promise.all([
+        db.topic.count({ where: { isRequired: true } }),
+        db.practiceProblem.count(),
+        db.project.count(),
+      ]),
+    ]);
 
   const [totalTopics, totalProblems, totalProjects] = totals;
 

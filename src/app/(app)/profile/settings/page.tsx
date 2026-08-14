@@ -86,8 +86,8 @@ export default async function ProfileSettingsPage() {
           <p className="pretty mt-1.5 text-sm leading-relaxed text-muted-foreground">
             A JSON file of what you have learned, practised and built — your
             capabilities and the evidence behind them, your completed topics, your
-            practice history and your projects. It contains nothing about your
-            account: no email, no password, no tokens.
+            practice history and your projects. It contains nothing about your account:
+            no email, no password, no tokens.
           </p>
 
           <div className="mt-4">

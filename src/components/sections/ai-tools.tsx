@@ -53,8 +53,8 @@ export function AiTools() {
 
         <Reveal delay={0.1} className="mt-8 text-center">
           <p className="text-sm text-subtle-foreground">
-            A preview of the catalogue — the full AI Tools Academy, with learning
-            paths, workflows and comparisons, is inside CodeCompass.
+            A preview of the catalogue — the full AI Tools Academy, with learning paths,
+            workflows and comparisons, is inside CodeCompass.
           </p>
         </Reveal>
       </Container>

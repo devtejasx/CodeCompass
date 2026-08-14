@@ -1,9 +1,5 @@
 import type { LearnerState } from "./state";
-import type {
-  KnowledgeGap,
-  Recommendation,
-  TrackRecommendation,
-} from "./types";
+import type { KnowledgeGap, Recommendation, TrackRecommendation } from "./types";
 
 /**
  * The recommendation engine.
@@ -410,7 +406,12 @@ function trackOf(type: Recommendation["type"]): TrackRecommendation["track"] | n
  */
 export function reasonForTopic(
   state: LearnerState,
-  topic: { title: string; phaseTitle: string; phaseReason: string; isRequired: boolean },
+  topic: {
+    title: string;
+    phaseTitle: string;
+    phaseReason: string;
+    isRequired: boolean;
+  },
 ): string {
   const done = state.completedTopicIds.length;
   const careerName = state.career?.name ?? "your path";

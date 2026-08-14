@@ -108,5 +108,7 @@ export function detectGaps(evidence: TopicAttemptEvidence[]): KnowledgeGap[] {
     }
   }
 
-  return gaps.sort((a, b) => (a.strength === b.strength ? 0 : a.strength === "STRONG" ? -1 : 1));
+  return gaps.sort((a, b) =>
+    a.strength === b.strength ? 0 : a.strength === "STRONG" ? -1 : 1,
+  );
 }

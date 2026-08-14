@@ -148,8 +148,8 @@ export default async function CareerDetailPage({
               {!hasRoadmap ? (
                 <p className="max-w-[26ch] text-xs leading-relaxed text-amber-400">
                   We haven&apos;t written the roadmap for this path yet. You can still
-                  choose it — we&apos;ll record the direction — but there is nothing
-                  to follow here until it lands.
+                  choose it — we&apos;ll record the direction — but there is nothing to
+                  follow here until it lands.
                 </p>
               ) : null}
             </div>

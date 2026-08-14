@@ -45,8 +45,8 @@ export default function AppError({
           </h1>
 
           <p className="pretty mt-2 text-sm leading-relaxed text-muted-foreground">
-            Your progress is saved. This is usually temporary — trying again
-            normally works.
+            Your progress is saved. This is usually temporary — trying again normally
+            works.
           </p>
 
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2">

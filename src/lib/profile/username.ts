@@ -56,10 +56,7 @@ export const RESERVED_USERNAMES = new Set([
 ]);
 
 export type UsernameError =
-  | "TOO_SHORT"
-  | "TOO_LONG"
-  | "INVALID_CHARACTERS"
-  | "RESERVED";
+  "TOO_SHORT" | "TOO_LONG" | "INVALID_CHARACTERS" | "RESERVED";
 
 export const USERNAME_MESSAGE: Record<UsernameError, string> = {
   TOO_SHORT: `Usernames need at least ${USERNAME_MIN} characters.`,

@@ -130,7 +130,11 @@ export default async function AIToolDetailPage({
 
           {tool.environments.length > 0 ? (
             <p className="mt-3 text-sm text-muted-foreground">
-              Used {tool.environments.map((e) => ENVIRONMENT_LABEL[e].toLowerCase()).join(", ")}.
+              Used{" "}
+              {tool.environments
+                .map((e) => ENVIRONMENT_LABEL[e].toLowerCase())
+                .join(", ")}
+              .
             </p>
           ) : null}
 
@@ -336,7 +340,10 @@ export default async function AIToolDetailPage({
                 key={entry}
                 className="flex gap-2.5 text-sm leading-relaxed text-muted-foreground"
               >
-                <Info className="mt-0.5 size-3.5 shrink-0 text-subtle-foreground" aria-hidden />
+                <Info
+                  className="mt-0.5 size-3.5 shrink-0 text-subtle-foreground"
+                  aria-hidden
+                />
                 {entry}
               </li>
             ))}
@@ -381,8 +388,8 @@ export default async function AIToolDetailPage({
           <Section id="learning-path" title="Learning path" className="mt-10">
             <p className="pretty mb-4 max-w-prose text-sm leading-relaxed text-subtle-foreground">
               These levels are shared across the Academy, so finishing one counts
-              towards every tool whose path includes it — there is only one copy of
-              each lesson.
+              towards every tool whose path includes it — there is only one copy of each
+              lesson.
             </p>
 
             <ol className="flex max-w-3xl flex-col gap-2">

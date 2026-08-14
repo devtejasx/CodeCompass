@@ -75,7 +75,9 @@ export function ToolCard({
       <dl className="flex flex-col gap-1 text-xs">
         <div className="flex gap-1.5">
           <dt className="text-subtle-foreground">Category</dt>
-          <dd className="min-w-0 truncate text-muted-foreground">{tool.category.name}</dd>
+          <dd className="min-w-0 truncate text-muted-foreground">
+            {tool.category.name}
+          </dd>
         </div>
         <div className="flex gap-1.5">
           <dt className="text-subtle-foreground">Best for</dt>

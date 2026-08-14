@@ -41,11 +41,12 @@ const createClient = () => {
    * would want.
    */
   const configured = Number(process.env.DB_POOL_MAX);
-  const max = Number.isFinite(configured) && configured > 0
-    ? configured
-    : process.env.VERCEL
-      ? 3
-      : 10;
+  const max =
+    Number.isFinite(configured) && configured > 0
+      ? configured
+      : process.env.VERCEL
+        ? 3
+        : 10;
 
   return new PrismaClient({ adapter: new PrismaPg({ connectionString, max }) });
 };

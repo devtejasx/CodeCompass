@@ -132,7 +132,10 @@ export default async function SkillPage({
 
             {capability.next ? (
               <p className="mt-4 flex items-start gap-2 border-t border-border pt-4 text-sm leading-relaxed text-muted-foreground">
-                <ArrowRight className="mt-0.5 size-3.5 shrink-0 text-indigo-400" aria-hidden />
+                <ArrowRight
+                  className="mt-0.5 size-3.5 shrink-0 text-indigo-400"
+                  aria-hidden
+                />
                 <span>
                   To reach{" "}
                   <span className="font-medium text-foreground">
@@ -169,7 +172,8 @@ export default async function SkillPage({
                 <h3 className="text-sm font-medium text-foreground">
                   {EVIDENCE_GROUP_LABEL[group.kind]}
                   <span className="ml-2 font-mono text-xs font-normal text-subtle-foreground">
-                    {group.items.filter((item) => item.done).length}/{group.items.length}
+                    {group.items.filter((item) => item.done).length}/
+                    {group.items.length}
                   </span>
                 </h3>
 
@@ -191,7 +195,9 @@ export default async function SkillPage({
                         <span
                           className={cn(
                             "min-w-0",
-                            item.done ? "text-muted-foreground" : "text-subtle-foreground",
+                            item.done
+                              ? "text-muted-foreground"
+                              : "text-subtle-foreground",
                           )}
                         >
                           {item.title}

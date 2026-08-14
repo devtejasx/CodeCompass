@@ -113,7 +113,8 @@ export async function setProfileVisibility(input: unknown): Promise<ProfileResul
   if (!user) return { ok: false, error: "Please sign in." };
 
   const parsed = visibilityInput.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "That setting could not be understood." };
+  if (!parsed.success)
+    return { ok: false, error: "That setting could not be understood." };
 
   try {
     if (parsed.data.isPublic === true) {

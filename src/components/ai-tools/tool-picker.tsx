@@ -99,7 +99,8 @@ export function ToolPicker({
                   active
                     ? "border-primary/40 bg-primary/10 text-foreground"
                     : "border-border bg-surface/60 text-muted-foreground hover:text-foreground",
-                  disabled && "cursor-not-allowed opacity-40 hover:text-muted-foreground",
+                  disabled &&
+                    "cursor-not-allowed opacity-40 hover:text-muted-foreground",
                 )}
               >
                 {tool.name}

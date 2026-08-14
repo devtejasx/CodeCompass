@@ -4,10 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
-import {
-  onboardingSchema,
-  partialOnboardingSchema,
-} from "@/lib/validation/onboarding";
+import { onboardingSchema, partialOnboardingSchema } from "@/lib/validation/onboarding";
 
 export interface OnboardingResult {
   ok: boolean;
@@ -36,7 +33,9 @@ export interface OnboardingResult {
  * dropped partial save costs nothing but the re-answering it was meant to
  * prevent. That is why the result is deliberately ignored by the caller.
  */
-export async function saveOnboardingProgress(input: unknown): Promise<OnboardingResult> {
+export async function saveOnboardingProgress(
+  input: unknown,
+): Promise<OnboardingResult> {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "Your session has expired." };
 

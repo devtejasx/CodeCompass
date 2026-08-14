@@ -138,7 +138,14 @@ export async function getToolDetail(slug: string, userId: string) {
       },
       resources: {
         orderBy: { order: "asc" },
-        select: { id: true, title: true, url: true, source: true, type: true, description: true },
+        select: {
+          id: true,
+          title: true,
+          url: true,
+          source: true,
+          type: true,
+          description: true,
+        },
       },
       learningPaths: {
         orderBy: { order: "asc" },
@@ -197,7 +204,12 @@ export async function getToolDetail(slug: string, userId: string) {
       : Promise.resolve([]),
     db.userAIToolProgress.findUnique({
       where: { userId_toolId: { userId, toolId: tool.id } },
-      select: { status: true, percentComplete: true, startedAt: true, completedAt: true },
+      select: {
+        status: true,
+        percentComplete: true,
+        startedAt: true,
+        completedAt: true,
+      },
     }),
     // Resolved so the UI can link by name rather than printing a raw slug. A
     // successor that is not in the catalog simply yields null and the banner
@@ -331,7 +343,9 @@ export async function getCareerRecommendations(userId: string, limit = 6) {
   };
 }
 
-export type CareerRecommendations = Awaited<ReturnType<typeof getCareerRecommendations>>;
+export type CareerRecommendations = Awaited<
+  ReturnType<typeof getCareerRecommendations>
+>;
 
 /** The workflow library, with this learner's ticks folded in. */
 export async function listWorkflows(userId: string) {
@@ -427,7 +441,9 @@ export async function getWorkflowDetail(slug: string, userId: string) {
   };
 }
 
-export type AIWorkflowDetail = NonNullable<Awaited<ReturnType<typeof getWorkflowDetail>>>;
+export type AIWorkflowDetail = NonNullable<
+  Awaited<ReturnType<typeof getWorkflowDetail>>
+>;
 
 /**
  * Two or three tools side by side.
@@ -467,7 +483,11 @@ export async function getComparison(slugs: string[]) {
       learningPaths: {
         orderBy: { order: "asc" },
         take: 1,
-        select: { difficulty: true, estimatedTime: true, _count: { select: { lessons: true } } },
+        select: {
+          difficulty: true,
+          estimatedTime: true,
+          _count: { select: { lessons: true } },
+        },
       },
     },
   });

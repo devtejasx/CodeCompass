@@ -74,8 +74,8 @@ export function WorkflowComplete({
       </button>
 
       <p className="mt-2 max-w-prose text-xs text-subtle-foreground">
-        This is your own record. CodeCompass does not check your work — ticking it is
-        a note to yourself about what you have actually practised.
+        This is your own record. CodeCompass does not check your work — ticking it is a
+        note to yourself about what you have actually practised.
       </p>
 
       {error ? (

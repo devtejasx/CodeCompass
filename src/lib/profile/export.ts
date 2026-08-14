@@ -50,7 +50,12 @@ export interface LearningRecord {
   practice: {
     solved: number;
     attempted: number;
-    problems: { slug: string; title: string; difficulty: string; solvedAt: string | null }[];
+    problems: {
+      slug: string;
+      title: string;
+      difficulty: string;
+      solvedAt: string | null;
+    }[];
   };
 
   projects: {
@@ -76,70 +81,78 @@ export interface LearningRecord {
  * id. The caller always derives it from the session.
  */
 export async function buildLearningRecord(userId: string): Promise<LearningRecord> {
-  const [user, capabilities, topics, problems, projects, gitExercises, aiTools, aiWorkflows] =
-    await Promise.all([
-      db.user.findUniqueOrThrow({
-        where: { id: userId },
-        select: {
-          name: true,
-          createdAt: true,
-          profile: {
-            select: {
-              experienceLevel: true,
-              selectedLanguage: true,
-              chosenCareer: { select: { name: true } },
-            },
+  const [
+    user,
+    capabilities,
+    topics,
+    problems,
+    projects,
+    gitExercises,
+    aiTools,
+    aiWorkflows,
+  ] = await Promise.all([
+    db.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: {
+        name: true,
+        createdAt: true,
+        profile: {
+          select: {
+            experienceLevel: true,
+            selectedLanguage: true,
+            chosenCareer: { select: { name: true } },
           },
         },
-      }),
-      getCapabilities(userId),
-      db.userTopicProgress.findMany({
-        where: { userId, status: "COMPLETED" },
-        orderBy: { completedAt: "asc" },
-        select: {
-          completedAt: true,
-          topic: { select: { slug: true, title: true } },
-        },
-      }),
-      db.userProblemProgress.findMany({
-        where: { userId },
-        orderBy: { solvedAt: "asc" },
-        select: {
-          status: true,
-          solvedAt: true,
-          problem: { select: { slug: true, title: true, difficulty: true } },
-        },
-      }),
-      db.userProject.findMany({
-        where: { userId },
-        orderBy: { completedAt: "asc" },
-        select: {
-          status: true,
-          completedAt: true,
-          _count: { select: { milestones: { where: { status: "COMPLETED" } } } },
-          project: {
-            select: {
-              slug: true,
-              title: true,
-              technologies: { orderBy: { order: "asc" }, select: { name: true } },
-              _count: { select: { milestones: true } },
-            },
+      },
+    }),
+    getCapabilities(userId),
+    db.userTopicProgress.findMany({
+      where: { userId, status: "COMPLETED" },
+      orderBy: { completedAt: "asc" },
+      select: {
+        completedAt: true,
+        topic: { select: { slug: true, title: true } },
+      },
+    }),
+    db.userProblemProgress.findMany({
+      where: { userId },
+      orderBy: { solvedAt: "asc" },
+      select: {
+        status: true,
+        solvedAt: true,
+        problem: { select: { slug: true, title: true, difficulty: true } },
+      },
+    }),
+    db.userProject.findMany({
+      where: { userId },
+      orderBy: { completedAt: "asc" },
+      select: {
+        status: true,
+        completedAt: true,
+        _count: { select: { milestones: { where: { status: "COMPLETED" } } } },
+        project: {
+          select: {
+            slug: true,
+            title: true,
+            technologies: { orderBy: { order: "asc" }, select: { name: true } },
+            _count: { select: { milestones: true } },
           },
         },
-      }),
-      db.userGitExercise.findMany({
-        where: { userId, status: "COMPLETED" },
-        select: { exerciseSlug: true },
-      }),
-      db.userAIToolProgress.findMany({
-        where: { userId, status: "COMPLETED" },
-        select: { tool: { select: { slug: true } } },
-      }),
-      db.userAIWorkflowProgress.findMany({
-        where: { userId },
-        select: { workflow: { select: { slug: true } } },
-      }),
-    ]);
+      },
+    }),
+    db.userGitExercise.findMany({
+      where: { userId, status: "COMPLETED" },
+      select: { exerciseSlug: true },
+    }),
+    db.userAIToolProgress.findMany({
+      where: { userId, status: "COMPLETED" },
+      select: { tool: { select: { slug: true } } },
+    }),
+    db.userAIWorkflowProgress.findMany({
+      where: { userId },
+      select: { workflow: { select: { slug: true } } },
+    }),
+  ]);
 
   const gitModules = await db.userTopicProgress.findMany({
     where: {

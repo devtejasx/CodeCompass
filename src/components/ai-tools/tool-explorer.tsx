@@ -145,7 +145,9 @@ export function ToolExplorer({
           id="ai-filter-difficulty"
           label="Difficulty"
           value={filters.difficulty}
-          onChange={(value) => update("difficulty", value as AIToolFilters["difficulty"])}
+          onChange={(value) =>
+            update("difficulty", value as AIToolFilters["difficulty"])
+          }
           options={[
             { value: "ALL", label: "Any level" },
             ...DIFFICULTY_ORDER.map((difficulty) => ({
@@ -189,9 +191,9 @@ export function ToolExplorer({
 
       {visible.length === 0 ? (
         <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted-foreground">
-          Try a broader search, or clear the filters. The catalog is deliberately
-          small — every tool in it has been checked against its own documentation
-          rather than collected from a list.
+          Try a broader search, or clear the filters. The catalog is deliberately small
+          — every tool in it has been checked against its own documentation rather than
+          collected from a list.
         </p>
       ) : (
         <ul className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

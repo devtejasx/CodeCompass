@@ -165,8 +165,8 @@ export default async function LearnTopicPage({
               You&apos;re a little ahead of the roadmap
             </h2>
             <p className="pretty mt-1.5 text-sm leading-relaxed text-muted-foreground">
-              Read as much of this as you like. Your progress for this topic will
-              be recorded once you have finished{" "}
+              Read as much of this as you like. Your progress for this topic will be
+              recorded once you have finished{" "}
               {missingPrerequisites.map((prerequisite, index) => (
                 <span key={prerequisite.id}>
                   <Link
@@ -269,8 +269,8 @@ function ComingSoon({
       </h2>
       <p className="pretty mt-2 text-sm leading-relaxed text-muted-foreground">
         This topic is part of your roadmap, but we haven&apos;t written its lesson yet.
-        Rather than leave you stuck behind it, you can tell us you already know this
-        and carry on — and come back when the content lands.
+        Rather than leave you stuck behind it, you can tell us you already know this and
+        carry on — and come back when the content lands.
       </p>
 
       {canContinue ? (

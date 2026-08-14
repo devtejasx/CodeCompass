@@ -131,8 +131,8 @@ export function RoadmapSidebar({
 
           <p className="mt-2 flex items-start gap-2 text-sm leading-relaxed text-muted-foreground">
             <Sparkles className="mt-0.5 size-4 shrink-0 text-indigo-400" aria-hidden />
-            Modern development includes knowing which AI tools help, and when they
-            do not.
+            Modern development includes knowing which AI tools help, and when they do
+            not.
           </p>
 
           <ul className="mt-3 flex flex-col gap-1.5">

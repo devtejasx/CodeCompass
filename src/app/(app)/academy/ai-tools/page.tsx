@@ -86,9 +86,9 @@ export default async function AIToolsPage() {
           </p>
 
           <p className="pretty mt-4 max-w-prose text-sm leading-relaxed text-subtle-foreground">
-            AI is a tool, not a replacement for understanding. Everything here is
-            built around one loop: understand the problem, think, ask, verify, test,
-            improve — and end up knowing more than you did, not less.
+            AI is a tool, not a replacement for understanding. Everything here is built
+            around one loop: understand the problem, think, ask, verify, test, improve —
+            and end up knowing more than you did, not less.
           </p>
         </header>
 
@@ -242,9 +242,9 @@ export default async function AIToolsPage() {
               aria-hidden
             />
             Every entry was checked against the tool&apos;s own site or documentation,
-            and each detail page says when. Tools that have been renamed or
-            discontinued are kept and labelled rather than deleted — if you have heard
-            a name, you should be able to find out what happened to it.
+            and each detail page says when. Tools that have been renamed or discontinued
+            are kept and labelled rather than deleted — if you have heard a name, you
+            should be able to find out what happened to it.
           </p>
 
           <div className="mt-6">

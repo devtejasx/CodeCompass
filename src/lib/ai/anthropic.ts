@@ -1,6 +1,12 @@
 import "server-only";
 
-import { AIError, estimateTokens, type AIProvider, type AIRequest, type AIResponse } from "./types";
+import {
+  AIError,
+  estimateTokens,
+  type AIProvider,
+  type AIRequest,
+  type AIResponse,
+} from "./types";
 
 /**
  * The Anthropic adapter.

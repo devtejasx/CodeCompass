@@ -90,7 +90,9 @@ export function buildContext({
   const lines: string[] = ["## This learner", `Name: ${firstName}`];
 
   if (state.experienceLevel) {
-    lines.push(`Experience when they joined: ${EXPERIENCE_LABEL[state.experienceLevel]}`);
+    lines.push(
+      `Experience when they joined: ${EXPERIENCE_LABEL[state.experienceLevel]}`,
+    );
   }
   if (state.language) {
     lines.push(`Preferred language: ${LANGUAGE_LABEL[state.language]}`);

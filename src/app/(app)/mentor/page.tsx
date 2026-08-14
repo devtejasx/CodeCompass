@@ -8,7 +8,11 @@ import { Glow, GridBackdrop } from "@/components/shared/backdrops";
 import { MentorChat, type ChatMessage } from "@/components/mentor/mentor-chat";
 import { requireOnboardedUser } from "@/lib/session";
 import { getGuidance } from "@/lib/personalization/service";
-import { getConversation, getLatestConversation, listConversations } from "@/lib/ai/conversations";
+import {
+  getConversation,
+  getLatestConversation,
+  listConversations,
+} from "@/lib/ai/conversations";
 import { aiAvailability } from "@/lib/ai/provider";
 import { STARTER_QUESTIONS } from "@/lib/ai/mentor";
 import { remainingRequests } from "@/lib/ai/limits";
@@ -147,7 +151,9 @@ export default async function MentorPage({
                     <li key={entry.id}>
                       <Link
                         href={`/mentor?c=${entry.id}`}
-                        aria-current={entry.id === conversation?.id ? "page" : undefined}
+                        aria-current={
+                          entry.id === conversation?.id ? "page" : undefined
+                        }
                         className={cn(
                           "block truncate rounded-lg px-2 py-1.5 text-sm transition-colors",
                           entry.id === conversation?.id

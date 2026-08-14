@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, KeyRound, ShieldCheck, ShieldAlert } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  KeyRound,
+  ShieldCheck,
+  ShieldAlert,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/shared/container";
@@ -160,7 +166,10 @@ export default async function ResponsibleAIPage() {
                 "Proprietary code your employer has not cleared for the tool you are using",
                 "Anything under a confidentiality obligation you would struggle to explain breaking",
               ].map((entry) => (
-                <li key={entry} className="text-sm leading-relaxed text-muted-foreground">
+                <li
+                  key={entry}
+                  className="text-sm leading-relaxed text-muted-foreground"
+                >
                   {entry}
                 </li>
               ))}

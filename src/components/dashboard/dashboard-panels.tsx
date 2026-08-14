@@ -12,7 +12,11 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { formatMinutes } from "@/lib/personalization/plan";
-import { ACTIVITY_VERB, activityHref, type ActivityItem } from "@/lib/personalization/activity";
+import {
+  ACTIVITY_VERB,
+  activityHref,
+  type ActivityItem,
+} from "@/lib/personalization/activity";
 import type {
   RecommendationTrack,
   StudyPlan,
@@ -137,7 +141,8 @@ export function TodaysPlan({ plan }: { plan: StudyPlan }) {
       </ol>
 
       <p className="mt-4 border-t border-border pt-3 text-sm text-muted-foreground">
-        Total: <span className="text-foreground">{formatMinutes(plan.totalMinutes)}</span>
+        Total:{" "}
+        <span className="text-foreground">{formatMinutes(plan.totalMinutes)}</span>
         {plan.budgetMinutes ? (
           <span className="text-subtle-foreground">
             {" "}
@@ -280,7 +285,10 @@ export function ProfileSummary({
   ];
 
   return (
-    <section aria-labelledby="profile-summary-heading" className="surface rounded-xl p-6">
+    <section
+      aria-labelledby="profile-summary-heading"
+      className="surface rounded-xl p-6"
+    >
       <h2
         id="profile-summary-heading"
         className="flex items-center gap-2 text-xs font-medium uppercase tracking-label text-subtle-foreground"

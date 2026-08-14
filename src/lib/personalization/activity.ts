@@ -79,7 +79,11 @@ export async function recordActivityOnce(input: RecordActivityInput): Promise<bo
       select: { type: true, entityId: true },
     });
 
-    if (latest && latest.type === input.type && latest.entityId === (input.entityId ?? null)) {
+    if (
+      latest &&
+      latest.type === input.type &&
+      latest.entityId === (input.entityId ?? null)
+    ) {
       return false;
     }
 

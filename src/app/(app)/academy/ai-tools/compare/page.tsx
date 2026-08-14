@@ -89,9 +89,9 @@ export default async function CompareToolsPage({
             Compare AI tools
           </h1>
           <p className="pretty mt-3 text-base leading-relaxed text-muted-foreground">
-            Up to three side by side. There is no score and no winner here — these
-            tools do overlapping jobs in different ways, and which one is right
-            depends on what you are doing.
+            Up to three side by side. There is no score and no winner here — these tools
+            do overlapping jobs in different ways, and which one is right depends on
+            what you are doing.
           </p>
         </header>
 
@@ -101,17 +101,17 @@ export default async function CompareToolsPage({
 
         {selected.length === 0 ? (
           <p className="mt-10 max-w-prose text-sm leading-relaxed text-muted-foreground">
-            Nothing selected yet. Pick two tools you are genuinely choosing between —
-            an editor assistant against another editor assistant, say, rather than a
+            Nothing selected yet. Pick two tools you are genuinely choosing between — an
+            editor assistant against another editor assistant, say, rather than a
             chatbot against an API.
           </p>
         ) : (
           <>
             <p className="mt-8 flex max-w-prose items-start gap-2 text-sm leading-relaxed text-subtle-foreground">
               <Scale className="mt-0.5 size-3.5 shrink-0 text-indigo-400" aria-hidden />
-              An empty cell means the tool does not document that capability — not
-              that it is worse. Read the two &quot;when not to use&quot; rows first;
-              they are usually more decisive than the capability list.
+              An empty cell means the tool does not document that capability — not that
+              it is worse. Read the two &quot;when not to use&quot; rows first; they are
+              usually more decisive than the capability list.
             </p>
 
             {/* Wide tables scroll inside their own container so the page never
@@ -331,7 +331,10 @@ export default async function CompareToolsPage({
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <tr className="border-t border-border align-top">
-      <th scope="row" className="p-3 text-left text-xs font-medium text-subtle-foreground">
+      <th
+        scope="row"
+        className="p-3 text-left text-xs font-medium text-subtle-foreground"
+      >
         {label}
       </th>
       {children}

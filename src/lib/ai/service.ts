@@ -31,8 +31,7 @@ import { AIError, type AIMessage } from "./types";
  */
 
 export type AIResult =
-  | { ok: true; text: string }
-  | { ok: false; kind: AIError["kind"]; message: string };
+  { ok: true; text: string } | { ok: false; kind: AIError["kind"]; message: string };
 
 /**
  * Runs one request with every control applied.
@@ -157,15 +156,12 @@ export async function generateGuidance({
  * into the prompt.
  */
 export type ExplanationStyle =
-  | "SIMPLE"
-  | "ANALOGY"
-  | "EXAMPLES"
-  | "STEP_BY_STEP"
-  | "DEEPER";
+  "SIMPLE" | "ANALOGY" | "EXAMPLES" | "STEP_BY_STEP" | "DEEPER";
 
 const STYLE_INSTRUCTION: Record<ExplanationStyle, string> = {
   SIMPLE: "Explain it as simply as possible, assuming very little prior knowledge.",
-  ANALOGY: "Explain it using a real-world analogy, then connect the analogy back to the code.",
+  ANALOGY:
+    "Explain it using a real-world analogy, then connect the analogy back to the code.",
   EXAMPLES: "Explain it through two or three small, concrete examples.",
   STEP_BY_STEP: "Walk through it step by step, in order, one idea at a time.",
   DEEPER: "Go deeper than an introduction: cover the mechanism and the edge cases.",

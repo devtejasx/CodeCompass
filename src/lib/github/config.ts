@@ -79,8 +79,7 @@ export function appOrigin(): string {
   if (configured) return configured.replace(/\/+$/, "");
 
   const platform =
-    process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() ||
-    process.env.VERCEL_URL?.trim();
+    process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim() || process.env.VERCEL_URL?.trim();
   if (platform) {
     // These carry no scheme, and Vercel serves them over https.
     return platform.startsWith("http") ? platform : `https://${platform}`;

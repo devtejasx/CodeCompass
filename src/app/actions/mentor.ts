@@ -179,7 +179,8 @@ export async function explainDifferently(input: unknown): Promise<MentorResult> 
   if (!user) return { ok: false, error: "Please sign in to use the mentor." };
 
   const parsed = explainInput.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "That request could not be understood." };
+  if (!parsed.success)
+    return { ok: false, error: "That request could not be understood." };
 
   try {
     const guidance = await getGuidance(user.id);
@@ -209,7 +210,8 @@ export async function deleteConversation(input: unknown): Promise<MentorResult> 
   if (!user) return { ok: false, error: "Please sign in." };
 
   const parsed = deleteInput.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "That conversation could not be found." };
+  if (!parsed.success)
+    return { ok: false, error: "That conversation could not be found." };
 
   try {
     // deleteMany scoped by userId: another learner's conversation matches
@@ -236,7 +238,8 @@ export async function setMentorSolutionPolicy(input: unknown): Promise<MentorRes
   if (!user) return { ok: false, error: "Please sign in." };
 
   const parsed = policyInput.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "That setting could not be understood." };
+  if (!parsed.success)
+    return { ok: false, error: "That setting could not be understood." };
 
   try {
     await db.profile.update({

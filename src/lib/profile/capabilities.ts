@@ -4,7 +4,12 @@ import { db } from "@/lib/db";
 import { GIT_EXERCISE_SLUGS } from "@/lib/git/exercises";
 import type { CapabilityCategory, CapabilityLevel } from "@/generated/prisma/client";
 
-import { calculateLevel, emptyEvidence, nextLevelHint, type CapabilityEvidence } from "./levels";
+import {
+  calculateLevel,
+  emptyEvidence,
+  nextLevelHint,
+  type CapabilityEvidence,
+} from "./levels";
 
 /**
  * Capability evidence, assembled from what the learner has actually done.
@@ -115,7 +120,8 @@ export const countEarnedCapabilities = cache(async function countEarnedCapabilit
   const progress = await loadProgress(userId, capabilities);
 
   const earned = capabilities.filter(
-    (capability) => calculateLevel(countEvidence(capability.sources, progress)) !== null,
+    (capability) =>
+      calculateLevel(countEvidence(capability.sources, progress)) !== null,
   ).length;
 
   return { earned, total: capabilities.length };
@@ -166,7 +172,11 @@ export async function getCapabilityDetail(userId: string, slug: string) {
         // Practice is attached by topic, so the evidence item is each problem
         // on that topic rather than the topic itself.
         for (const problem of progress.problemsByTopicSlug.get(source.ref) ?? []) {
-          if (items.some((item) => item.kind === "PRACTICE" && item.title === problem.title)) {
+          if (
+            items.some(
+              (item) => item.kind === "PRACTICE" && item.title === problem.title,
+            )
+          ) {
             continue;
           }
           items.push({
@@ -317,7 +327,12 @@ async function loadProgress(
     topicSlugs.length
       ? db.topic.findMany({
           where: { slug: { in: topicSlugs } },
-          select: { id: true, slug: true, title: true, lesson: { select: { id: true } } },
+          select: {
+            id: true,
+            slug: true,
+            title: true,
+            lesson: { select: { id: true } },
+          },
         })
       : Promise.resolve([]),
     practiceTopicSlugs.length
@@ -355,45 +370,51 @@ async function loadProgress(
   const toolIds = tools.map((tool) => tool.id);
   const workflowIds = workflows.map((workflow) => workflow.id);
 
-  const [topicProgress, problemProgress, projectProgress, gitProgress, toolProgress, workflowProgress] =
-    await Promise.all([
-      topicIds.length
-        ? db.userTopicProgress.findMany({
-            where: { userId, topicId: { in: topicIds } },
-            select: { topicId: true, status: true },
-          })
-        : Promise.resolve([]),
-      problemIds.length
-        ? db.userProblemProgress.findMany({
-            where: { userId, problemId: { in: problemIds } },
-            select: { problemId: true, status: true },
-          })
-        : Promise.resolve([]),
-      projectIds.length
-        ? db.userProject.findMany({
-            where: { userId, projectId: { in: projectIds } },
-            select: { projectId: true, status: true },
-          })
-        : Promise.resolve([]),
-      gitSlugs.length
-        ? db.userGitExercise.findMany({
-            where: { userId, exerciseSlug: { in: gitSlugs }, status: "COMPLETED" },
-            select: { exerciseSlug: true },
-          })
-        : Promise.resolve([]),
-      toolIds.length
-        ? db.userAIToolProgress.findMany({
-            where: { userId, toolId: { in: toolIds }, status: "COMPLETED" },
-            select: { toolId: true },
-          })
-        : Promise.resolve([]),
-      workflowIds.length
-        ? db.userAIWorkflowProgress.findMany({
-            where: { userId, workflowId: { in: workflowIds } },
-            select: { workflowId: true },
-          })
-        : Promise.resolve([]),
-    ]);
+  const [
+    topicProgress,
+    problemProgress,
+    projectProgress,
+    gitProgress,
+    toolProgress,
+    workflowProgress,
+  ] = await Promise.all([
+    topicIds.length
+      ? db.userTopicProgress.findMany({
+          where: { userId, topicId: { in: topicIds } },
+          select: { topicId: true, status: true },
+        })
+      : Promise.resolve([]),
+    problemIds.length
+      ? db.userProblemProgress.findMany({
+          where: { userId, problemId: { in: problemIds } },
+          select: { problemId: true, status: true },
+        })
+      : Promise.resolve([]),
+    projectIds.length
+      ? db.userProject.findMany({
+          where: { userId, projectId: { in: projectIds } },
+          select: { projectId: true, status: true },
+        })
+      : Promise.resolve([]),
+    gitSlugs.length
+      ? db.userGitExercise.findMany({
+          where: { userId, exerciseSlug: { in: gitSlugs }, status: "COMPLETED" },
+          select: { exerciseSlug: true },
+        })
+      : Promise.resolve([]),
+    toolIds.length
+      ? db.userAIToolProgress.findMany({
+          where: { userId, toolId: { in: toolIds }, status: "COMPLETED" },
+          select: { toolId: true },
+        })
+      : Promise.resolve([]),
+    workflowIds.length
+      ? db.userAIWorkflowProgress.findMany({
+          where: { userId, workflowId: { in: workflowIds } },
+          select: { workflowId: true },
+        })
+      : Promise.resolve([]),
+  ]);
 
   const problemsByTopicSlug = new Map<
     string,
@@ -413,7 +434,9 @@ async function loadProgress(
       ]),
     ),
     completedTopicIds: new Set(
-      topicProgress.filter((row) => row.status === "COMPLETED").map((row) => row.topicId),
+      topicProgress
+        .filter((row) => row.status === "COMPLETED")
+        .map((row) => row.topicId),
     ),
     inProgressTopicIds: new Set(
       topicProgress
@@ -422,7 +445,9 @@ async function loadProgress(
     ),
     problemsByTopicSlug,
     solvedProblemIds: new Set(
-      problemProgress.filter((row) => row.status === "SOLVED").map((row) => row.problemId),
+      problemProgress
+        .filter((row) => row.status === "SOLVED")
+        .map((row) => row.problemId),
     ),
     attemptedProblemIds: new Set(
       problemProgress
@@ -430,10 +455,15 @@ async function loadProgress(
         .map((row) => row.problemId),
     ),
     projectsBySlug: new Map(
-      projects.map((project) => [project.slug, { id: project.id, title: project.title }]),
+      projects.map((project) => [
+        project.slug,
+        { id: project.id, title: project.title },
+      ]),
     ),
     completedProjectIds: new Set(
-      projectProgress.filter((row) => row.status === "COMPLETED").map((row) => row.projectId),
+      projectProgress
+        .filter((row) => row.status === "COMPLETED")
+        .map((row) => row.projectId),
     ),
     inProgressProjectIds: new Set(
       projectProgress
@@ -446,7 +476,10 @@ async function loadProgress(
     ),
     completedAIToolIds: new Set(toolProgress.map((row) => row.toolId)),
     aiWorkflowsBySlug: new Map(
-      workflows.map((workflow) => [workflow.slug, { id: workflow.id, title: workflow.title }]),
+      workflows.map((workflow) => [
+        workflow.slug,
+        { id: workflow.id, title: workflow.title },
+      ]),
     ),
     completedAIWorkflowIds: new Set(workflowProgress.map((row) => row.workflowId)),
   };
@@ -474,7 +507,8 @@ function countEvidence(
         if (!topic) break;
         evidence.topicsTotal += 1;
         if (progress.completedTopicIds.has(topic.id)) evidence.topicsCompleted += 1;
-        else if (progress.inProgressTopicIds.has(topic.id)) evidence.topicsInProgress += 1;
+        else if (progress.inProgressTopicIds.has(topic.id))
+          evidence.topicsInProgress += 1;
         break;
       }
       case "PRACTICE_TOPIC": {
@@ -494,7 +528,8 @@ function countEvidence(
         const project = progress.projectsBySlug.get(source.ref);
         if (!project) break;
         evidence.projectsTotal += 1;
-        if (progress.completedProjectIds.has(project.id)) evidence.projectsCompleted += 1;
+        if (progress.completedProjectIds.has(project.id))
+          evidence.projectsCompleted += 1;
         else if (progress.inProgressProjectIds.has(project.id)) {
           evidence.projectsInProgress += 1;
         }

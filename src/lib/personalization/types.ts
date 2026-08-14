@@ -57,11 +57,7 @@ export interface Recommendation {
 
 /** Which of the six tracks a recommendation belongs to, for the secondary rows. */
 export type RecommendationTrack =
-  | "LEARNING"
-  | "PRACTICE"
-  | "PROJECT"
-  | "DEVELOPER_SKILLS"
-  | "AI_SKILLS";
+  "LEARNING" | "PRACTICE" | "PROJECT" | "DEVELOPER_SKILLS" | "AI_SKILLS";
 
 export interface TrackRecommendation {
   track: RecommendationTrack;

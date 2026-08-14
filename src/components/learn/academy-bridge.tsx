@@ -41,9 +41,9 @@ export function AcademyBridge({ status }: { status: DelegationStatus }) {
       </h2>
 
       <p className="pretty mt-2 text-sm leading-relaxed text-muted-foreground">
-        {status.summary} CodeCompass teaches Git in one place rather than
-        repeating it inside every career path, so this topic is covered by the
-        Academy — your progress there counts here.
+        {status.summary} CodeCompass teaches Git in one place rather than repeating it
+        inside every career path, so this topic is covered by the Academy — your
+        progress there counts here.
       </p>
 
       <div className="mt-6">
@@ -104,13 +104,13 @@ export function AcademyBridge({ status }: { status: DelegationStatus }) {
 
       {status.satisfied ? (
         <p className="mt-4 text-xs leading-relaxed text-emerald-400">
-          Every module behind this topic is complete, so your roadmap has moved
-          on. Nothing further is needed here.
+          Every module behind this topic is complete, so your roadmap has moved on.
+          Nothing further is needed here.
         </p>
       ) : (
         <p className="mt-4 max-w-[52ch] text-xs leading-relaxed text-subtle-foreground">
-          Opening the Academy does not tick this off. This topic is satisfied
-          once you have actually completed the modules listed above.
+          Opening the Academy does not tick this off. This topic is satisfied once you
+          have actually completed the modules listed above.
         </p>
       )}
     </section>

@@ -130,7 +130,10 @@ export function decide({
  * learner reads is the one a human wrote about that pairing — not a sentence
  * assembled from the filter that happened to match.
  */
-export function reasonFor(tool: AIToolListItem, useCase: AIUseCase | null): string | null {
+export function reasonFor(
+  tool: AIToolListItem,
+  useCase: AIUseCase | null,
+): string | null {
   if (!useCase) return null;
   return tool.useCases.find((entry) => entry.useCase === useCase)?.note ?? null;
 }

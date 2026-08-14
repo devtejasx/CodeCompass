@@ -278,8 +278,7 @@ export function nextLevelHint(
     // at PRACTICING by the *knowledge*, not by the project — so telling them
     // to build something they have already built would be useless advice.
     const projectDone = evidence.projectsCompleted > 0;
-    const knowledgeMissing =
-      evidence.topicsTotal > 0 && evidence.topicsCompleted === 0;
+    const knowledgeMissing = evidence.topicsTotal > 0 && evidence.topicsCompleted === 0;
 
     if (projectDone && knowledgeMissing) {
       return {

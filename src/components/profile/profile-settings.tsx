@@ -94,8 +94,8 @@ export function ProfileSettings({
           Your username
         </h2>
         <p className="pretty mt-1.5 text-sm leading-relaxed text-muted-foreground">
-          This is the only public identifier CodeCompass uses. Your account id is
-          never part of a public address.
+          This is the only public identifier CodeCompass uses. Your account id is never
+          part of a public address.
         </p>
 
         <form onSubmit={submitUsername} className="mt-4">
@@ -121,7 +121,10 @@ export function ProfileSettings({
         </form>
 
         {saved ? (
-          <p role="status" className="mt-2 flex items-center gap-1.5 text-sm text-emerald-400">
+          <p
+            role="status"
+            className="mt-2 flex items-center gap-1.5 text-sm text-emerald-400"
+          >
             <Check className="size-3.5" aria-hidden />
             Saved.
           </p>

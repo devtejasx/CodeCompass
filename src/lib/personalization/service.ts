@@ -145,29 +145,31 @@ async function getPracticeCandidates(
 
   const seen = new Set<string>();
 
-  return rows
-    .sort(
-      (a, b) =>
-        (recency.get(a.topicId) ?? 0) - (recency.get(b.topicId) ?? 0) ||
-        difficultyRank[a.problem.difficulty] - difficultyRank[b.problem.difficulty] ||
-        a.problem.sortOrder - b.problem.sortOrder,
-    )
-    // A problem attached to several completed topics appears once, under the
-    // most recent one.
-    .filter((row) => {
-      if (seen.has(row.problem.id)) return false;
-      seen.add(row.problem.id);
-      return true;
-    })
-    .slice(0, 5)
-    .map((row) => ({
-      id: row.problem.id,
-      slug: row.problem.slug,
-      title: row.problem.title,
-      estimatedTime: row.problem.estimatedTime,
-      topicId: row.topicId,
-      topicTitle: row.topic.title,
-    }));
+  return (
+    rows
+      .sort(
+        (a, b) =>
+          (recency.get(a.topicId) ?? 0) - (recency.get(b.topicId) ?? 0) ||
+          difficultyRank[a.problem.difficulty] - difficultyRank[b.problem.difficulty] ||
+          a.problem.sortOrder - b.problem.sortOrder,
+      )
+      // A problem attached to several completed topics appears once, under the
+      // most recent one.
+      .filter((row) => {
+        if (seen.has(row.problem.id)) return false;
+        seen.add(row.problem.id);
+        return true;
+      })
+      .slice(0, 5)
+      .map((row) => ({
+        id: row.problem.id,
+        slug: row.problem.slug,
+        title: row.problem.title,
+        estimatedTime: row.problem.estimatedTime,
+        topicId: row.topicId,
+        topicTitle: row.topic.title,
+      }))
+  );
 }
 
 /**
