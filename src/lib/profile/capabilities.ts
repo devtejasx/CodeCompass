@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { db } from "@/lib/db";
 import { GIT_EXERCISE_SLUGS } from "@/lib/git/exercises";
 import type { CapabilityCategory, CapabilityLevel } from "@/generated/prisma/client";
@@ -51,7 +53,9 @@ export interface EvidenceItem {
  * and more with every capability added, which is exactly the N+1 the profile
  * is most at risk of.
  */
-export async function getCapabilities(userId: string): Promise<CapabilityView[]> {
+export const getCapabilities = cache(async function getCapabilities(
+  userId: string,
+): Promise<CapabilityView[]> {
   const capabilities = await db.capability.findMany({
     orderBy: { sortOrder: "asc" },
     select: {
@@ -88,7 +92,34 @@ export async function getCapabilities(userId: string): Promise<CapabilityView[]>
       next: nextLevelHint(level, evidence),
     };
   });
-}
+});
+
+/**
+ * How many capabilities this learner has reached a level in.
+ *
+ * The dashboard shows this as a single number next to four others, and asking
+ * `getCapabilities` for it meant loading every capability's `description` and
+ * `longDescription` — several kilobytes of authored prose — into a server render
+ * that discards all of it. The levels themselves genuinely need the evidence, so
+ * the progress reads are the same ones; what this drops is the payload, and it
+ * shares `loadProgress`, `countEvidence` and `calculateLevel` so the count can
+ * never disagree with the profile page it links to.
+ */
+export const countEarnedCapabilities = cache(async function countEarnedCapabilities(
+  userId: string,
+): Promise<{ earned: number; total: number }> {
+  const capabilities = await db.capability.findMany({
+    select: { sources: { select: { kind: true, ref: true } } },
+  });
+
+  const progress = await loadProgress(userId, capabilities);
+
+  const earned = capabilities.filter(
+    (capability) => calculateLevel(countEvidence(capability.sources, progress)) !== null,
+  ).length;
+
+  return { earned, total: capabilities.length };
+});
 
 /** One capability in full, with each piece of evidence named. */
 export async function getCapabilityDetail(userId: string, slug: string) {

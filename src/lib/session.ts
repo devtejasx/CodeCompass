@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
@@ -17,8 +18,17 @@ export interface CurrentUser {
  * Going back to Postgres on every protected render is deliberate: it means a
  * deleted user or a just-completed onboarding is reflected immediately, rather
  * than whenever the JWT happens to be reissued.
+ *
+ * Wrapped in React's `cache`, which memoises per *request* rather than across
+ * them, so that guarantee is untouched — a new request still re-reads the row.
+ * What it removes is a duplicate: the authenticated layout proves who the user
+ * is, and so does every page beneath it, and React renders those concurrently.
+ * Uncached that was two `auth()` calls and two `user.findUnique` round trips on
+ * every single authenticated render, before any of the page's own data. Nested
+ * layouts and server actions calling this in the same request collapse onto the
+ * same read for the same reason.
  */
-export async function getCurrentUser(): Promise<CurrentUser | null> {
+export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) return null;
@@ -43,7 +53,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     image: user.image,
     onboardingCompleted: user.profile?.onboardingCompleted ?? false,
   };
-}
+});
 
 /** Require a signed-in user, or bounce to login. */
 export async function requireUser(callbackUrl?: string): Promise<CurrentUser> {

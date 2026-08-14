@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { db } from "@/lib/db";
 import { getActiveRoadmapForCareer } from "@/lib/roadmap/queries";
 import type { CodeLanguage } from "@/generated/prisma/client";
@@ -31,8 +33,15 @@ const VISIBLE_TEST_SELECT = {
  *
  * `languages` deliberately omits solutionTemplate — the browser gets starter
  * code and nothing else.
+ *
+ * Memoised per request: `generateMetadata` needs the title and the page needs
+ * the whole problem, and Next.js runs both for one navigation. Without this the
+ * examples, test cases, starter code and topic tree were loaded twice to render
+ * one page.
  */
-export async function getProblemForPractice(slug: string) {
+export const getProblemForPractice = cache(async function getProblemForPractice(
+  slug: string,
+) {
   return db.practiceProblem.findUnique({
     where: { slug },
     select: {
@@ -80,7 +89,7 @@ export async function getProblemForPractice(slug: string) {
       _count: { select: { testCases: true } },
     },
   });
-}
+});
 
 export type PracticeProblemDetail = NonNullable<
   Awaited<ReturnType<typeof getProblemForPractice>>

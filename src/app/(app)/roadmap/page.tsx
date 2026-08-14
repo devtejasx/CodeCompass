@@ -53,14 +53,29 @@ export default async function RoadmapPage() {
     return <MissingRoadmap careerName={career.name} careerSlug={career.slug} />;
   }
 
-  // Real progress now: completed topics drive phase and topic state, and the
-  // same helpers feed the dashboard so the two can never disagree.
-  const completedTopicIds = await getCompletedTopicIds(user.id, roadmap.id);
-
-  // A signpost to the AI Academy, not a phase of the roadmap: the Academy is
-  // career-independent and reachable on its own, so this only names the tools
-  // curated for this path.
-  const aiRecommendations = await getCareerRecommendations(user.id, 4);
+  /*
+   * Four independent reads, issued together.
+   *
+   * They were sequential, and none of them depends on another — only on the
+   * roadmap id above — so the page paid the sum of four round trips where it
+   * owes the slowest one. `getProjectsByPhase` is the long pole, and it now
+   * overlaps the other three instead of waiting behind them.
+   *
+   * Completed topics drive phase and topic state, through the same helpers the
+   * dashboard uses, so the two can never disagree. The AI recommendations are a
+   * signpost to the Academy rather than a phase of the roadmap: the Academy is
+   * career-independent and reachable on its own, so this only names the tools
+   * curated for this path.
+   */
+  const [completedTopicIds, aiRecommendations, resume, phaseProjectEntries] =
+    await Promise.all([
+      getCompletedTopicIds(user.id, roadmap.id),
+      getCareerRecommendations(user.id, 4),
+      getResumeTopic(user.id, roadmap.id),
+      // Projects sit inside the phase containing the last topic they build on,
+      // so the roadmap reads learn → practise → build in sequence.
+      getProjectsByPhase(user.id, roadmap.id),
+    ]);
 
   const topicsInOrder = roadmap.phases.flatMap((phase) =>
     phase.topics.map((topic) => ({
@@ -104,13 +119,8 @@ export default async function RoadmapPage() {
     percentComplete: roadmapPercent({ requiredTopicIds, completedTopicIds }),
   };
 
-  const resume = await getResumeTopic(user.id, roadmap.id);
-
-  // Projects sit inside the phase containing the last topic they build on, so
-  // the roadmap reads learn → practise → build in sequence.
-  const phaseProjects: Record<string, ProjectListItem[]> = Object.fromEntries(
-    await getProjectsByPhase(user.id, roadmap.id),
-  );
+  const phaseProjects: Record<string, ProjectListItem[]> =
+    Object.fromEntries(phaseProjectEntries);
 
   const CareerIcon = careerIcon(career.icon);
 

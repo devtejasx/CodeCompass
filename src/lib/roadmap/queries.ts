@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { db } from "@/lib/db";
 
 /**
@@ -13,8 +15,15 @@ import { db } from "@/lib/db";
  * The active roadmap for a career, with phases, topics and prerequisites.
  * Returns null when a career has no roadmap yet — the caller renders the
  * "still building this path" state rather than failing.
+ *
+ * This is the largest read in the application — phases, then every topic, then
+ * every prerequisite edge — and several features want it in the same render:
+ * the roadmap page loads it directly while the learner state behind the sidebar
+ * loads it again. Memoised per request so one render costs one tree.
  */
-export async function getActiveRoadmapForCareer(careerId: string) {
+export const getActiveRoadmapForCareer = cache(async function getActiveRoadmapForCareer(
+  careerId: string,
+) {
   return db.roadmap.findFirst({
     where: { careerId, isActive: true },
     orderBy: { version: "desc" },
@@ -60,7 +69,7 @@ export async function getActiveRoadmapForCareer(careerId: string) {
       },
     },
   });
-}
+});
 
 export type RoadmapDetail = NonNullable<
   Awaited<ReturnType<typeof getActiveRoadmapForCareer>>

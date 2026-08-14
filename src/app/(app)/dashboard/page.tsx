@@ -20,7 +20,7 @@ import { careerIcon } from "@/lib/careers/icons";
 import { getGuidance, getWeeklySummary } from "@/lib/personalization/service";
 import { listRecentActivity } from "@/lib/personalization/activity";
 import { aiAvailability } from "@/lib/ai/provider";
-import { getCapabilities } from "@/lib/profile/capabilities";
+import { countEarnedCapabilities } from "@/lib/profile/capabilities";
 import { db } from "@/lib/db";
 
 export const metadata: Metadata = {
@@ -51,20 +51,30 @@ export default async function DashboardPage() {
     getGuidance(user.id),
     getWeeklySummary(user.id),
     listRecentActivity(user.id, 6),
-    // Only the count is needed here — the profile is where the evidence lives.
-    getCapabilities(user.id),
+    // Only the count is needed here — the profile is where the evidence lives,
+    // so this deliberately does not load the capability prose to render it.
+    countEarnedCapabilities(user.id),
   ]);
 
   const { state, next, tracks, plan } = guidance;
 
-  const career = state.career
-    ? await db.career.findUnique({
-        where: { id: state.career.id },
-        select: { slug: true, name: true, shortDescription: true, icon: true },
-      })
+  /*
+   * The learner state already carries the chosen career's id, slug and name;
+   * only the icon is missing, and this page needs no more than that. Selecting
+   * the icon alone keeps the read narrow — `shortDescription` was fetched and
+   * never rendered.
+   */
+  const careerIconName = state.career
+    ? (
+        await db.career.findUnique({
+          where: { id: state.career.id },
+          select: { icon: true },
+        })
+      )?.icon ?? null
     : null;
 
-  const CareerIcon = career ? careerIcon(career.icon) : null;
+  const career = state.career;
+  const CareerIcon = careerIconName ? careerIcon(careerIconName) : null;
   const firstName = user.name.split(/\s+/)[0] || user.name;
   const ai = aiAvailability();
 
@@ -148,9 +158,7 @@ export default async function DashboardPage() {
 
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             <ProfileSummary
-              capabilities={
-                capabilities.filter((capability) => capability.level !== null).length
-              }
+              capabilities={capabilities.earned}
               projects={state.projects.completed}
               problemsSolved={state.practice.solved}
               gitPercent={state.progress.git}

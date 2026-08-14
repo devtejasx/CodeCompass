@@ -51,14 +51,45 @@ export default async function PracticeProblemPage({
 
   if (!problem) notFound();
 
-  const [progress, submissions, profile] = await Promise.all([
-    getProblemProgress(user.id, problem.id),
+  /*
+   * Everything this page needs beyond the problem itself, in one round trip's
+   * worth of latency.
+   *
+   * This was five sequential awaits — progress, then saved source, then the
+   * explanation, then the next problem — and none of them depends on the
+   * result of another. On a problem page that already has to download Monaco,
+   * the server was spending four avoidable round trips before it sent a byte.
+   *
+   * The explanation still hangs off the progress read, because whether to fetch
+   * it at all depends on the attempt count — but that two-step chain now runs
+   * *alongside* the other reads instead of after all of them, so it costs
+   * nothing extra and an unattempted problem still never loads it.
+   */
+  const [attempt, submissions, profile, savedRows, nextProblem] = await Promise.all([
+    getProblemProgress(user.id, problem.id).then(async (progress) => ({
+      progress,
+      // Withheld until they have attempted, so "unlocks after your first
+      // submission" is true of the payload and not just of the UI.
+      explanation:
+        (progress?.attempts ?? 0) > 0 ? await getProblemExplanation(problem.id) : null,
+    })),
     listSubmissions(user.id, problem.id),
     db.profile.findUnique({
       where: { userId: user.id },
       select: { selectedLanguage: true },
     }),
+    // Their last source per language, so returning restores the work rather
+    // than resetting it. Only ever this user's own submissions.
+    db.submission.findMany({
+      where: { userId: user.id, problemId: problem.id },
+      orderBy: { createdAt: "desc" },
+      select: { language: true, code: true },
+      take: 25,
+    }),
+    findNextProblem(user.id, problem.id),
   ]);
+
+  const { progress, explanation } = attempt;
 
   const problemLanguages = sortLanguages(
     problem.languages.map((entry) => entry.language),
@@ -79,25 +110,10 @@ export default async function PracticeProblemPage({
     (preferred && offered.includes(preferred) ? preferred : null) ??
     offered[0];
 
-  // Their last source per language, so returning restores the work rather than
-  // resetting it. Only ever this user's own submissions.
-  const savedRows = await db.submission.findMany({
-    where: { userId: user.id, problemId: problem.id },
-    orderBy: { createdAt: "desc" },
-    select: { language: true, code: true },
-    take: 25,
-  });
   const savedCode: Partial<Record<CodeLanguage, string>> = {};
   for (const row of savedRows) savedCode[row.language] ??= row.code;
 
   const hiddenTestCount = problem._count.testCases - problem.testCases.length;
-
-  // Fetched only once they have attempted, so "unlocks after your first
-  // submission" is true of the payload and not just of the UI.
-  const attempted = (progress?.attempts ?? 0) > 0;
-  const explanation = attempted ? await getProblemExplanation(problem.id) : null;
-
-  const nextProblem = await findNextProblem(user.id, problem.id);
 
   return (
     <div className="relative flex-1 py-6 sm:py-8">

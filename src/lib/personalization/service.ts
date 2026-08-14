@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { db } from "@/lib/db";
 import { githubAvailability } from "@/lib/github/config";
 import { getCareerRecommendations } from "@/lib/ai-tools/queries";
@@ -30,12 +32,13 @@ import type {
  * database, and keeping the two apart is what makes the rules testable and the
  * queries reviewable.
  *
- * No recommendation is cached or stored. They are a pure function of learner
- * state, so caching one would mean deciding when it goes stale — and the entire
- * promise of this phase is that finishing a lesson changes the answer
- * immediately. The cost is a handful of indexed queries per dashboard render,
- * which is the right trade for never showing somebody a next step they already
- * took.
+ * No recommendation is cached or stored *between* requests. They are a pure
+ * function of learner state, so caching one across requests would mean deciding
+ * when it goes stale — and the entire promise of this phase is that finishing a
+ * lesson changes the answer immediately. The cost is a handful of indexed
+ * queries per dashboard render, which is the right trade for never showing
+ * somebody a next step they already took. Within one request the answer cannot
+ * change, so `getGuidance` is memoised for that request and no further.
  *
  * Every method takes a userId that the caller derived from the session. Nothing
  * here accepts an id from a client.
@@ -55,9 +58,13 @@ export interface Guidance {
  *
  * The dashboard needs all of it and the mentor needs most of it, so computing
  * it once and passing it down beats each component asking for its own slice and
- * re-running the rules.
+ * re-running the rules. Memoised per request so that "computing it once" holds
+ * even when two callers in the same render both ask — the profile page and the
+ * streamed dashboard panels do exactly that.
  */
-export async function getGuidance(userId: string): Promise<Guidance> {
+export const getGuidance = cache(async function getGuidance(
+  userId: string,
+): Promise<Guidance> {
   const state = await getLearnerState(userId);
 
   const [practiceCandidates, projectCandidates, aiToolCandidate, gaps, connection] =
@@ -89,7 +96,7 @@ export async function getGuidance(userId: string): Promise<Guidance> {
     gaps,
     plan: buildStudyPlan({ recommendations, studyTime: state.studyTime }),
   };
-}
+});
 
 /** Just the next action, for callers that need nothing else. */
 export async function getNextAction(userId: string): Promise<Recommendation | null> {

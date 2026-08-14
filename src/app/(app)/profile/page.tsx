@@ -47,14 +47,19 @@ export default async function ProfilePage() {
   const user = await requireOnboardedUser();
   const profile = await getTechieProfile(user.id);
 
-  const career = profile.state.career
-    ? await db.career.findUnique({
-        where: { id: profile.state.career.id },
-        select: { slug: true, name: true, icon: true },
-      })
+  // Only the icon: the career's slug and name already arrived with the learner
+  // state, and the slug was never rendered on this page.
+  const careerIconName = profile.state.career
+    ? (
+        await db.career.findUnique({
+          where: { id: profile.state.career.id },
+          select: { icon: true },
+        })
+      )?.icon ?? null
     : null;
 
-  const CareerIcon = career ? careerIcon(career.icon) : null;
+  const career = profile.state.career;
+  const CareerIcon = careerIconName ? careerIcon(careerIconName) : null;
 
   const joined = new Intl.DateTimeFormat("en-GB", {
     month: "long",

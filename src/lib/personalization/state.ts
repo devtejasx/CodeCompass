@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import { db } from "@/lib/db";
 import { getActiveRoadmapForCareer } from "@/lib/roadmap/queries";
 import { deriveTopicStates, roadmapPercent } from "@/lib/learn/progress";
@@ -131,8 +133,18 @@ export interface LearnerState {
  * enormous include: the roadmap is shared content that every learner on a
  * career hits identically, while the progress rows are per-user, and keeping
  * them apart is what stops this becoming an N+1 as the roadmap grows.
+ *
+ * Memoised per request with React's `cache`. "Derived, never stored" is about
+ * durability, not about recomputing it twice in one render — and it was being
+ * recomputed twice: the profile page asks for the state *and* for guidance, and
+ * guidance builds the state itself, so a single profile render ran the roadmap
+ * tree, both academy summaries and every progress query twice over. A new
+ * request still starts from scratch, so finishing a lesson still changes the
+ * answer on the next read.
  */
-export async function getLearnerState(userId: string): Promise<LearnerState> {
+export const getLearnerState = cache(async function getLearnerState(
+  userId: string,
+): Promise<LearnerState> {
   const profile = await db.profile.findUnique({
     where: { userId },
     select: {
@@ -421,7 +433,7 @@ export async function getLearnerState(userId: string): Promise<LearnerState> {
     },
     lastActiveAt: lastActivity?.createdAt ?? null,
   };
-}
+});
 
 /**
  * Percentage, floored at 0 and capped at 100.
