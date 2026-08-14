@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Compass } from "lucide-react";
@@ -7,21 +8,17 @@ import { Container } from "@/components/shared/container";
 import { Glow, GridBackdrop } from "@/components/shared/backdrops";
 import { NextStep } from "@/components/dashboard/next-step";
 import { ProgressOverview } from "@/components/dashboard/progress-overview";
+import { TodaysPlan, TrackPanels } from "@/components/dashboard/dashboard-panels";
 import {
-  MentorCard,
-  ProfileSummary,
-  RecentActivity,
-  TodaysPlan,
-  TrackPanels,
-  WeekInReview,
-} from "@/components/dashboard/dashboard-panels";
+  ActivityPanel,
+  MentorPanel,
+  PanelSkeleton,
+  ProfilePanel,
+  WeeklyPanel,
+} from "@/app/(app)/dashboard/panels";
 import { requireOnboardedUser } from "@/lib/session";
 import { careerIcon } from "@/lib/careers/icons";
-import { getGuidance, getWeeklySummary } from "@/lib/personalization/service";
-import { listRecentActivity } from "@/lib/personalization/activity";
-import { aiAvailability } from "@/lib/ai/provider";
-import { countEarnedCapabilities } from "@/lib/profile/capabilities";
-import { db } from "@/lib/db";
+import { getGuidance } from "@/lib/personalization/service";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -47,36 +44,21 @@ export const metadata: Metadata = {
 export default async function DashboardPage() {
   const user = await requireOnboardedUser();
 
-  const [guidance, weekly, activities, capabilities] = await Promise.all([
-    getGuidance(user.id),
-    getWeeklySummary(user.id),
-    listRecentActivity(user.id, 6),
-    // Only the count is needed here — the profile is where the evidence lives,
-    // so this deliberately does not load the capability prose to render it.
-    countEarnedCapabilities(user.id),
-  ]);
-
-  const { state, next, tracks, plan } = guidance;
-
   /*
-   * The learner state already carries the chosen career's id, slug and name;
-   * only the icon is missing, and this page needs no more than that. Selecting
-   * the icon alone keeps the read narrow — `shortDescription` was fetched and
-   * never rendered.
+   * The only thing this page waits for.
+   *
+   * `getGuidance` answers "what should I do next?", which is the whole point of
+   * the page, and it also carries the tracks, the plan and the learner state the
+   * panels beside them render. Everything below that — the week, the activity
+   * feed, the capability count — is behind a Suspense boundary in ./panels, so
+   * the greeting and the next step reach the browser without waiting on a dozen
+   * progress queries that exist to render one number three screens down.
    */
-  const careerIconName = state.career
-    ? (
-        await db.career.findUnique({
-          where: { id: state.career.id },
-          select: { icon: true },
-        })
-      )?.icon ?? null
-    : null;
+  const { state, next, tracks, plan } = await getGuidance(user.id);
 
   const career = state.career;
-  const CareerIcon = careerIconName ? careerIcon(careerIconName) : null;
+  const CareerIcon = career ? careerIcon(career.icon) : null;
   const firstName = user.name.split(/\s+/)[0] || user.name;
-  const ai = aiAvailability();
 
   return (
     <div className="relative flex-1 overflow-hidden py-10 sm:py-14">
@@ -151,21 +133,28 @@ export default async function DashboardPage() {
             <ProgressOverview state={state} />
           </div>
 
+          {/*
+            ── Deferred ──────────────────────────────────────────
+            Each panel streams in on its own, so a slow one holds up only
+            itself. Separate boundaries rather than one around the group:
+            wrapping all four together would mean the capability count — the
+            slowest of them by an order of magnitude — decided when the
+            activity feed appeared.
+          */}
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <WeekInReview summary={weekly} />
-            <RecentActivity activities={activities} />
+            <Suspense fallback={<PanelSkeleton label="this week" rows={3} />}>
+              <WeeklyPanel userId={user.id} />
+            </Suspense>
+            <Suspense fallback={<PanelSkeleton label="recent activity" rows={4} />}>
+              <ActivityPanel userId={user.id} />
+            </Suspense>
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
-            <ProfileSummary
-              capabilities={capabilities.earned}
-              projects={state.projects.completed}
-              problemsSolved={state.practice.solved}
-              gitPercent={state.progress.git}
-              aiPercent={state.progress.ai}
-              careerName={career?.name ?? null}
-            />
-            <MentorCard available={ai.configured} />
+            <Suspense fallback={<PanelSkeleton label="your profile" rows={2} />}>
+              <ProfilePanel userId={user.id} />
+            </Suspense>
+            <MentorPanel />
           </div>
 
           {/* ── Path controls ──────────────────────────────────── */}

@@ -24,7 +24,6 @@ import { CATEGORY_LABEL } from "@/lib/profile/icons";
 import { careerIcon } from "@/lib/careers/icons";
 import { DIFFICULTY_BADGE } from "@/lib/projects/progress";
 import { EXPERIENCE_LABEL } from "@/lib/onboarding/options";
-import { db } from "@/lib/db";
 import type { ProjectDifficulty } from "@/generated/prisma/client";
 
 export const metadata: Metadata = {
@@ -47,19 +46,10 @@ export default async function ProfilePage() {
   const user = await requireOnboardedUser();
   const profile = await getTechieProfile(user.id);
 
-  // Only the icon: the career's slug and name already arrived with the learner
-  // state, and the slug was never rendered on this page.
-  const careerIconName = profile.state.career
-    ? (
-        await db.career.findUnique({
-          where: { id: profile.state.career.id },
-          select: { icon: true },
-        })
-      )?.icon ?? null
-    : null;
-
+  // The career's name and icon both arrive with the learner state, so there is
+  // no second lookup for them.
   const career = profile.state.career;
-  const CareerIcon = careerIconName ? careerIcon(careerIconName) : null;
+  const CareerIcon = career ? careerIcon(career.icon) : null;
 
   const joined = new Intl.DateTimeFormat("en-GB", {
     month: "long",
@@ -145,12 +135,16 @@ export default async function ProfilePage() {
           </h2>
           {/* Named "learning progress" deliberately — never job readiness. */}
           <p className="mt-2 max-w-prose text-sm leading-relaxed text-subtle-foreground">
-            How far through each part of CodeCompass you are. This measures the work
-            you have done here, not your employability.
+            How far through each part of CodeCompass you are. This measures the work you
+            have done here, not your employability.
           </p>
 
           <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Stat label="Capabilities" value={`${earned.length}`} detail={`of ${profile.capabilities.length}`} />
+            <Stat
+              label="Capabilities"
+              value={`${earned.length}`}
+              detail={`of ${profile.capabilities.length}`}
+            />
             <Stat
               label="Projects"
               value={`${profile.projects.filter((p) => p.status === "COMPLETED").length}`}
@@ -179,8 +173,7 @@ export default async function ProfilePage() {
               Your strengths
             </h2>
             <p className="mt-2 max-w-prose text-sm leading-relaxed text-subtle-foreground">
-              Capabilities you have actually built something with — not just read
-              about.
+              Capabilities you have actually built something with — not just read about.
             </p>
 
             <ul className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -250,9 +243,8 @@ export default async function ProfilePage() {
           {profile.categories.length === 0 ? (
             <p className="mt-3 max-w-prose text-sm leading-relaxed text-muted-foreground">
               Nothing here yet — capabilities appear once you have completed topics,
-              solved problems or finished projects. Everything on this page is
-              evidence, so it fills in as you do the work rather than being set up in
-              advance.
+              solved problems or finished projects. Everything on this page is evidence,
+              so it fills in as you do the work rather than being set up in advance.
             </p>
           ) : (
             <div className="mt-4 flex flex-col gap-8">
@@ -330,7 +322,9 @@ export default async function ProfilePage() {
 
                     <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
                       <Badge
-                        variant={DIFFICULTY_BADGE[project.difficulty as ProjectDifficulty]}
+                        variant={
+                          DIFFICULTY_BADGE[project.difficulty as ProjectDifficulty]
+                        }
                       >
                         {project.difficulty.toLowerCase()}
                       </Badge>
@@ -409,7 +403,10 @@ export default async function ProfilePage() {
             {profile.practice.insights.length > 0 ? (
               <ul className="mt-5 flex flex-col gap-1.5 border-t border-border pt-4">
                 {profile.practice.insights.map((insight) => (
-                  <li key={insight} className="text-sm leading-relaxed text-muted-foreground">
+                  <li
+                    key={insight}
+                    className="text-sm leading-relaxed text-muted-foreground"
+                  >
                     {insight}
                   </li>
                 ))}
@@ -521,11 +518,19 @@ export default async function ProfilePage() {
                   className="flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-surface"
                 >
                   {item.done ? (
-                    <CheckCircle2 className="size-4 shrink-0 text-emerald-400" aria-hidden />
+                    <CheckCircle2
+                      className="size-4 shrink-0 text-emerald-400"
+                      aria-hidden
+                    />
                   ) : (
-                    <Circle className="size-4 shrink-0 text-subtle-foreground" aria-hidden />
+                    <Circle
+                      className="size-4 shrink-0 text-subtle-foreground"
+                      aria-hidden
+                    />
                   )}
-                  <span className={item.done ? "text-muted-foreground" : "text-foreground"}>
+                  <span
+                    className={item.done ? "text-muted-foreground" : "text-foreground"}
+                  >
                     {item.label}
                   </span>
                 </Link>

@@ -55,7 +55,13 @@ export interface LearnerTopic {
 export interface LearnerState {
   userId: string;
 
-  career: { id: string; slug: string; name: string } | null;
+  /**
+   * `icon` is carried here rather than looked up again by the pages that render
+   * it. The dashboard and the profile both showed the career's icon beside its
+   * name and both issued a second `career.findUnique` to get it, having already
+   * loaded the row this field comes from.
+   */
+  career: { id: string; slug: string; name: string; icon: string } | null;
   experienceLevel: ExperienceLevel | null;
   language: ProgrammingLanguage | null;
   studyTime: DailyLearningTime | null;
@@ -152,7 +158,7 @@ export const getLearnerState = cache(async function getLearnerState(
       selectedLanguage: true,
       dailyLearningTime: true,
       mentorSolutionPolicy: true,
-      chosenCareer: { select: { id: true, slug: true, name: true } },
+      chosenCareer: { select: { id: true, slug: true, name: true, icon: true } },
     },
   });
 
@@ -172,7 +178,11 @@ export const getLearnerState = cache(async function getLearnerState(
           status: true,
           updatedAt: true,
           project: {
-            select: { slug: true, title: true, _count: { select: { milestones: true } } },
+            select: {
+              slug: true,
+              title: true,
+              _count: { select: { milestones: true } },
+            },
           },
           _count: { select: { milestones: { where: { status: "COMPLETED" } } } },
         },
@@ -337,7 +347,8 @@ export const getLearnerState = cache(async function getLearnerState(
     : -1;
   const nextTopic =
     currentIndex >= 0
-      ? (topicsInOrder.slice(currentIndex + 1).find((topic) => topic.isRequired) ?? null)
+      ? (topicsInOrder.slice(currentIndex + 1).find((topic) => topic.isRequired) ??
+        null)
       : null;
 
   // An in-progress topic beats the derived CURRENT for "resume", because it is
@@ -354,7 +365,9 @@ export const getLearnerState = cache(async function getLearnerState(
     .filter((topic) => topic.isRequired)
     .map((topic) => topic.id);
   const completedSet = new Set(completedTopicIds);
-  const pendingRequiredTopicIds = requiredTopicIds.filter((id) => !completedSet.has(id));
+  const pendingRequiredTopicIds = requiredTopicIds.filter(
+    (id) => !completedSet.has(id),
+  );
 
   // How much practice is outstanding for the topic they are on. Zero is a
   // meaningful answer here and drives a real branch in the recommendation
