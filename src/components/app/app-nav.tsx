@@ -157,11 +157,20 @@ function MobileNav({ pathname }: { pathname: string }) {
         exactly the amount this component exists to eliminate; spanning the
         viewport sidesteps the arithmetic entirely and reads better on a phone.
       */}
+      {/*
+        Height-capped and scrollable. Nine rows at 40px come to ~370px, which
+        fits a phone held upright and does not fit one held sideways — a 320×375
+        landscape viewport left the last two destinations below the fold with no
+        way to reach them, since a `fixed` sheet does not extend the page's own
+        scroll. `dvh` rather than `vh` throughout the app now: on mobile Safari
+        and Chrome `vh` measures the viewport as if the address bar were hidden,
+        which is exactly the amount that would be cut off.
+      */}
       {open ? (
         <nav
           id="primary-nav-menu"
           aria-label="Primary"
-          className="fixed inset-x-0 top-16 z-50 border-b border-border bg-surface-raised shadow-lg"
+          className="fixed inset-x-0 top-16 z-50 max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain border-b border-border bg-surface-raised shadow-lg"
         >
           <ul className="mx-auto flex max-w-3xl flex-col py-1">
             {LINKS.map((link) => {

@@ -156,7 +156,7 @@ export default async function CareerDetailPage({
           </div>
         </div>
 
-        <div className="mt-16 grid gap-12 lg:grid-cols-[1.6fr_1fr] lg:gap-16">
+        <div className="mt-16 grid gap-12 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:gap-16">
           <div className="flex min-w-0 flex-col gap-12">
             {/* ── 1. What is this career ─────────────────────── */}
             <section aria-labelledby="what-heading">

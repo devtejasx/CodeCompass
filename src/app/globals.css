@@ -58,6 +58,34 @@
     scroll-padding-top: 6rem;
   }
 
+  /*
+   * Headings, buttons and labels break inside a long word rather than pushing
+   * the page sideways.
+   *
+   * `overflow-wrap` only engages when a word genuinely cannot fit, so ordinary
+   * prose is unaffected — but authored content carries things ordinary prose
+   * does not: a bare documentation URL in a project's resources, a 40-character
+   * package name in a lesson, an email address on the account menu. At 320px
+   * any one of those is wider than the viewport, and the result was a page that
+   * scrolled horizontally with no visible cause.
+   *
+   * Applied to the text elements rather than to `*`, because on a flex or grid
+   * container it would change how tracks are sized rather than how text wraps.
+   */
+  h1,
+  h2,
+  h3,
+  h4,
+  p,
+  li,
+  dt,
+  dd,
+  label,
+  figcaption,
+  blockquote {
+    overflow-wrap: break-word;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
@@ -124,6 +152,34 @@
     border: 1px solid hsl(var(--border) / 0.1);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
+  }
+
+  /*
+   * A comfortable tap target without changing how anything looks.
+   *
+   * The compact controls are 32px tall, which is right for the density they sit
+   * in on a desktop and about 12px short of a reliable thumb target. Growing
+   * them would push apart the toolbars and card footers they live in, so
+   * instead a transparent pseudo-element extends the *hit area* to 44px on
+   * coarse pointers only. Geometry, spacing and alignment are untouched; the
+   * button simply catches a near miss.
+   *
+   * `position: relative` is set here rather than assumed, and the overlay is
+   * inert to layout, so this is safe to add to anything.
+   */
+  @media (pointer: coarse) {
+    .tap-target {
+      position: relative;
+    }
+
+    .tap-target::after {
+      content: "";
+      position: absolute;
+      inset: 50% 0 auto;
+      min-height: 44px;
+      width: 100%;
+      translate: 0 -50%;
+    }
   }
 }
 

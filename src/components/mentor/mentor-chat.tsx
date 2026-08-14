@@ -104,7 +104,9 @@ export function MentorChat({
   const empty = messages.length === 0;
 
   return (
-    <div className="flex min-h-[60vh] flex-col">
+    // dvh rather than vh, so the composer sits above the on-screen keyboard
+    // rather than behind the address bar that vh pretends is not there.
+    <div className="flex min-h-[60dvh] flex-col">
       {!available ? (
         <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/[0.05] p-4">
           <p className="flex items-start gap-2 text-sm font-medium text-amber-300">

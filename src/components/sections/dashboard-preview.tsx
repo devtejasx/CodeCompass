@@ -52,7 +52,7 @@ export function DashboardPreview() {
 
         <Reveal delay={0.1} className="mt-16">
           <div className="panel overflow-hidden rounded-2xl">
-            <div className="grid lg:grid-cols-[220px_1fr]">
+            <div className="grid lg:grid-cols-[220px_minmax(0,1fr)]">
               {/* Sidebar — hidden below lg, where it would only crowd the view. */}
               <aside className="hidden flex-col gap-6 border-r border-border p-5 lg:flex">
                 <div className="flex items-center gap-2.5">
@@ -114,7 +114,7 @@ export function DashboardPreview() {
                   />
                 </div>
 
-                <div className="mt-5 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+                <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
                   <div className="flex flex-col gap-4">
                     {/* Current mission */}
                     <div className="rounded-xl border border-primary/25 bg-primary/[0.07] p-5">

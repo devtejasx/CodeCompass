@@ -194,7 +194,15 @@ export default async function RoadmapPage() {
         ) : null}
 
         {/* ── Roadmap + summary ────────────────────────────────── */}
-        <div className="mt-12 grid gap-10 lg:grid-cols-[1fr_20rem] lg:gap-12">
+        {/*
+          minmax(0,1fr) rather than 1fr: a grid track's automatic minimum is its
+          content's min-content width, so one long topic title or an unbroken
+          identifier inside a phase widens the column past the container and
+          takes the whole page into horizontal scroll with it. Naming a zero
+          minimum is what makes the track shrinkable, and it is why every
+          two-column layout in the app now says minmax.
+        */}
+        <div className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-12">
           <section aria-labelledby="phases-heading" className="min-w-0">
             <h2 id="phases-heading" className="sr-only">
               Roadmap phases

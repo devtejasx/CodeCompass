@@ -16,9 +16,22 @@ export function AppHeader({ name, email }: { name: string; email: string }) {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
       <Container>
-        <div className="flex h-16 items-center justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-6">
-            <Link href="/dashboard" className="rounded-lg" aria-label="CodeCompass">
+        <div className="flex h-16 items-center justify-between gap-3 sm:gap-4">
+          {/*
+            The 24px gap belongs to the desktop navigation row, where it
+            separates the wordmark from nine links. Below `xl` the only thing
+            next to the logo is the menu button, and at 320px that gap was the
+            difference between fitting and not: logo 143 + gap 24 + button 37
+            came to 204px in a 195px box, so the wordmark was squeezed by 9px.
+            It tightens on small screens and returns to 24px where the nav row
+            it exists for actually appears.
+          */}
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4 xl:gap-6">
+            <Link
+              href="/dashboard"
+              className="shrink-0 rounded-lg"
+              aria-label="CodeCompass"
+            >
               <Logo />
             </Link>
             <AppNav />

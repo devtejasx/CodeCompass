@@ -7,7 +7,7 @@ export function SiteFooter() {
   return (
     <footer className="border-t border-border">
       <Container>
-        <div className="grid gap-12 py-16 lg:grid-cols-[1.5fr_2fr]">
+        <div className="grid gap-12 py-16 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,2fr)]">
           <div className="flex flex-col gap-4">
             <Logo />
             <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">

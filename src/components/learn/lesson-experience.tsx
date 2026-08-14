@@ -107,7 +107,7 @@ export function LessonExperience({
   };
 
   return (
-    <div className="grid gap-10 lg:grid-cols-[1fr_17rem] lg:gap-12">
+    <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_17rem] lg:gap-12">
       <div className="min-w-0">
         {/* Resume prompt — only when they've started but not finished. */}
         {done > 0 && done < total && nextUnread ? (

@@ -194,7 +194,13 @@ export function ProblemWorkspace({
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:gap-8">
       {/* ── Problem ─────────────────────────────────────────────── */}
-      <div className="min-w-0 lg:max-h-[calc(100vh-9rem)] lg:overflow-y-auto lg:pr-4">
+      {/*
+        The independently-scrolling problem column is a desktop affordance and
+        stays one: below `lg` it is simply part of the page. `dvh` alongside `vh`
+        because the split view is reachable on a landscape tablet, where `vh`
+        over-measures by the height of the browser chrome.
+      */}
+      <div className="min-w-0 lg:max-h-[calc(100dvh-9rem)] lg:overflow-y-auto lg:pr-4">
         <ProblemPanel
           problem={problem}
           hiddenTestCount={hiddenTestCount}
@@ -271,7 +277,17 @@ export function ProblemWorkspace({
         </div>
 
         {/* ── Editor ───────────────────────────────────────────── */}
-        <div className="h-[22rem] sm:h-[26rem] lg:h-[calc(100vh-26rem)] lg:min-h-[24rem]">
+        {/*
+          Sized off the *viewport* on a phone rather than left at a flat 22rem.
+          A fixed 352px editor is a reasonable share of a 812px phone and a poor
+          one of a 667px phone, where it left barely a hundred pixels for the
+          Run button and the result panel below it. `60dvh` keeps the editor
+          proportionate at either size and — unlike `vh` — measures the space
+          that is actually on screen, so the Run button is never parked under
+          the address bar. The floors stop it collapsing on a very short screen,
+          and desktop keeps its existing fill-the-window behaviour.
+        */}
+        <div className="h-[max(18rem,60dvh)] sm:h-[26rem] lg:h-[calc(100dvh-26rem)] lg:min-h-[24rem]">
           <CodeEditor
             value={code}
             onChange={setCode}

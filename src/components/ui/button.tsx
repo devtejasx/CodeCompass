@@ -16,11 +16,19 @@ const buttonVariants = cva(
         ghost: "text-muted-foreground hover:bg-surface hover:text-foreground",
         link: "text-foreground underline-offset-4 hover:underline",
       },
+      /*
+       * `tap-target` on the compact sizes only: sm is 32px and icon is 40px,
+       * which are both under a dependable thumb target, and on a phone these
+       * are the buttons in toolbars and card footers where a near miss is most
+       * likely. It extends the hit area to 44px on touch devices without
+       * changing the rendered size, so the desktop density is preserved. md and
+       * lg are already 40 and 44px tall with generous padding.
+       */
       size: {
-        sm: "h-8 px-3",
+        sm: "tap-target h-8 px-3",
         md: "h-10 px-4",
         lg: "h-11 px-5 text-[0.9375rem]",
-        icon: "size-10",
+        icon: "tap-target size-10",
       },
     },
     defaultVariants: { variant: "primary", size: "md" },
