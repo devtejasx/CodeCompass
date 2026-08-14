@@ -10,21 +10,28 @@ import { LANGUAGE_LABEL } from "@/lib/practice/languages";
 import { cn } from "@/lib/utils";
 import type { SubmissionSummary } from "@/lib/practice/queries";
 
+interface SubmissionHistoryProps {
+  submissions: SubmissionSummary[];
+  /** Puts the chosen submission's source back in the editor. */
+  onLoadCode: (code: string, language: SubmissionSummary["language"]) => void;
+}
+
 /**
  * This learner's own submissions for this problem.
  *
  * "Own" is enforced on the server — the query is scoped by session user id, and
  * so is the action that loads the source behind "View code". Nothing here can
  * be pointed at somebody else's row.
+ *
+ * Memoised for the same reason as the problem panel: the list only changes when
+ * a submission completes, but it lives inside a component that re-renders on
+ * every keystroke. Its callback is a `useCallback` at the call site, without
+ * which this memo would never hit.
  */
-export function SubmissionHistory({
+export const SubmissionHistory = React.memo(function SubmissionHistory({
   submissions,
   onLoadCode,
-}: {
-  submissions: SubmissionSummary[];
-  /** Puts the chosen submission's source back in the editor. */
-  onLoadCode: (code: string, language: SubmissionSummary["language"]) => void;
-}) {
+}: SubmissionHistoryProps) {
   const [loadingId, setLoadingId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -131,7 +138,7 @@ export function SubmissionHistory({
       ) : null}
     </div>
   );
-}
+});
 
 /** Coarse and deliberately imprecise — nobody needs "4m 12s ago". */
 function relativeTime(date: Date): string {

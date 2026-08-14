@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ChevronDown, Clock3, Compass, Hammer, Lock } from "lucide-react";
 
 import { TopicList } from "@/components/roadmap/topic-list";
@@ -34,6 +33,14 @@ interface PhaseTimelineProps {
  * Locked phases still expand. Hiding their contents would defeat the point of
  * the page, which is to let someone understand the whole journey before
  * starting it; "locked" here communicates sequence, not secrecy.
+ *
+ * The expand animation is CSS (see `.disclosure` in globals.css). It used to be
+ * Framer Motion animating `height: auto`, which made this the only component on
+ * the roadmap that needed the library — 56kB of JavaScript, on the page a
+ * learner opens most often, for one accordion. The motion is identical; the
+ * panels are now always mounted and `inert` while closed, so collapsed content
+ * stays out of the tab order and the accessibility tree exactly as unmounting
+ * left it.
  */
 export function PhaseTimeline({
   phases,
@@ -42,8 +49,6 @@ export function PhaseTimeline({
   topicsWithLessons,
   phaseProjects = {},
 }: PhaseTimelineProps) {
-  const reduced = useReducedMotion();
-
   // The phase the learner starts on opens by default; the rest stay collapsed
   // so the page is scannable as a sequence first.
   const initiallyOpen = phases.find(
@@ -140,60 +145,53 @@ export function PhaseTimeline({
                   </button>
                 </h3>
 
-                <AnimatePresence initial={false}>
-                  {isOpen ? (
-                    <motion.div
-                      id={`phase-panel-${phase.id}`}
-                      initial={{ height: reduced ? "auto" : 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: reduced ? "auto" : 0, opacity: 0 }}
-                      transition={{
-                        duration: reduced ? 0 : 0.24,
-                        ease: [0.16, 1, 0.3, 1],
-                      }}
-                      className="overflow-hidden"
-                    >
-                      <div className="border-t border-border p-5">
-                        {/*
+                <div
+                  id={`phase-panel-${phase.id}`}
+                  className="disclosure"
+                  data-open={isOpen}
+                  inert={!isOpen}
+                >
+                  <div>
+                    <div className="border-t border-border p-5">
+                      {/*
                           The differentiator: not just what comes next, but why
                           it comes next. Shown for every phase, not only the
                           current one, so the whole sequence is explicable.
                         */}
-                        <div className="mb-5 flex gap-3 rounded-lg border border-border bg-surface/60 p-4">
-                          <Compass
-                            className="mt-0.5 size-4 shrink-0 text-indigo-400"
-                            aria-hidden
-                          />
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium uppercase tracking-label text-subtle-foreground">
-                              Why this comes next
-                            </p>
-                            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                              {phase.whyThisComesNext}
-                            </p>
-                          </div>
-                        </div>
-
-                        <TopicList
-                          topics={phase.topics}
-                          states={topicStates}
-                          topicsWithLessons={topicsWithLessons}
+                      <div className="mb-5 flex gap-3 rounded-lg border border-border bg-surface/60 p-4">
+                        <Compass
+                          className="mt-0.5 size-4 shrink-0 text-indigo-400"
+                          aria-hidden
                         />
-
-                        {/* Learn the topics, then build with them. */}
-                        <PhaseProjects projects={phaseProjects[phase.id] ?? []} />
-
-                        {status.state === "LOCKED" ? (
-                          <p className="mt-4 flex items-center gap-2 text-xs text-subtle-foreground">
-                            <Lock className="size-3.5 shrink-0" aria-hidden />
-                            Locked for now — finish the earlier phases first. You can
-                            still read everything here.
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium uppercase tracking-label text-subtle-foreground">
+                            Why this comes next
                           </p>
-                        ) : null}
+                          <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                            {phase.whyThisComesNext}
+                          </p>
+                        </div>
                       </div>
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>
+
+                      <TopicList
+                        topics={phase.topics}
+                        states={topicStates}
+                        topicsWithLessons={topicsWithLessons}
+                      />
+
+                      {/* Learn the topics, then build with them. */}
+                      <PhaseProjects projects={phaseProjects[phase.id] ?? []} />
+
+                      {status.state === "LOCKED" ? (
+                        <p className="mt-4 flex items-center gap-2 text-xs text-subtle-foreground">
+                          <Lock className="size-3.5 shrink-0" aria-hidden />
+                          Locked for now — finish the earlier phases first. You can
+                          still read everything here.
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </li>

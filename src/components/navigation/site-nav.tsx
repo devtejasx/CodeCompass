@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Menu, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,6 @@ import { NAV_LINKS } from "@/lib/data/site";
 import { cn } from "@/lib/utils";
 
 export function SiteNav() {
-  const reduced = useReducedMotion();
   const [scrolled, setScrolled] = React.useState(false);
   const [open, setOpen] = React.useState(false);
 
@@ -93,44 +91,46 @@ export function SiteNav() {
         </div>
       </Container>
 
-      <AnimatePresence>
-        {open ? (
-          <motion.div
-            id="mobile-menu"
-            initial={{ opacity: 0, height: reduced ? "auto" : 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: reduced ? "auto" : 0 }}
-            transition={{ duration: reduced ? 0 : 0.24, ease: [0.16, 1, 0.3, 1] }}
-            className="overflow-hidden border-t border-border md:hidden"
-          >
-            <Container className="py-4">
-              <nav aria-label="Mobile">
-                <ul className="flex flex-col">
-                  {NAV_LINKS.map((link) => (
-                    <li key={link.label}>
-                      <a
-                        href={link.href}
-                        onClick={() => setOpen(false)}
-                        className="block rounded-lg px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
-                      >
-                        {link.label}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-              <div className="mt-3 flex flex-col gap-2 border-t border-border pt-4">
-                <Button variant="secondary" asChild onClick={() => setOpen(false)}>
-                  <a href="/login">Log in</a>
-                </Button>
-                <Button asChild onClick={() => setOpen(false)}>
-                  <a href="/signup">Start Your Journey</a>
-                </Button>
-              </div>
-            </Container>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      {/*
+        The same CSS disclosure the roadmap uses. Animating `height: auto` in
+        JavaScript meant measuring the panel on every frame; the grid-fraction
+        transition gets the identical result from the compositor. `inert` while
+        closed keeps the links and the two buttons out of the tab order.
+      */}
+      <div
+        id="mobile-menu"
+        data-open={open}
+        inert={!open}
+        className="disclosure border-t border-border md:hidden"
+      >
+        <div>
+          <Container className="py-4">
+            <nav aria-label="Mobile">
+              <ul className="flex flex-col">
+                {NAV_LINKS.map((link) => (
+                  <li key={link.label}>
+                    <a
+                      href={link.href}
+                      onClick={() => setOpen(false)}
+                      className="block rounded-lg px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+            <div className="mt-3 flex flex-col gap-2 border-t border-border pt-4">
+              <Button variant="secondary" asChild onClick={() => setOpen(false)}>
+                <a href="/login">Log in</a>
+              </Button>
+              <Button asChild onClick={() => setOpen(false)}>
+                <a href="/signup">Start Your Journey</a>
+              </Button>
+            </div>
+          </Container>
+        </div>
+      </div>
     </header>
   );
 }

@@ -48,6 +48,49 @@ export function CodeEditor({
   runRef.current = onRun;
   submitRef.current = onSubmit;
 
+  /*
+   * The options object is memoised because @monaco-editor/react diffs it by
+   * identity and calls `editor.updateOptions` whenever it changes.
+   *
+   * Built inline, it was a new object on every render — and this component
+   * re-renders on every keystroke, because the buffer it displays is state in
+   * the workspace above it. So each character typed also pushed a full
+   * configuration update into Monaco: re-resolving the font, the tab size, the
+   * scrollbar sizes, bracket colourisation. Nothing visibly broke, which is why
+   * it survived; it was simply a pile of work per keypress that nothing asked
+   * for.
+   *
+   * Only `readOnly` and the two language-derived values can actually change,
+   * so those are the dependencies. Everything else is constant by construction.
+   */
+  const options = React.useMemo(
+    () => ({
+      readOnly,
+      fontSize: 13.5,
+      fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
+      fontLigatures: false,
+      lineNumbers: "on" as const,
+      minimap: { enabled: false },
+      scrollBeyondLastLine: false,
+      smoothScrolling: true,
+      padding: { top: 14, bottom: 14 },
+      tabSize: language === "PYTHON" ? 4 : 2,
+      insertSpaces: true,
+      automaticLayout: true,
+      renderLineHighlight: "line" as const,
+      bracketPairColorization: { enabled: true },
+      scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
+      // Tab moves focus until the learner opts in with Ctrl+M, so the
+      // editor never becomes a keyboard trap on the way to the Run button.
+      tabFocusMode: true,
+      ariaLabel: "Code editor. Press Control M to toggle tab trapping.",
+      quickSuggestions: { other: true, comments: false, strings: false },
+      suggestOnTriggerCharacters: true,
+      wordBasedSuggestions: "currentDocument" as const,
+    }),
+    [language, readOnly],
+  );
+
   const handleMount: OnMount = (editor, monaco) => {
     monaco.editor.defineTheme(THEME_NAME, {
       base: "vs-dark",
@@ -86,30 +129,7 @@ export function CodeEditor({
         value={value}
         onChange={(next) => onChange(next ?? "")}
         onMount={handleMount}
-        options={{
-          readOnly,
-          fontSize: 13.5,
-          fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
-          fontLigatures: false,
-          lineNumbers: "on",
-          minimap: { enabled: false },
-          scrollBeyondLastLine: false,
-          smoothScrolling: true,
-          padding: { top: 14, bottom: 14 },
-          tabSize: language === "PYTHON" ? 4 : 2,
-          insertSpaces: true,
-          automaticLayout: true,
-          renderLineHighlight: "line",
-          bracketPairColorization: { enabled: true },
-          scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
-          // Tab moves focus until the learner opts in with Ctrl+M, so the
-          // editor never becomes a keyboard trap on the way to the Run button.
-          tabFocusMode: true,
-          ariaLabel: "Code editor. Press Control M to toggle tab trapping.",
-          quickSuggestions: { other: true, comments: false, strings: false },
-          suggestOnTriggerCharacters: true,
-          wordBasedSuggestions: "currentDocument",
-        }}
+        options={options}
         loading={<EditorSkeleton />}
       />
     </div>

@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ChevronDown, LogOut } from "lucide-react";
 
 import { logout } from "@/app/actions/auth";
@@ -24,8 +23,15 @@ function initialsOf(name: string) {
   );
 }
 
+/**
+ * The account dropdown.
+ *
+ * Opens with a CSS fade-and-drop (`.pop` in globals.css) rather than Framer
+ * Motion. This component sits in the authenticated layout, so it was on every
+ * signed-in page, and the animation it needed the library for was four pixels
+ * of travel and a fade.
+ */
 export function AccountMenu({ name, email }: AccountMenuProps) {
-  const reduced = useReducedMotion();
   const [open, setOpen] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
 
@@ -81,36 +87,40 @@ export function AccountMenu({ name, email }: AccountMenuProps) {
         />
       </button>
 
-      <AnimatePresence>
-        {open ? (
-          <motion.div
-            id="account-menu"
-            role="menu"
-            initial={{ opacity: 0, y: reduced ? 0 : -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: reduced ? 0 : -4 }}
-            transition={{ duration: reduced ? 0 : 0.15, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-xl border border-border bg-surface-raised shadow-lg"
-          >
-            <div className="border-b border-border px-4 py-3">
-              <p className="truncate text-sm font-medium text-foreground">{name}</p>
-              <p className="truncate text-xs text-muted-foreground">{email}</p>
-            </div>
+      {/*
+        Mounted at all times so CSS can animate it closed as well as open, and
+        `inert` while closed so the log-out button is neither tabbable nor
+        announced — the same isolation unmounting used to provide.
 
-            {/* A real form post, so logout works without client-side auth state. */}
-            <form action={logout}>
-              <button
-                type="submit"
-                role="menuitem"
-                className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
-              >
-                <LogOut className="size-4" aria-hidden />
-                Log out
-              </button>
-            </form>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+        `max-w` keeps the 16rem panel inside a 320px viewport: it is anchored to
+        the right edge of a button that already sits most of the way across the
+        header, so on the narrowest phones the fixed width alone would hang off
+        the screen.
+      */}
+      <div
+        id="account-menu"
+        role="menu"
+        data-open={open}
+        inert={!open}
+        className="pop absolute right-0 z-50 mt-2 w-64 max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-xl border border-border bg-surface-raised shadow-lg"
+      >
+        <div className="border-b border-border px-4 py-3">
+          <p className="truncate text-sm font-medium text-foreground">{name}</p>
+          <p className="truncate text-xs text-muted-foreground">{email}</p>
+        </div>
+
+        {/* A real form post, so logout works without client-side auth state. */}
+        <form action={logout}>
+          <button
+            type="submit"
+            role="menuitem"
+            className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
+          >
+            <LogOut className="size-4" aria-hidden />
+            Log out
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

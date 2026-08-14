@@ -173,11 +173,28 @@ export function ProblemWorkspace({
     [code, executionUnavailable, language, problem.id, router, running],
   );
 
-  const reset = () => {
+  /*
+   * Stable identities for the two callbacks handed to children.
+   *
+   * `loadSubmissionCode` is what makes `SubmissionHistory`'s memo hold: as an
+   * inline arrow it was a new function on every keystroke, so the history list
+   * re-rendered with it. `reset` follows the same rule for consistency, since
+   * both are handed to components that have no other reason to update while the
+   * learner types.
+   */
+  const reset = React.useCallback(() => {
     setCode(starter);
     setResult(null);
     setError(null);
-  };
+  }, [setCode, starter]);
+
+  const loadSubmissionCode = React.useCallback(
+    (loaded: string, loadedLanguage: CodeLanguage) => {
+      if (languages.includes(loadedLanguage)) setLanguage(loadedLanguage);
+      setBuffers((previous) => new Map(previous).set(loadedLanguage, loaded));
+    },
+    [languages],
+  );
 
   const copy = async () => {
     try {
@@ -367,10 +384,7 @@ export function ProblemWorkspace({
           <div className="mt-3">
             <SubmissionHistory
               submissions={submissions}
-              onLoadCode={(loaded, loadedLanguage) => {
-                if (languages.includes(loadedLanguage)) setLanguage(loadedLanguage);
-                setBuffers((previous) => new Map(previous).set(loadedLanguage, loaded));
-              }}
+              onLoadCode={loadSubmissionCode}
             />
           </div>
         </section>

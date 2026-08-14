@@ -155,6 +155,72 @@
   }
 
   /*
+   * ── Open/close transitions, in CSS ──────────────────────────────
+   *
+   * Four places in the app animated a panel open and closed, and all four did
+   * it by shipping Framer Motion to the browser: the roadmap's phase accordion,
+   * the account dropdown, the careers comparison tray and the marketing mobile
+   * menu. Each animates opacity plus one of height or transform, which CSS has
+   * done natively for years — and on the roadmap that library was the *only*
+   * thing on the page needing JavaScript beyond the toggle itself.
+   *
+   * The animations are unchanged: same durations, same easing, same distances.
+   * What changes is that they cost no bundle. Framer stays where its own
+   * capabilities are actually the reason it is there — the marketing hero's
+   * entrance choreography, the scroll-linked journey line, and the onboarding
+   * wizard's wait-for-exit step transitions.
+   *
+   * Both utilities keep the panel mounted and let `data-open` drive it, because
+   * CSS cannot animate an element that React has already removed. A mounted but
+   * invisible panel would otherwise still be focusable and clickable, so the
+   * closed state is `inert` at the call site — which also takes it out of the
+   * accessibility tree, matching what unmounting used to do.
+   */
+
+  /*
+   * Height, without knowing the height.
+   *
+   * `grid-template-rows: 0fr → 1fr` is the trick: a grid row can be transitioned
+   * between fractions where `height: 0 → auto` cannot, so the panel animates to
+   * exactly its content's height with nothing measured in JavaScript.
+   */
+  .disclosure {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition:
+      grid-template-rows var(--duration-base) var(--ease-out-expo),
+      opacity var(--duration-base) var(--ease-out-expo);
+  }
+
+  /* min-height:0 is required — a grid item refuses to shrink below content. */
+  .disclosure > * {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .disclosure[data-open="true"] {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+
+  /* A dropdown or tray: fades and slides the short distance it came from. */
+  .pop {
+    opacity: 0;
+    translate: 0 var(--pop-from, -0.25rem);
+    pointer-events: none;
+    transition:
+      opacity var(--duration-fast) var(--ease-out-expo),
+      translate var(--duration-fast) var(--ease-out-expo);
+  }
+
+  .pop[data-open="true"] {
+    opacity: 1;
+    translate: 0 0;
+    pointer-events: auto;
+  }
+
+  /*
    * A comfortable tap target without changing how anything looks.
    *
    * The compact controls are 32px tall, which is right for the density they sit

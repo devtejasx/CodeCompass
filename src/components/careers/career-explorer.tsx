@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { GitCompareArrows, Search, SlidersHorizontal, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -34,7 +33,6 @@ interface CareerExplorerProps {
  */
 export function CareerExplorer({ careers }: CareerExplorerProps) {
   const router = useRouter();
-  const reduced = useReducedMotion();
 
   const [query, setQuery] = React.useState("");
   const [category, setCategory] = React.useState<CareerCategory | "ALL">("ALL");
@@ -190,40 +188,40 @@ export function CareerExplorer({ careers }: CareerExplorerProps) {
       )}
 
       {/* ── Comparison tray ────────────────────────────────────── */}
-      <AnimatePresence>
-        {compare.length > 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: reduced ? 0 : 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: reduced ? 0 : 16 }}
-            transition={{ duration: reduced ? 0 : 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed inset-x-0 bottom-0 z-40 px-4 pb-4"
-          >
-            <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface-raised/95 p-3 pl-4 backdrop-blur-xl">
-              <p className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">
-                  {compare.length} selected
-                </span>
-                {compare.length < MIN_COMPARE ? " — pick one more to compare" : null}
-              </p>
+      {/*
+        Slides up in CSS (`.pop`, with the travel pointed downward). It was the
+        only Framer Motion on the careers page, for sixteen pixels and a fade.
+        Kept mounted and `inert` when empty so the buttons inside cannot be
+        tabbed to while the tray is invisible.
+      */}
+      <div
+        data-open={compare.length > 0}
+        inert={compare.length === 0}
+        className="pop fixed inset-x-0 bottom-0 z-40 px-4 pb-4 [--pop-from:1rem]"
+      >
+        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface-raised/95 p-3 pl-4 backdrop-blur-xl">
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">
+              {compare.length} selected
+            </span>
+            {compare.length < MIN_COMPARE ? " — pick one more to compare" : null}
+          </p>
 
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setCompare([])}>
-                  Clear
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={openComparison}
-                  disabled={compare.length < MIN_COMPARE}
-                >
-                  <GitCompareArrows aria-hidden />
-                  Compare
-                </Button>
-              </div>
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setCompare([])}>
+              Clear
+            </Button>
+            <Button
+              size="sm"
+              onClick={openComparison}
+              disabled={compare.length < MIN_COMPARE}
+            >
+              <GitCompareArrows aria-hidden />
+              Compare
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

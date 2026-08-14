@@ -10,19 +10,7 @@ import { DIFFICULTY_BADGE, DIFFICULTY_LABEL } from "@/lib/practice/languages";
 import type { PracticeProblemDetail } from "@/lib/practice/queries";
 import { cn } from "@/lib/utils";
 
-/**
- * The left half of the workspace: statement, examples, constraints, hints and —
- * once the learner has actually attempted the problem — the explanation.
- *
- * Hidden test cases are not here, and cannot be: the query that fed this
- * component never selected them.
- */
-export function ProblemPanel({
-  problem,
-  hiddenTestCount,
-  explanation,
-  solved,
-}: {
+interface ProblemPanelProps {
   problem: PracticeProblemDetail;
   hiddenTestCount: number;
   /**
@@ -31,7 +19,28 @@ export function ProblemPanel({
    */
   explanation: string | null;
   solved: boolean;
-}) {
+}
+
+/**
+ * The left half of the workspace: statement, examples, constraints, hints and —
+ * once the learner has actually attempted the problem — the explanation.
+ *
+ * Hidden test cases are not here, and cannot be: the query that fed this
+ * component never selected them.
+ *
+ * Memoised, which is worth it here specifically: its props are server data that
+ * does not change while somebody is typing, but it sits beside the editor in a
+ * component that re-renders on every keystroke — so without this, each
+ * character retyped the entire statement, every example, the constraints and
+ * the hint list. This is the one component in the workspace where that is true
+ * and the subtree is large enough to matter.
+ */
+export const ProblemPanel = React.memo(function ProblemPanel({
+  problem,
+  hiddenTestCount,
+  explanation,
+  solved,
+}: ProblemPanelProps) {
   const [revealedHints, setRevealedHints] = React.useState(0);
   const [showExplanation, setShowExplanation] = React.useState(false);
 
@@ -261,7 +270,7 @@ export function ProblemPanel({
       <PractiseElsewhere />
     </div>
   );
-}
+});
 
 /**
  * Links out, clearly labelled as other people's sites. CodeCompass has no
