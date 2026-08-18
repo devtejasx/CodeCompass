@@ -2,7 +2,9 @@ import type { SeedProblem } from "../../problems/types";
 
 import { ARRAY_PROBLEMS } from "./arrays";
 import { HASHING_PROBLEMS } from "./hashing";
+import { SLIDING_WINDOW_PROBLEMS } from "./sliding-window";
 import { STRING_PROBLEMS } from "./strings";
+import { TWO_POINTER_PROBLEMS } from "./two-pointers";
 
 /**
  * The interview catalog, one file per pattern.
@@ -24,4 +26,8 @@ export const INTERVIEW_PROBLEMS: SeedProblem[] = [
   ...ARRAY_PROBLEMS,
   ...HASHING_PROBLEMS,
   ...STRING_PROBLEMS,
+
+  // Scanning techniques
+  ...TWO_POINTER_PROBLEMS,
+  ...SLIDING_WINDOW_PROBLEMS,
 ];
