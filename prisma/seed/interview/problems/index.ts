@@ -1,5 +1,9 @@
 import type { SeedProblem } from "../../problems/types";
 
+import { ARRAY_PROBLEMS } from "./arrays";
+import { HASHING_PROBLEMS } from "./hashing";
+import { STRING_PROBLEMS } from "./strings";
+
 /**
  * The interview catalog, one file per pattern.
  *
@@ -15,4 +19,9 @@ import type { SeedProblem } from "../../problems/types";
  * shapes, scanning, order and search, linear structures, greedy, recursion,
  * trees, heaps, graphs, specialised structures, dynamic programming.
  */
-export const INTERVIEW_PROBLEMS: SeedProblem[] = [];
+export const INTERVIEW_PROBLEMS: SeedProblem[] = [
+  // Data you can hold
+  ...ARRAY_PROBLEMS,
+  ...HASHING_PROBLEMS,
+  ...STRING_PROBLEMS,
+];
