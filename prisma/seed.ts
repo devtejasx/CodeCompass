@@ -11,6 +11,7 @@ import { ROADMAPS } from "./seed/roadmaps";
 import { assertValidRoadmaps } from "./seed/roadmaps/validate";
 import { LESSONS } from "./seed/lessons";
 import { ACADEMY_LESSONS, ACADEMY_ROADMAPS } from "./seed/academy";
+import { INTERVIEW_ROADMAPS } from "./seed/interview";
 import {
   assertSeedAllowed,
   countLearnerDataAtRisk,
@@ -1012,7 +1013,12 @@ async function seedLessons() {
  * delete. User data is never touched — profiles reference Career, not Roadmap.
  */
 async function seedRoadmaps() {
-  const all = [...ROADMAPS, ...ACADEMY_ROADMAPS, ...AI_ACADEMY_ROADMAPS];
+  const all = [
+    ...ROADMAPS,
+    ...ACADEMY_ROADMAPS,
+    ...AI_ACADEMY_ROADMAPS,
+    ...INTERVIEW_ROADMAPS,
+  ];
   assertValidRoadmaps(all);
 
   for (const roadmap of all) {

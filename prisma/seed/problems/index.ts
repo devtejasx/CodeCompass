@@ -1,29 +1,34 @@
+import { INTERVIEW_PROBLEMS } from "../interview/problems";
 import { EASY_PROBLEMS } from "./easy";
 import { MEDIUM_PROBLEMS } from "./medium";
 import { REACT_PROBLEMS } from "./react";
 import type { SeedProblem } from "./types";
 
 /**
- * The authored practice catalog: 36 problems, 23 easy and 13 medium.
+ * The authored practice catalog.
  *
- * Weighted deliberately toward easy. A beginner who has just finished their
- * first lesson on arrays needs somewhere to land, not a wall of hard problems.
- * Hard is supported by the data model and is intentionally empty for now.
+ * Two sets, seeded as one. The original 36 are the problems a learner meets
+ * straight after a lesson — small, language-focused, weighted toward easy so a
+ * beginner who has just finished their first lesson on arrays has somewhere to
+ * land. The React set is split by phase rather than difficulty, because what
+ * makes those a set is the topic they practise; see ./react.ts.
  *
- * The general catalog is split by difficulty. The React set is split by *phase*
- * instead, and holds both difficulties, because what makes those problems a set
- * is the topic they practise rather than how hard they are — see ./react.ts for
- * why they exist at all given that the engine cannot render a component.
+ * The interview catalog next door is the company coding-round curriculum,
+ * organised by pattern and ordered by the academy roadmap in
+ * prisma/seed/interview/roadmap.ts. It is appended rather than merged so that
+ * catalog order stays "learn-first problems, then the DSA progression" —
+ * `sortOrder` is array position at seed time.
  *
- * Adding a problem means adding an entry here and re-seeding. No frontend
- * change is required: starter code is generated from the signature and the
- * page renders whatever the database holds.
+ * Adding a problem means adding an entry to one of those files. No frontend
+ * change is required: starter code is generated from the signature and the page
+ * renders whatever the database holds.
  */
 export const PROBLEMS: SeedProblem[] = [
   ...EASY_PROBLEMS,
   ...MEDIUM_PROBLEMS,
   ...REACT_PROBLEMS,
+  ...INTERVIEW_PROBLEMS,
 ];
 
-export { EASY_PROBLEMS, MEDIUM_PROBLEMS, REACT_PROBLEMS };
+export { EASY_PROBLEMS, MEDIUM_PROBLEMS, REACT_PROBLEMS, INTERVIEW_PROBLEMS };
 export type { SeedProblem };
