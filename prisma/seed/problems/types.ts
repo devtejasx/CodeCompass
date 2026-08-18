@@ -80,6 +80,17 @@ export interface SeedTestCase {
   hidden?: boolean;
 }
 
+/**
+ * How often this problem's pattern turns up in interview rounds.
+ *
+ * An editorial judgement, stated as one. See the InterviewFrequency enum in
+ * schema.prisma for what each bucket means and why there is no number and no
+ * company list. Omitted means MEDIUM, which is also what the original
+ * lesson-adjacent catalog leaves it at — those problems exist to practise a
+ * lesson, not to prepare for a round.
+ */
+export type SeedInterviewFrequency = "VERY_HIGH" | "HIGH" | "MEDIUM";
+
 export interface SeedProblem {
   slug: string;
   title: string;
@@ -97,9 +108,20 @@ export interface SeedProblem {
   timeLimitMs?: number;
   memoryLimitMb?: number;
 
+  /** Interview relevance. Defaults to MEDIUM when omitted. */
+  interviewFrequency?: SeedInterviewFrequency;
+
   signature: SeedSignature;
 
-  /** Topic slugs this practises. Every one must exist in a seeded roadmap. */
+  /**
+   * Topic slugs this practises. Every one must exist in a seeded roadmap.
+   *
+   * The first is the primary topic: it names the pattern on the catalog card
+   * and is the trail the problem page's breadcrumb follows. The rest are the
+   * career-roadmap topics the problem also serves, which is what keeps it
+   * recommendable to someone who is learning JavaScript rather than working
+   * through the interview curriculum.
+   */
   topicSlugs: string[];
 
   examples: SeedExample[];

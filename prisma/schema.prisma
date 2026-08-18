@@ -705,6 +705,30 @@ enum ProblemStatus {
   SOLVED
 }
 
+/// How often a problem's *pattern* turns up in software interview rounds.
+///
+/// Three buckets rather than a number, and deliberately so. A count — "asked
+/// 87 times at Amazon" — is a claim CodeCompass cannot verify from any source
+/// it controls, and publishing an unverifiable number as though it were data is
+/// worse than publishing nothing. A bucket is an editorial judgement, stated as
+/// one, and defensible from how widely the pattern appears in published
+/// interview-preparation material and candidate reports.
+///
+/// VERY_HIGH — a pattern almost every coding round touches (hash-map lookup,
+///             two pointers, BFS on a grid, one-dimensional DP).
+/// HIGH      — commonly asked, and expected at most companies for the level.
+/// MEDIUM    — asked, but usually as the harder half of a round or by
+///             companies known for depth.
+///
+/// There is deliberately no company list. Naming employers per problem would
+/// be inventing specificity, and CodeCompass has verified nothing about who
+/// asks what.
+enum InterviewFrequency {
+  VERY_HIGH
+  HIGH
+  MEDIUM
+}
+
 /// Languages the practice engine can offer. A language is only shown when the
 /// configured execution service reports that it supports it AND the problem has
 /// starter code for it, so this enum growing does not by itself expose a
@@ -768,6 +792,11 @@ model PracticeProblem {
 
   /// Stable catalog ordering, independent of insertion order.
   sortOrder Int @default(0)
+
+  /// Interview relevance, as a bucket. Read by the catalog card and used as a
+  /// tie-break when ranking recommendations — two problems for the topic a
+  /// learner is on, and the one interviews ask more often goes first.
+  interviewFrequency InterviewFrequency @default(MEDIUM)
 
   examples  PracticeExample[]
   testCases PracticeTestCase[]
@@ -850,6 +879,16 @@ model ProblemTopic {
 
   problem PracticeProblem @relation(fields: [problemId], references: [id], onDelete: Cascade)
   topic   Topic           @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  /// The one topic that names what this problem *is*.
+  ///
+  /// A problem belongs to several topics on purpose — "Two Sum" practises the
+  /// DSA hashing pattern and also the career roadmap's arrays topic, which is
+  /// what keeps it recommendable to a frontend learner who has never opened the
+  /// interview curriculum. But a card has room for one label and a breadcrumb
+  /// has room for one trail, and picking "whichever row Postgres returned
+  /// first" is not a decision. Exactly one link per problem is primary.
+  isPrimary Boolean @default(false)
 
   createdAt DateTime @default(now())
 

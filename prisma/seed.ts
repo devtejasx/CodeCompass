@@ -841,6 +841,7 @@ async function seedProblems() {
       memoryLimitMb: problem.memoryLimitMb ?? 128,
       estimatedTime: problem.estimatedTime,
       sortOrder: index,
+      interviewFrequency: problem.interviewFrequency ?? ("MEDIUM" as const),
     };
 
     const row = await db.practiceProblem.upsert({
@@ -891,8 +892,12 @@ async function seedProblems() {
       });
     }
 
-    for (const topicId of topicIds) {
-      await db.problemTopic.create({ data: { problemId: row.id, topicId } });
+    // The first authored topic is the primary one: it names the pattern on the
+    // card and is the breadcrumb the problem page shows.
+    for (const [position, topicId] of topicIds.entries()) {
+      await db.problemTopic.create({
+        data: { problemId: row.id, topicId, isPrimary: position === 0 },
+      });
     }
   }
 }
