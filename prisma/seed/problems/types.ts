@@ -18,9 +18,41 @@ export type SeedProblemDifficulty = "EASY" | "MEDIUM" | "HARD";
  * The value types the signature generator knows how to spell in each language.
  * Deliberately small: a problem that needs a type outside this set is a signal
  * that the problem is too advanced for the practice engine as it stands.
+ *
+ * Two shapes that interview problems need are deliberately expressed in terms
+ * of these rather than added as types of their own:
+ *
+ *   A linked list is `int[]` — its values, in order. The learner is told so in
+ *   the statement. Pointer surgery is a language exercise; the algorithm being
+ *   practised (reverse, detect a cycle, merge two sorted lists) is the same
+ *   either way, and this version runs unchanged in all five languages.
+ *
+ *   A binary tree is `int?[]`, its level-order serialisation. Same reasoning:
+ *   a shared wire format beats five node definitions the harness would have to
+ *   agree with.
  */
 export type ValueType =
-  "int" | "float" | "string" | "bool" | "int[]" | "float[]" | "string[]";
+  | "int"
+  | "float"
+  | "string"
+  | "bool"
+  | "int[]"
+  | "float[]"
+  | "string[]"
+  /**
+   * A rectangular or ragged list of integer lists: a grid, an edge list, a
+   * set of intervals. One type covers all three because the harness only
+   * needs to spell it, and JSON already carries the shape.
+   */
+  | "int[][]"
+  /**
+   * Integers with holes in them. This exists for exactly one purpose: the
+   * level-order serialisation of a binary tree, where a hole means "no child
+   * here". Modelling a tree as its serialisation rather than as a node type
+   * keeps a tree problem runnable in every language without the harness
+   * needing to know what a TreeNode is in each of them.
+   */
+  | "int?[]";
 
 export interface SeedSignature {
   /** camelCase. The Python harness receives the snake_case form. */

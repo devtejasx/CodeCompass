@@ -24,6 +24,8 @@ const TYPE_NAMES: Record<
     "int[]": "number[]",
     "float[]": "number[]",
     "string[]": "string[]",
+    "int[][]": "number[][]",
+    "int?[]": "(number | null)[]",
   },
   PYTHON: {
     int: "int",
@@ -33,6 +35,8 @@ const TYPE_NAMES: Record<
     "int[]": "list[int]",
     "float[]": "list[float]",
     "string[]": "list[str]",
+    "int[][]": "list[list[int]]",
+    "int?[]": "list[int | None]",
   },
   JAVA: {
     int: "int",
@@ -42,6 +46,9 @@ const TYPE_NAMES: Record<
     "int[]": "int[]",
     "float[]": "double[]",
     "string[]": "String[]",
+    "int[][]": "int[][]",
+    // Integer, not int: a primitive has no null to spell "no child here".
+    "int?[]": "Integer[]",
   },
   CPP: {
     int: "int",
@@ -51,6 +58,8 @@ const TYPE_NAMES: Record<
     "int[]": "vector<int>",
     "float[]": "vector<double>",
     "string[]": "vector<string>",
+    "int[][]": "vector<vector<int>>",
+    "int?[]": "vector<optional<int>>",
   },
 };
 
@@ -67,10 +76,25 @@ const STARTER_BODY: Record<SeedLanguage, string> = {
  * C++ and Java need their includes/imports up front. They are part of the
  * generated shell rather than something a learner has to remember, because the
  * problem being practised is the algorithm, not the boilerplate.
+ *
+ * The C++ list covers what an interview solution actually reaches for — a
+ * queue for BFS, a stack for iterative traversal, priority_queue through
+ * <queue>, INT_MAX through <climits>, and optional for a tree's missing
+ * children. Remembering which header std::priority_queue lives in is not the
+ * skill any of these problems exist to practise.
  */
 const CPP_PREAMBLE = [
   "#include <algorithm>",
   "#include <cctype>",
+  "#include <climits>",
+  "#include <cmath>",
+  "#include <functional>",
+  "#include <map>",
+  "#include <numeric>",
+  "#include <optional>",
+  "#include <queue>",
+  "#include <set>",
+  "#include <stack>",
   "#include <string>",
   "#include <unordered_map>",
   "#include <unordered_set>",

@@ -338,6 +338,64 @@ describe("starter code", () => {
     );
   });
 
+  it("spells grids and serialised trees in every language", () => {
+    // The two shapes an interview catalog needs that a flat array cannot carry:
+    // a grid (or edge list, or interval list) and a tree with holes in it.
+    const grid = {
+      name: "countIslands",
+      params: [{ name: "grid", type: "int[][]" as const }],
+      returns: "int" as const,
+    };
+
+    expect(renderStarter(grid, "TYPESCRIPT")).toContain(
+      "function countIslands(grid: number[][]): number",
+    );
+    expect(renderStarter(grid, "PYTHON")).toContain(
+      "def count_islands(grid: list[list[int]]) -> int:",
+    );
+    expect(renderStarter(grid, "JAVA")).toContain(
+      "public static int countIslands(int[][] grid)",
+    );
+    expect(renderStarter(grid, "CPP")).toContain(
+      "int countIslands(const vector<vector<int>>& grid)",
+    );
+
+    const tree = {
+      name: "maxDepth",
+      params: [{ name: "tree", type: "int?[]" as const }],
+      returns: "int" as const,
+    };
+
+    expect(renderStarter(tree, "TYPESCRIPT")).toContain(
+      "function maxDepth(tree: (number | null)[]): number",
+    );
+    expect(renderStarter(tree, "PYTHON")).toContain(
+      "def max_depth(tree: list[int | None]) -> int:",
+    );
+    // Integer rather than int: a missing child has to be spellable as null.
+    expect(renderStarter(tree, "JAVA")).toContain(
+      "public static int maxDepth(Integer[] tree)",
+    );
+    expect(renderStarter(tree, "CPP")).toContain(
+      "int maxDepth(const vector<optional<int>>& tree)",
+    );
+  });
+
+  it("gives C++ the headers an interview solution actually reaches for", () => {
+    const signature = {
+      name: "shortestPath",
+      params: [{ name: "edges", type: "int[][]" as const }],
+      returns: "int" as const,
+    };
+    const source = renderStarter(signature, "CPP");
+
+    // A learner debugging "priority_queue was not declared" is being tested on
+    // header trivia rather than on the algorithm.
+    for (const header of ["queue", "stack", "climits", "optional", "map"]) {
+      expect(source, header).toContain(`#include <${header}>`);
+    }
+  });
+
   it("wraps starter code and the reference solution in the same shell", () => {
     const signature = {
       name: "addTwoNumbers",
