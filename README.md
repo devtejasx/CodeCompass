@@ -155,7 +155,7 @@ Required variables in Vercel → Settings → Environment Variables:
 | Styling    | Tailwind CSS 3.4 over CSS custom properties |
 | Components | shadcn/ui conventions on Radix primitives  |
 | Icons      | lucide-react                               |
-| Motion     | Framer Motion                              |
+| Motion     | CSS transitions; Framer Motion where earned |
 | Fonts      | Geist Sans + Geist Mono (self-hosted)      |
 | Tooling    | ESLint, Prettier                           |
 
@@ -184,6 +184,8 @@ Open <http://localhost:3000>.
 | `npm run lint`      | ESLint                        |
 | `npm run typecheck` | `tsc --noEmit`                |
 | `npm run format`    | Prettier write                |
+| `npm run test`      | Vitest, once                  |
+| `npm run test:watch` | Vitest, watching             |
 
 ---
 
@@ -250,6 +252,83 @@ deliberately — one gradient headline, two soft glows, blur only on app chrome.
 - Decorative visuals are `aria-hidden`; mockups are not announced as headings
 - All body text meets WCAG AA contrast (verified: muted 7.8:1, subtle 4.9:1)
 - Every animation collapses under `prefers-reduced-motion`
+- Panels that animate in CSS stay mounted, and are `inert` while closed —
+  unfocusable, unclickable and out of the accessibility tree, which is what
+  unmounting used to guarantee (verified: 82 focusable elements inside closed
+  roadmap panels, none of them reachable)
+
+---
+
+## Performance
+
+Three things were slow for structural reasons, and each was fixed at the
+structure rather than by shaving milliseconds.
+
+**The dashboard sends the next step first.** It used to await four things
+together and render nothing until the last landed — and the slowest by an order
+of magnitude is the capability count, which intersects every progress table
+against the authored capability sources to feed one number in a card three
+screens down. The page now awaits only `getGuidance`, the question the dashboard
+exists to answer; the week in review, the activity feed and the profile card
+stream in behind their own Suspense boundaries. Separate boundaries, not one
+around the group: sharing one would let the capability count decide when the
+activity feed appears. Measured against the production build, the shell flushes
+at ~60ms and the full response completes at ~215ms. The deferred panels cost
+about 60ms here because Postgres is local — the win scales with database
+latency, which is the case `lib/db.ts` pools for.
+
+Skeletons are sized to the panels they stand in for — same surface, same
+padding, same row count. A placeholder of the wrong height trades a blank area
+for a layout shift, which is the worse of the two.
+
+**Open/close animations cost no bundle.** Four components shipped Framer Motion
+to the browser to animate opacity plus height or a few pixels of transform: the
+roadmap's phase accordion, the account dropdown, the careers comparison tray and
+the marketing mobile menu. Two utilities in `globals.css` — `.disclosure` and
+`.pop` — carry them at the same durations, easing and distances. Height animates
+via `grid-template-rows: 0fr → 1fr`, which reaches the content's exact height
+with nothing measured in JavaScript.
+
+| Route      | Before | After  |
+| ---------- | ------ | ------ |
+| `/roadmap` | 162 kB | 118 kB |
+| `/careers` | 166 kB | 122 kB |
+
+Framer Motion stays where its own capabilities are the reason it is there: the
+marketing hero's entrance choreography, the scroll-linked journey line, and the
+onboarding wizard's wait-for-exit step transitions. None of those is a fade.
+
+**Typing re-renders only what the keystroke changed.** The practice workspace
+owns the buffer, so every character re-rendered its whole subtree. Monaco's
+options object was rebuilt inline each time and `@monaco-editor/react` diffs
+options by identity, so every keystroke pushed a full editor reconfiguration —
+font, tab size, scrollbars, bracket colourisation. It is memoised on the two
+values that can actually change. The problem panel and the submission history
+are memoised too, because their subtrees are large and their props are server
+data that cannot change while somebody types — not as a general policy.
+
+**Reads are memoised per request, never further.** `getGuidance`,
+`getLearnerState`, `getCapabilities`, `countEarnedCapabilities`,
+`getCurrentUser` and friends are wrapped in React's `cache`, so a streamed panel
+needing the learner state gets the object the page already awaited instead of
+re-querying. Request scope is the point: `LearnerState` is derived on read
+precisely so that finishing a lesson changes the answer on the next read, and a
+cache outliving the request would reintroduce the staleness that design avoids.
+Tests complete a topic and change a career between reads and assert both are
+visible immediately.
+
+The career's icon now travels with the learner state. The dashboard and the
+profile both render it beside the career name, and both were issuing a second
+`career.findUnique` for one column of a row they had already loaded.
+
+**The suite pins answers, not durations.** `tests/performance.test.ts` asserts
+that the dashboard's leaner capability count agrees with the profile page's,
+that request-scoped memoisation stays request-scoped, and that the icon still
+arrives with the state — losing that field would render no icon rather than
+fail. No test asserts a timing; those belong in a profiler, not in a suite that
+has to pass on every machine. `.claude/launch.json` carries a production-server
+entry, because Suspense boundaries and bundle sizes do not behave the same under
+the dev server.
 
 ---
 
