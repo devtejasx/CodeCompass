@@ -3,9 +3,11 @@ import type { SeedProblem } from "../../problems/types";
 import { ARRAY_PROBLEMS } from "./arrays";
 import { BINARY_SEARCH_PROBLEMS } from "./binary-search";
 import { HASHING_PROBLEMS } from "./hashing";
+import { LINKED_LIST_PROBLEMS } from "./linked-list";
 import { PREFIX_SUM_PROBLEMS } from "./prefix-sum";
 import { SLIDING_WINDOW_PROBLEMS } from "./sliding-window";
 import { SORTING_PROBLEMS } from "./sorting";
+import { STACK_PROBLEMS } from "./stack";
 import { STRING_PROBLEMS } from "./strings";
 import { TWO_POINTER_PROBLEMS } from "./two-pointers";
 
@@ -38,4 +40,8 @@ export const INTERVIEW_PROBLEMS: SeedProblem[] = [
   // Order and search
   ...SORTING_PROBLEMS,
   ...BINARY_SEARCH_PROBLEMS,
+
+  // Linear structures
+  ...LINKED_LIST_PROBLEMS,
+  ...STACK_PROBLEMS,
 ];
