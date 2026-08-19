@@ -282,6 +282,11 @@ function cppHarness(problem: SeedProblem, source: string): string {
 
 // ── Runners ─────────────────────────────────────────────────────────────────
 
+/** A synchronous pause. Everything else here is synchronous; this matches. */
+function pause(milliseconds: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+}
+
 function runProcess(
   command: string,
   args: string[],
@@ -292,12 +297,23 @@ function runProcess(
   // "C:\Program Files\nodejs\node.exe" becomes the command "C:\Program". So the
   // shell is used only for bare command names, never for a path we already hold.
   const isPath = path.isAbsolute(command);
-  const result = spawnSync(command, args, {
+  const options = {
     cwd,
-    encoding: "utf8",
+    encoding: "utf8" as const,
     timeout: 60_000,
     shell: !isPath && process.platform === "win32",
-  });
+  };
+
+  // Windows occasionally fails to start a freshly written executable with an
+  // opaque UNKNOWN error — a virus scanner or the file system still holding the
+  // file it was handed a moment ago. It is not a verdict about the solution, so
+  // a spawn *error* is retried; a non-zero exit status is not.
+  let result = spawnSync(command, args, options);
+  for (let attempt = 0; attempt < 4 && result.error; attempt += 1) {
+    pause(200);
+    result = spawnSync(command, args, options);
+  }
+
   return {
     ok: result.status === 0,
     stdout: result.stdout ?? "",
