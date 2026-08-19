@@ -2,6 +2,7 @@ import type { SeedProblem } from "../../problems/types";
 
 import { ARRAY_PROBLEMS } from "./arrays";
 import { BACKTRACKING_PROBLEMS } from "./backtracking";
+import { BINARY_TREE_PROBLEMS } from "./binary-tree";
 import { BINARY_SEARCH_PROBLEMS } from "./binary-search";
 import { GREEDY_PROBLEMS } from "./greedy";
 import { HASHING_PROBLEMS } from "./hashing";
@@ -60,4 +61,7 @@ export const INTERVIEW_PROBLEMS: SeedProblem[] = [
   // Recursion and search
   ...RECURSION_PROBLEMS,
   ...BACKTRACKING_PROBLEMS,
+
+  // Trees
+  ...BINARY_TREE_PROBLEMS,
 ];
