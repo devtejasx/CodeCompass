@@ -1,8 +1,11 @@
 import type { SeedProblem } from "../../problems/types";
 
 import { ARRAY_PROBLEMS } from "./arrays";
+import { BINARY_SEARCH_PROBLEMS } from "./binary-search";
 import { HASHING_PROBLEMS } from "./hashing";
+import { PREFIX_SUM_PROBLEMS } from "./prefix-sum";
 import { SLIDING_WINDOW_PROBLEMS } from "./sliding-window";
+import { SORTING_PROBLEMS } from "./sorting";
 import { STRING_PROBLEMS } from "./strings";
 import { TWO_POINTER_PROBLEMS } from "./two-pointers";
 
@@ -30,4 +33,9 @@ export const INTERVIEW_PROBLEMS: SeedProblem[] = [
   // Scanning techniques
   ...TWO_POINTER_PROBLEMS,
   ...SLIDING_WINDOW_PROBLEMS,
+  ...PREFIX_SUM_PROBLEMS,
+
+  // Order and search
+  ...SORTING_PROBLEMS,
+  ...BINARY_SEARCH_PROBLEMS,
 ];
