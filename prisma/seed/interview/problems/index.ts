@@ -3,6 +3,7 @@ import type { SeedProblem } from "../../problems/types";
 import { ARRAY_PROBLEMS } from "./arrays";
 import { BACKTRACKING_PROBLEMS } from "./backtracking";
 import { BINARY_TREE_PROBLEMS } from "./binary-tree";
+import { BST_PROBLEMS } from "./bst";
 import { BINARY_SEARCH_PROBLEMS } from "./binary-search";
 import { GREEDY_PROBLEMS } from "./greedy";
 import { HASHING_PROBLEMS } from "./hashing";
@@ -16,6 +17,8 @@ import { SLIDING_WINDOW_PROBLEMS } from "./sliding-window";
 import { SORTING_PROBLEMS } from "./sorting";
 import { STACK_PROBLEMS } from "./stack";
 import { STRING_PROBLEMS } from "./strings";
+import { TREE_PATH_PROBLEMS } from "./tree-paths";
+import { TREE_TRAVERSAL_PROBLEMS } from "./tree-traversal";
 import { TWO_POINTER_PROBLEMS } from "./two-pointers";
 
 /**
@@ -64,4 +67,7 @@ export const INTERVIEW_PROBLEMS: SeedProblem[] = [
 
   // Trees
   ...BINARY_TREE_PROBLEMS,
+  ...TREE_TRAVERSAL_PROBLEMS,
+  ...BST_PROBLEMS,
+  ...TREE_PATH_PROBLEMS,
 ];
