@@ -2,9 +2,13 @@ import type { SeedProblem } from "../../problems/types";
 
 import { ARRAY_PROBLEMS } from "./arrays";
 import { BINARY_SEARCH_PROBLEMS } from "./binary-search";
+import { GREEDY_PROBLEMS } from "./greedy";
 import { HASHING_PROBLEMS } from "./hashing";
+import { INTERVAL_PROBLEMS } from "./intervals";
 import { LINKED_LIST_PROBLEMS } from "./linked-list";
+import { MONOTONIC_STACK_PROBLEMS } from "./monotonic-stack";
 import { PREFIX_SUM_PROBLEMS } from "./prefix-sum";
+import { QUEUE_DEQUE_PROBLEMS } from "./queue-deque";
 import { SLIDING_WINDOW_PROBLEMS } from "./sliding-window";
 import { SORTING_PROBLEMS } from "./sorting";
 import { STACK_PROBLEMS } from "./stack";
@@ -44,4 +48,10 @@ export const INTERVIEW_PROBLEMS: SeedProblem[] = [
   // Linear structures
   ...LINKED_LIST_PROBLEMS,
   ...STACK_PROBLEMS,
+  ...MONOTONIC_STACK_PROBLEMS,
+  ...QUEUE_DEQUE_PROBLEMS,
+
+  // Choosing greedily
+  ...INTERVAL_PROBLEMS,
+  ...GREEDY_PROBLEMS,
 ];

@@ -15,7 +15,7 @@ import type {
 /**
  * Runs every authored reference solution against that problem's own test cases.
  *
- *   npx tsx scripts/verify-solutions.ts [--slug two-sum] [--languages JS,PY]
+ *   npx tsx scripts/verify-solutions.ts [--slug two-sum,three-sum] [--languages JS,PY]
  *
  * Why this exists
  * ───────────────
@@ -55,6 +55,25 @@ interface Options {
   slug?: string;
   languages: SeedLanguage[];
   problems: SeedProblem[];
+}
+
+/**
+ * Authoring a pattern file means re-checking thirty problems, not one or all
+ * of them, so --slug takes a comma-separated list. A slug that matches nothing
+ * is an error rather than a silent no-op — a typo there would otherwise look
+ * exactly like a clean run.
+ */
+function selectProblems(slugs: string[]): SeedProblem[] {
+  const wanted = new Set(slugs);
+  const found = PROBLEMS.filter((problem) => wanted.has(problem.slug));
+  const missing = slugs.filter(
+    (slug) => !found.some((problem) => problem.slug === slug),
+  );
+  if (missing.length > 0) {
+    console.error(`No problem with slug ${missing.map((s) => `"${s}"`).join(", ")}.`);
+    process.exit(1);
+  }
+  return found;
 }
 
 const ALL_LANGUAGES: SeedLanguage[] = [
@@ -440,7 +459,12 @@ function parseOptions(): Options {
   }
 
   const problems = slug
-    ? PROBLEMS.filter((problem) => problem.slug === slug)
+    ? selectProblems(
+        slug
+          .split(",")
+          .map((entry) => entry.trim())
+          .filter(Boolean),
+      )
     : PROBLEMS;
 
   return { slug, languages, problems };
