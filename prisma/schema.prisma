@@ -793,9 +793,15 @@ model PracticeProblem {
   /// Stable catalog ordering, independent of insertion order.
   sortOrder Int @default(0)
 
-  /// Interview relevance, as a bucket. Read by the catalog card and used as a
-  /// tie-break when ranking recommendations — two problems for the topic a
-  /// learner is on, and the one interviews ask more often goes first.
+  /// Interview relevance, as a bucket. Displayed on the catalog card, and read
+  /// nowhere else.
+  ///
+  /// It is deliberately *not* a recommendation input. Ranking is by topic, then
+  /// difficulty, then authored order — see recommendProblems — so what a
+  /// learner is offered next depends on where they are in the roadmap and not
+  /// on an editorial judgement about how often a pattern is asked. Making
+  /// relevance a tie-break there is a plausible change and would need to be an
+  /// intentional one; this field's contract today is display.
   interviewFrequency InterviewFrequency @default(MEDIUM)
 
   examples  PracticeExample[]
