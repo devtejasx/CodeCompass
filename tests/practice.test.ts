@@ -50,6 +50,7 @@ const { db } = await import("@/lib/db");
 
 const { PROBLEMS } = await import("../prisma/seed/problems");
 const { INTERVIEW_DSA_ROADMAP } = await import("../prisma/seed/interview/roadmap");
+const { INTERVIEW_PROBLEMS } = await import("../prisma/seed/interview/problems");
 type SeedLanguage = import("../prisma/seed/problems/types").SeedLanguage;
 const { validateProblem, validateProblemSet, LANGUAGE_MINIMUMS } =
   await import("../prisma/seed/problems/validate");
@@ -292,6 +293,232 @@ describe("the interview catalog", () => {
         problem.signature.params.every((param) => param.type !== "int?[]"),
     );
     expect(renderStarter(plain!.signature, "JAVASCRIPT")).not.toContain("TreeNode");
+  });
+});
+
+// ── 1b. Catalog integrity, coverage and progression ────────────────────────
+
+/**
+ * What the previous phase asserted loosely, pinned exactly.
+ *
+ * The catalog reached three hundred problems through eleven authoring commits,
+ * and the checks that rode along with them were written to tolerate a set that
+ * was still growing — "roughly three hundred", "every topic is covered". Those
+ * were the right assertions to author against and the wrong ones to ship: a
+ * catalog that quietly became 287 problems, or that grew a Hard-only topic,
+ * would pass every one of them.
+ *
+ * These tests describe the finished shape instead. They read the seed for
+ * structure and the database for what was actually written, because the two
+ * disagreeing is precisely the failure the loose version could not see.
+ */
+describe("the catalog's finished shape", () => {
+  const PHASES = INTERVIEW_DSA_ROADMAP.phases;
+  const TOPICS_IN_ORDER = PHASES.flatMap((phase) => phase.topics);
+
+  /** Curriculum position of a topic slug: earlier index, earlier to learn. */
+  const positionOf = new Map(
+    TOPICS_IN_ORDER.map((topic, index) => [topic.slug, index] as const),
+  );
+
+  const primaryTopicOf = (problem: { topicSlugs: string[] }) => problem.topicSlugs[0];
+
+  it("holds exactly three hundred problems, in the seed and in the database", async () => {
+    // Exact, not a range. The range was for a catalog mid-authoring; this one
+    // is finished, and a problem silently lost in a merge is worth catching.
+    expect(PROBLEMS.length).toBe(300);
+    expect(await db.practiceProblem.count()).toBe(300);
+  });
+
+  it("weights the finished catalog the way an interview curriculum should", async () => {
+    const rows = await db.practiceProblem.groupBy({
+      by: ["difficulty"],
+      _count: true,
+    });
+    const count = Object.fromEntries(
+      rows.map((row) => [row.difficulty, row._count] as const),
+    ) as Record<string, number>;
+
+    // Medium is the interview default, so it is the bulk. Easy has to be
+    // large enough to be an on-ramp, and Hard small enough not to be a wall.
+    expect(count.EASY + count.MEDIUM + count.HARD).toBe(300);
+    expect(count.MEDIUM).toBeGreaterThan(count.EASY);
+    expect(count.MEDIUM).toBeGreaterThan(count.HARD);
+    expect(count.EASY).toBeGreaterThan(count.HARD);
+  });
+
+  it("offers every interview problem in all five languages", () => {
+    // The engine only shows a language it has an answer key for, so a missing
+    // solution is a language quietly disappearing from a problem rather than
+    // an error anybody would see.
+    const languages: SeedLanguage[] = [
+      "JAVASCRIPT",
+      "TYPESCRIPT",
+      "PYTHON",
+      "JAVA",
+      "CPP",
+    ];
+    const short = INTERVIEW_PROBLEMS.filter((problem) =>
+      languages.some((language) => !(language in problem.solutions)),
+    ).map((problem) => problem.slug);
+
+    expect(short).toEqual([]);
+  });
+
+  it("gives every problem exactly one primary topic in the database", async () => {
+    const rows = await db.problemTopic.groupBy({
+      by: ["problemId"],
+      where: { isPrimary: true },
+      _count: true,
+    });
+
+    // The card shows one pattern and the breadcrumb follows one trail. Zero
+    // primaries makes both arbitrary; two makes them non-deterministic.
+    expect(rows.length).toBe(300);
+    expect(rows.every((row) => row._count === 1)).toBe(true);
+  });
+
+  it("never practises a pattern before the pattern it is built on", () => {
+    const inversions: string[] = [];
+
+    for (const topic of TOPICS_IN_ORDER) {
+      for (const required of topic.prerequisites ?? []) {
+        const here = positionOf.get(topic.slug);
+        const there = positionOf.get(required);
+
+        // A prerequisite naming a topic outside this roadmap would make the
+        // ordering unverifiable rather than merely wrong.
+        expect(there, `${topic.slug} requires unknown ${required}`).toBeDefined();
+        if (there! >= here!) inversions.push(`${topic.slug} before ${required}`);
+      }
+    }
+
+    expect(inversions).toEqual([]);
+  });
+
+  it("keeps the four orderings an interview curriculum most often gets wrong", () => {
+    // Named explicitly because each one is a real way a DSA catalog goes
+    // wrong, and a generic ordering check passes even when these are absent.
+    const after = (topic: string, required: string) => {
+      const dependencies = TOPICS_IN_ORDER.find((entry) => entry.slug === topic)
+        ?.prerequisites;
+      expect(dependencies, `${topic} declares no prerequisites`).toBeTruthy();
+      expect(dependencies, `${topic} should require ${required}`).toContain(required);
+    };
+
+    after("dsa-sliding-window", "dsa-two-pointers");
+    after("dsa-dp-2d", "dsa-dp-1d");
+    after("dsa-dp-advanced", "dsa-dp-2d");
+    after("dsa-graph-bfs", "dsa-graph-dfs");
+    after("dsa-tree-paths", "dsa-tree-traversal");
+  });
+
+  it("gives every topic a way in that is not a Hard problem", () => {
+    const byTopic = new Map<string, string[]>();
+    for (const problem of INTERVIEW_PROBLEMS) {
+      const slug = primaryTopicOf(problem);
+      byTopic.set(slug, [...(byTopic.get(slug) ?? []), problem.difficulty]);
+    }
+
+    // A Hard-only topic is unreachable in practice: the learner arrives from
+    // the prerequisite and the first thing offered assumes fluency they came
+    // here to build.
+    const hardOnly = [...byTopic]
+      .filter(([, difficulties]) => difficulties.every((entry) => entry === "HARD"))
+      .map(([slug]) => slug);
+
+    expect(hardOnly).toEqual([]);
+    expect(byTopic.size).toBe(TOPICS_IN_ORDER.length);
+  });
+
+  it("puts its Hard problems late and its Easy problems early", () => {
+    const third = Math.floor(TOPICS_IN_ORDER.length / 3);
+    const share = (from: number, to: number, difficulty: string) => {
+      const slugs = new Set(
+        TOPICS_IN_ORDER.slice(from, to).map((topic) => topic.slug),
+      );
+      const here = INTERVIEW_PROBLEMS.filter((problem) =>
+        slugs.has(primaryTopicOf(problem)),
+      );
+      return (
+        here.filter((problem) => problem.difficulty === difficulty).length /
+        here.length
+      );
+    };
+
+    // Difficulty progression stated against the curriculum's own order rather
+    // than against a second ordering invented for the assertion.
+    const last = TOPICS_IN_ORDER.length;
+    expect(share(0, third, "HARD")).toBeLessThan(share(last - third, last, "HARD"));
+    expect(share(0, third, "EASY")).toBeGreaterThan(share(last - third, last, "EASY"));
+  });
+
+  it("lays the catalog out in curriculum order, one block per phase", async () => {
+    const phases = await db.roadmapPhase.findMany({
+      where: { roadmap: { slug: "interview-dsa" } },
+      orderBy: { order: "asc" },
+      select: {
+        order: true,
+        title: true,
+        topics: {
+          select: {
+            problems: {
+              where: { isPrimary: true },
+              select: { problem: { select: { sortOrder: true } } },
+            },
+          },
+        },
+      },
+    });
+
+    // sortOrder is what the catalog page sorts by, so this is the order a
+    // learner actually scrolls through. Contiguous, non-overlapping blocks in
+    // phase order is the difference between a curriculum and a list.
+    const blocks = phases.map((phase) => {
+      const orders = phase.topics
+        .flatMap((topic) => topic.problems)
+        .map((link) => link.problem.sortOrder);
+      return { title: phase.title, min: Math.min(...orders), max: Math.max(...orders) };
+    });
+
+    expect(blocks.length).toBeGreaterThan(5);
+    for (const [index, block] of blocks.entries()) {
+      if (index === 0) continue;
+      expect(block.min, `${block.title} overlaps ${blocks[index - 1].title}`).toBe(
+        blocks[index - 1].max + 1,
+      );
+    }
+  });
+
+  it("tests the smallest tree each tree problem actually allows", () => {
+    const trees = PROBLEMS.filter((problem) =>
+      problem.signature.params.some((param) => param.type === "int?[]"),
+    );
+    expect(trees.length).toBeGreaterThan(20);
+
+    const uncovered: string[] = [];
+    for (const problem of trees) {
+      const stated = problem.constraints.find((line) =>
+        /holds between (\d+)/.test(line),
+      );
+      // The boundary is only checkable because every tree problem states it.
+      expect(stated, `${problem.slug} states no node-count bound`).toBeTruthy();
+
+      const minimum = Number(/holds between (\d+)/.exec(stated!)![1]);
+      const sizes = problem.tests
+        .flatMap((test) => test.args)
+        .filter((arg): arg is unknown[] => Array.isArray(arg))
+        .map((arg) => arg.filter((value) => value !== null).length);
+      const smallest = Math.min(...sizes);
+
+      // An empty tree where one is legal, a single node where that is the
+      // floor — the case a level-order deserialiser gets wrong first.
+      if (smallest !== minimum) {
+        uncovered.push(`${problem.slug}: allows ${minimum}, smallest tested ${smallest}`);
+      }
+    }
+
+    expect(uncovered).toEqual([]);
   });
 });
 
