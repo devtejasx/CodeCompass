@@ -36,15 +36,45 @@ import type {
  * database connection.
  *
  * Coverage is four of the five languages: JavaScript and TypeScript through
- * node and tsx, Python through python3, C++ through g++. Java is skipped
- * unless a JDK is present, and the summary says so rather than implying a
- * clean run covered it.
+ * node and tsx, Python through python3, C++ through g++.
+ *
+ * Java is skipped in all cases, and the reason is worth stating precisely
+ * rather than as "no JDK": this script has no Java harness at all, so even on a
+ * machine with a JDK installed it would still have nothing to run. The summary
+ * reports Java as authored-and-skipped with that reason attached, and `verify`
+ * throws if it is ever reached for Java, because the one thing this script must
+ * never do is let a language it did not execute appear in the passed column.
  */
+
+/**
+ * How a reference solution failed, not merely that it did.
+ *
+ * A full-catalog run that prints "12 failing solutions" is a list of twelve
+ * things to read; the same run split into "1 wrong answer, 11 timeouts" is a
+ * diagnosis. The kinds are kept separate because they are acted on
+ * differently — a wrong answer means the answer key and the statement disagree
+ * and one of them is wrong, a timeout usually means the harness, and a compile
+ * error is almost always a missing header rather than a wrong algorithm.
+ */
+type FailureKind =
+  | "COMPILE"
+  | "RUNTIME"
+  | "TIMEOUT"
+  | "WRONG_ANSWER"
+  | "OUTPUT"
+  /**
+   * The process never started. On Windows this arrives as an opaque UNKNOWN
+   * from spawnSync when something local — a virus scanner, most likely — holds
+   * a freshly compiled executable closed for a moment. It says nothing about
+   * the solution, and it is kept out of every other bucket for that reason.
+   */
+  | "ENVIRONMENT";
 
 type Verdict =
   | { ok: true }
   | {
       ok: false;
+      kind: FailureKind;
       reason: string;
       caseIndex?: number;
       expected?: string;
@@ -124,6 +154,7 @@ function compareRun(problem: SeedProblem, produced: unknown[]): Verdict {
   if (produced.length !== problem.tests.length) {
     return {
       ok: false,
+      kind: "OUTPUT",
       reason: `harness produced ${produced.length} results for ${problem.tests.length} cases`,
     };
   }
@@ -131,6 +162,7 @@ function compareRun(problem: SeedProblem, produced: unknown[]): Verdict {
     if (!equalValues(test.expected, produced[index])) {
       return {
         ok: false,
+        kind: "WRONG_ANSWER",
         reason: "wrong answer",
         caseIndex: index,
         expected: JSON.stringify(test.expected),
@@ -310,7 +342,13 @@ function runProcess(
   command: string,
   args: string[],
   cwd: string,
-): { ok: boolean; stdout: string; stderr: string } {
+): {
+  ok: boolean;
+  stdout: string;
+  stderr: string;
+  timedOut: boolean;
+  spawnFailed: boolean;
+} {
   // Windows needs a shell to resolve `npx`, `g++` and friends from PATH, but a
   // shell also re-splits an absolute path on its spaces — which is how
   // "C:\Program Files\nodejs\node.exe" becomes the command "C:\Program". So the
@@ -334,17 +372,56 @@ function runProcess(
   // demonstrably not enough for the whole set: a full run left nine solutions
   // reported as failures that all passed when run again, which is the failure
   // mode this retry exists to prevent in the first place.
+  //
+  // A timeout arrives on the same channel and is the opposite kind of event: it
+  // is spawnSync reporting that the process *did* start and then ran past its
+  // limit, which is a verdict about the solution. Retrying it was wrong twice
+  // over — it turned one slow solution into eight sequential minutes of waiting,
+  // and it buried "this never terminates" inside a message about the process
+  // failing to start.
   let result = spawnSync(command, args, options);
-  for (let attempt = 0; attempt < 8 && result.error; attempt += 1) {
+  for (
+    let attempt = 0;
+    attempt < 8 && result.error && !isTimeout(result);
+    attempt += 1
+  ) {
     pause(200 * 2 ** Math.min(attempt, 4));
     result = spawnSync(command, args, options);
+  }
+
+  if (isTimeout(result)) {
+    return {
+      ok: false,
+      stdout: result.stdout ?? "",
+      stderr: `timed out after ${options.timeout}ms`,
+      timedOut: true,
+      spawnFailed: false,
+    };
   }
 
   return {
     ok: result.status === 0,
     stdout: result.stdout ?? "",
     stderr: (result.stderr ?? "") + (result.error ? String(result.error.message) : ""),
+    timedOut: false,
+    // Every retry above is exhausted by this point, so an error still standing
+    // means the process could not be started at all — distinct from a process
+    // that ran and exited non-zero.
+    spawnFailed: Boolean(result.error),
   };
+}
+
+/**
+ * Whether spawnSync killed this process for running past `timeout`.
+ *
+ * Node reports it as an error with code ETIMEDOUT on most platforms, but on
+ * Windows the kill can surface only as the signal, so both are accepted. Being
+ * wrong in the permissive direction costs one lost retry of a genuine spawn
+ * flake; being wrong in the strict direction reinstates the eight-minute wait.
+ */
+function isTimeout(result: ReturnType<typeof spawnSync>): boolean {
+  const code = (result.error as NodeJS.ErrnoException | undefined)?.code;
+  return code === "ETIMEDOUT" || (Boolean(result.error) && result.signal !== null);
 }
 
 function parseAndCompare(problem: SeedProblem, stdout: string): Verdict {
@@ -355,11 +432,16 @@ function parseAndCompare(problem: SeedProblem, stdout: string): Verdict {
   } catch {
     return {
       ok: false,
+      kind: "OUTPUT",
       reason: `harness printed something that is not JSON: ${line.slice(0, 120)}`,
     };
   }
   if (!Array.isArray(produced)) {
-    return { ok: false, reason: "harness did not print an array of results" };
+    return {
+      ok: false,
+      kind: "OUTPUT",
+      reason: "harness did not print an array of results",
+    };
   }
   return compareRun(problem, produced);
 }
@@ -371,32 +453,46 @@ function verify(problem: SeedProblem, language: SeedLanguage, dir: string): Verd
   const source = renderSource(problem.signature, language, body);
   const stem = `${problem.slug}-${language.toLowerCase()}`;
 
+  /**
+   * A failed process, classified by how it failed rather than that it did.
+   *
+   * `last` picks the useful line out of the stream: Python puts the exception
+   * on the final line under a traceback header, everything else puts it first.
+   */
+  const failed = (
+    run: { stderr: string; timedOut: boolean; spawnFailed: boolean },
+    kind: FailureKind,
+    last = false,
+  ): Verdict => ({
+    ok: false,
+    kind: run.timedOut ? "TIMEOUT" : run.spawnFailed ? "ENVIRONMENT" : kind,
+    reason: run.timedOut
+      ? run.stderr
+      : ((last
+          ? run.stderr.trim().split("\n").pop()
+          : run.stderr.trim().split("\n")[0]) ?? "run failed"),
+  });
+
   switch (language) {
     case "JAVASCRIPT": {
       const file = path.join(dir, `${stem}.mjs`);
       writeFileSync(file, javascriptHarness(problem, source));
       const run = runProcess(process.execPath, [file], dir);
-      if (!run.ok)
-        return { ok: false, reason: run.stderr.trim().split("\n")[0] ?? "run failed" };
+      if (!run.ok) return failed(run, "RUNTIME");
       return parseAndCompare(problem, run.stdout);
     }
     case "TYPESCRIPT": {
       const file = path.join(dir, `${stem}.ts`);
       writeFileSync(file, typescriptHarness(problem, source));
       const run = runProcess("npx", ["tsx", file], dir);
-      if (!run.ok)
-        return { ok: false, reason: run.stderr.trim().split("\n")[0] ?? "run failed" };
+      if (!run.ok) return failed(run, "RUNTIME");
       return parseAndCompare(problem, run.stdout);
     }
     case "PYTHON": {
       const file = path.join(dir, `${stem}.py`);
       writeFileSync(file, pythonHarness(problem, source));
       const run = runProcess(PYTHON_COMMAND, [file], dir);
-      if (!run.ok)
-        return {
-          ok: false,
-          reason: run.stderr.trim().split("\n").pop() ?? "run failed",
-        };
+      if (!run.ok) return failed(run, "RUNTIME", true);
       return parseAndCompare(problem, run.stdout);
     }
     case "CPP": {
@@ -409,19 +505,24 @@ function verify(problem: SeedProblem, language: SeedLanguage, dir: string): Verd
         dir,
       );
       if (!compiled.ok) {
-        return {
-          ok: false,
-          reason: `compile error: ${compiled.stderr.trim().split("\n")[0] ?? ""}`,
-        };
+        const verdict = failed(compiled, "COMPILE");
+        return verdict.ok
+          ? verdict
+          : { ...verdict, reason: `compile error: ${verdict.reason}` };
       }
       const run = runProcess(binary, [], dir);
-      if (!run.ok)
-        return { ok: false, reason: run.stderr.trim().split("\n")[0] ?? "run failed" };
+      if (!run.ok) return failed(run, "RUNTIME");
       return parseAndCompare(problem, run.stdout);
     }
     case "JAVA":
-      // Verified only where a JDK exists. Reported as skipped, never as passed.
-      return { ok: true };
+      // Unreachable: main() skips JAVA before reaching here, because this
+      // script has no Java harness. It throws rather than returning ok, so that
+      // removing that guard fails loudly instead of silently reporting every
+      // authored Java solution as verified — which is precisely the claim this
+      // tooling must never make on a machine with no JDK.
+      throw new Error(
+        "verify() has no Java harness; JAVA must be skipped by the caller.",
+      );
   }
 }
 
@@ -477,6 +578,19 @@ function parseOptions(): Options {
   return { slug, languages, problems };
 }
 
+/** One reportable line for a failure: what, where, and the failing case. */
+function describe(
+  problem: SeedProblem,
+  language: SeedLanguage,
+  verdict: Extract<Verdict, { ok: false }>,
+): string {
+  const where =
+    verdict.caseIndex === undefined
+      ? ""
+      : ` (case ${verdict.caseIndex + 1}: expected ${verdict.expected}, got ${verdict.actual})`;
+  return `${problem.slug} [${language}] ${verdict.kind}: ${verdict.reason}${where}`;
+}
+
 function main(): void {
   const { slug, languages, problems } = parseOptions();
 
@@ -496,57 +610,145 @@ function main(): void {
     CPP: available("g++", ["--version"]),
   };
 
-  const failures: string[] = [];
-  const checked: Record<string, number> = {};
-  const skipped: Record<string, number> = {};
+  const failures: {
+    line: string;
+    kind: FailureKind;
+    problem: SeedProblem;
+    language: SeedLanguage;
+    recovered?: boolean;
+  }[] = [];
+  /** Per language: how many were authored, run, passed, failed and skipped. */
+  const tally: Record<string, Record<string, number>> = {};
+  const count = (language: string, column: string) => {
+    tally[language] ??= { authored: 0, verified: 0, passed: 0, failed: 0, skipped: 0 };
+    tally[language][column] += 1;
+  };
+  const reasonFor = (language: SeedLanguage) =>
+    !toolchain[language]
+      ? language === "JAVA"
+        ? "JDK unavailable"
+        : "toolchain unavailable"
+      : "no harness in this script";
+  const skipReason: Record<string, string> = {};
 
   for (const problem of problems) {
     for (const language of languages) {
       if (!(language in problem.solutions)) continue;
+      count(language, "authored");
 
-      if (!toolchain[language]) {
-        skipped[language] = (skipped[language] ?? 0) + 1;
-        continue;
-      }
-      if (language === "JAVA") {
-        // A JDK exists but this script has no Java harness yet; say so rather
-        // than counting it as verified.
-        skipped[language] = (skipped[language] ?? 0) + 1;
+      // Two separate reasons to skip, reported as one: the toolchain is
+      // missing, or it is present and this script cannot drive it. Either way
+      // the solution is unverified, and unverified is never printed as passed.
+      if (!toolchain[language] || language === "JAVA") {
+        count(language, "skipped");
+        skipReason[language] = reasonFor(language);
         continue;
       }
 
       const verdict = verify(problem, language, WORK_DIR);
-      checked[language] = (checked[language] ?? 0) + 1;
+      count(language, "verified");
 
       if (!verdict.ok) {
-        const where =
-          verdict.caseIndex === undefined
-            ? ""
-            : ` (case ${verdict.caseIndex + 1}: expected ${verdict.expected}, got ${verdict.actual})`;
-        failures.push(`${problem.slug} [${language}] ${verdict.reason}${where}`);
+        count(language, "failed");
+        failures.push({
+          kind: verdict.kind,
+          problem,
+          language,
+          line: describe(problem, language, verdict),
+        });
         process.stdout.write("x");
       } else {
+        count(language, "passed");
         process.stdout.write(".");
       }
     }
   }
 
-  process.stdout.write("\n\n");
+  process.stdout.write("\n");
 
-  const verified = Object.entries(checked)
-    .map(([language, count]) => `${language} ${count}`)
-    .join(", ");
-  console.log(`Verified: ${verified || "nothing"}`);
+  // ── Recovery pass ────────────────────────────────────────────────────────
+  //
+  // Exactly one extra attempt for the failures that never started a process,
+  // run after the whole catalog rather than inline. The contention that causes
+  // them is at its worst while three hundred freshly compiled executables are
+  // being handed to the scanner; by the time the run is over it has passed, and
+  // the same binary starts first time. This is the manual "re-run the reported
+  // slugs" step, automated — and it is one pass, not a loop, so the worst case
+  // is bounded at two attempts per solution.
+  const flaked = failures.filter((entry) => entry.kind === "ENVIRONMENT");
+  if (flaked.length > 0) {
+    console.log(`\nRetrying ${flaked.length} that never started a process…`);
+    for (const entry of flaked) {
+      pause(500);
+      const verdict = verify(entry.problem, entry.language, WORK_DIR);
+      if (verdict.ok) {
+        entry.recovered = true;
+        tally[entry.language].failed -= 1;
+        tally[entry.language].passed += 1;
+      } else {
+        entry.kind = verdict.kind;
+        entry.line = describe(entry.problem, entry.language, verdict);
+      }
+    }
+    const recovered = flaked.filter((entry) => entry.recovered).length;
+    console.log(
+      `${recovered} of ${flaked.length} passed on a second attempt — ` +
+        `environment flakes, not solution failures.`,
+    );
+  }
 
-  const notVerified = Object.entries(skipped)
-    .map(([language, count]) => `${language} ${count}`)
-    .join(", ");
-  if (notVerified)
-    console.log(`Not verified (no harness or no toolchain): ${notVerified}`);
+  const remaining = failures.filter((entry) => !entry.recovered);
 
-  if (failures.length > 0) {
-    console.error(`\n${failures.length} failing solution(s):`);
-    for (const failure of failures) console.error(`  - ${failure}`);
+  console.log();
+
+  // A table rather than a sentence, because the question being asked of this
+  // script is per language and "verified" and "passed" are not the same column.
+  const pad = (value: string | number, width: number) => String(value).padEnd(width);
+  console.log(
+    `${pad("Language", 13)}${pad("Authored", 11)}${pad("Verified", 11)}` +
+      `${pad("Passed", 9)}${pad("Failed", 9)}Skipped`,
+  );
+  for (const language of ALL_LANGUAGES) {
+    const row = tally[language];
+    if (!row) continue;
+    console.log(
+      `${pad(language, 13)}${pad(row.authored, 11)}${pad(row.verified, 11)}` +
+        `${pad(row.passed, 9)}${pad(row.failed, 9)}${row.skipped}`,
+    );
+  }
+
+  for (const [language, reason] of Object.entries(skipReason)) {
+    console.log(`\n${language}: ${tally[language].skipped} skipped — ${reason}.`);
+  }
+
+  if (remaining.length > 0) {
+    // Grouped by kind: a run that is eleven flakes and one wrong answer is a
+    // different problem from twelve wrong answers, and the flat list hid that.
+    const kinds = [...new Set(remaining.map((failure) => failure.kind))];
+    console.error(
+      `\n${remaining.length} unresolved: ` +
+        kinds
+          .map((kind) => `${remaining.filter((f) => f.kind === kind).length} ${kind}`)
+          .join(", "),
+    );
+    for (const kind of kinds) {
+      for (const failure of remaining.filter((entry) => entry.kind === kind)) {
+        console.error(`  - ${failure.line}`);
+      }
+    }
+
+    // Both exit non-zero, because in both cases the catalog has not been shown
+    // to be correct — but they are different claims and are worded as such.
+    // Calling a solution wrong when the machine simply refused to start it is
+    // the mistake this whole distinction exists to prevent.
+    const environment = remaining.filter((entry) => entry.kind === "ENVIRONMENT");
+    console.error(
+      environment.length === remaining.length
+        ? `\nNone of these is a solution failure: the process never started, ` +
+            `twice. They are unverified, not wrong.`
+        : `\n${remaining.length - environment.length} of these are real ` +
+            `solution failures and need the content or the answer key fixed.`,
+    );
     process.exit(1);
   }
 
