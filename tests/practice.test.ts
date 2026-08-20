@@ -49,6 +49,8 @@ const { requireUser } = await import("@/lib/session");
 const { db } = await import("@/lib/db");
 
 const { PROBLEMS } = await import("../prisma/seed/problems");
+const { INTERVIEW_DSA_ROADMAP } = await import("../prisma/seed/interview/roadmap");
+type SeedLanguage = import("../prisma/seed/problems/types").SeedLanguage;
 const { validateProblem, validateProblemSet, LANGUAGE_MINIMUMS } =
   await import("../prisma/seed/problems/validate");
 const { renderStarter, renderSource, toSnakeCase } =
@@ -124,11 +126,25 @@ describe("problem listing", () => {
     expect(await db.practiceProblem.count()).toBeGreaterThanOrEqual(31);
   });
 
-  it("weights the catalog toward Easy, as a beginner product should", async () => {
+  /**
+   * This assertion used to be `easy > medium`, and it was right when the
+   * catalog was thirty-six problems that existed to follow a lesson. It is
+   * wrong now, and not because the numbers drifted: an interview curriculum is
+   * mostly Medium because coding rounds are mostly Medium, and a catalog
+   * weighted toward Easy would be a pleasant thing that did not prepare
+   * anybody. Easy is the on-ramp, Hard is the tail.
+   */
+  it("weights the catalog toward Medium, as an interview curriculum should", async () => {
     const easy = await db.practiceProblem.count({ where: { difficulty: "EASY" } });
     const medium = await db.practiceProblem.count({ where: { difficulty: "MEDIUM" } });
+    const hard = await db.practiceProblem.count({ where: { difficulty: "HARD" } });
 
-    expect(easy).toBeGreaterThan(medium);
+    expect(medium).toBeGreaterThan(easy);
+    expect(easy).toBeGreaterThan(hard);
+
+    // Hard is a tail, not a theme. A catalog that is a third Hard is a
+    // competitive-programming set, which is a different product.
+    expect(hard / (easy + medium + hard)).toBeLessThan(0.2);
   });
 
   it("gives every problem examples, visible tests and hidden tests", async () => {
@@ -155,19 +171,148 @@ describe("problem listing", () => {
   });
 });
 
+// ── 1b. The interview catalog ──────────────────────────────────────────────
+
+/**
+ * These read the seed content rather than the database wherever they can, so a
+ * content mistake fails here and never reaches a migration.
+ */
+describe("the interview catalog", () => {
+  const DSA_TOPIC_SLUGS = INTERVIEW_DSA_ROADMAP.phases.flatMap((phase) =>
+    phase.topics.map((topic) => topic.slug),
+  );
+
+  it("holds roughly three hundred problems", () => {
+    expect(PROBLEMS.length).toBeGreaterThanOrEqual(290);
+    expect(PROBLEMS.length).toBeLessThanOrEqual(320);
+  });
+
+  it("covers every topic the DSA roadmap names", () => {
+    const practised = new Set(PROBLEMS.flatMap((problem) => problem.topicSlugs));
+    const uncovered = DSA_TOPIC_SLUGS.filter((slug) => !practised.has(slug));
+
+    // A topic with no problems is a hole in the curriculum, and the roadmap
+    // would still show it as somewhere to go.
+    expect(uncovered).toEqual([]);
+  });
+
+  it("gives every DSA topic a problem that is primarily about it", () => {
+    const primary = new Set(PROBLEMS.map((problem) => problem.topicSlugs[0]));
+    const secondaryOnly = DSA_TOPIC_SLUGS.filter((slug) => !primary.has(slug));
+
+    // Being mentioned by a problem about something else is not coverage: the
+    // first topic is what names the pattern on the card.
+    expect(secondaryOnly).toEqual([]);
+  });
+
+  it("spans the whole curriculum rather than piling up on arrays and strings", () => {
+    const counts = new Map<string, number>();
+    for (const problem of PROBLEMS) {
+      const slug = problem.topicSlugs[0];
+      counts.set(slug, (counts.get(slug) ?? 0) + 1);
+    }
+
+    const largest = Math.max(...counts.values());
+    expect(largest / PROBLEMS.length).toBeLessThan(0.1);
+  });
+
+  it("uses no slug twice", () => {
+    const slugs = PROBLEMS.map((problem) => problem.slug);
+    expect(new Set(slugs).size).toBe(slugs.length);
+  });
+
+  it("names only topics that a seeded roadmap actually defines", async () => {
+    const known = new Set(
+      (await db.topic.findMany({ select: { slug: true } })).map((row) => row.slug),
+    );
+    const dangling = [
+      ...new Set(PROBLEMS.flatMap((problem) => problem.topicSlugs)),
+    ].filter((slug) => !known.has(slug));
+
+    expect(dangling).toEqual([]);
+  });
+
+  it("passes its own content validator", () => {
+    expect(validateProblemSet(PROBLEMS)).toEqual([]);
+    for (const problem of PROBLEMS) {
+      expect(validateProblem(problem), problem.slug).toEqual([]);
+    }
+  });
+
+  it("records interview relevance without inventing company claims", async () => {
+    const rows = await db.practiceProblem.findMany({
+      select: { interviewFrequency: true },
+    });
+
+    const buckets = new Set(rows.map((row) => row.interviewFrequency));
+    expect(buckets.has("VERY_HIGH")).toBe(true);
+    expect(buckets.has("HIGH")).toBe(true);
+
+    // The enum has three buckets and no company field, so there is nowhere for
+    // a fabricated "asked at X 87 times" to live even if somebody wanted one.
+    expect([...buckets].every((bucket) =>
+      ["VERY_HIGH", "HIGH", "MEDIUM"].includes(bucket),
+    )).toBe(true);
+  });
+
+  it("carries relevance onto the catalog payload, and nothing more", async () => {
+    const user = await makeUser("relevance@example.com");
+    const [problem] = await listProblems(user.id);
+
+    expect(problem.interviewFrequency).toBeTruthy();
+    // The catalog is metadata. A statement or a test case here would mean the
+    // whole book is shipped to render a list of cards.
+    expect(problem).not.toHaveProperty("description");
+    expect(problem).not.toHaveProperty("explanation");
+    expect(problem).not.toHaveProperty("testCases");
+  });
+
+  it("offers a tree problem a real node type in every language it ships", () => {
+    const tree = PROBLEMS.find((problem) =>
+      problem.signature.params.some((param) => param.type === "int?[]"),
+    );
+    expect(tree).toBeTruthy();
+
+    // Without this the learner would have to write a level-order deserialiser
+    // before writing any of the algorithm, in whichever language they chose.
+    for (const language of Object.keys(tree!.solutions) as SeedLanguage[]) {
+      const starter = renderStarter(tree!.signature, language);
+      expect(starter, language).toContain("TreeNode");
+      // Python spells the helper build_tree, so compare with the separator
+      // removed rather than asserting one language's casing on all five.
+      const flattened = starter.toLowerCase().replace(/_/g, "");
+      expect(flattened, language).toContain("buildtree");
+    }
+  });
+
+  it("leaves the prelude out of problems that have no tree in them", () => {
+    const plain = PROBLEMS.find(
+      (problem) =>
+        problem.signature.returns !== "int?[]" &&
+        problem.signature.params.every((param) => param.type !== "int?[]"),
+    );
+    expect(renderStarter(plain!.signature, "JAVASCRIPT")).not.toContain("TreeNode");
+  });
+});
+
 // ── 2. Filtering ───────────────────────────────────────────────────────────
 
 describe("problem filtering", () => {
-  it("separates easy from medium", async () => {
+  it("separates the three difficulties, and they account for everything", async () => {
     const user = await makeUser();
     const problems = await listProblems(user.id);
 
     const easy = problems.filter((problem) => problem.difficulty === "EASY");
     const medium = problems.filter((problem) => problem.difficulty === "MEDIUM");
+    const hard = problems.filter((problem) => problem.difficulty === "HARD");
 
     expect(easy.length).toBeGreaterThanOrEqual(5);
     expect(medium.length).toBeGreaterThanOrEqual(3);
-    expect(easy.length + medium.length).toBe(problems.length);
+    expect(hard.length).toBeGreaterThanOrEqual(1);
+
+    // The catalog now has a Hard tab, and this is what would have caught its
+    // absence: before it existed, these three did not add up to the whole.
+    expect(easy.length + medium.length + hard.length).toBe(problems.length);
   });
 
   it("matches problems by title and by topic", async () => {
