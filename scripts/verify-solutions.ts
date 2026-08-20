@@ -327,9 +327,16 @@ function runProcess(
   // opaque UNKNOWN error — a virus scanner or the file system still holding the
   // file it was handed a moment ago. It is not a verdict about the solution, so
   // a spawn *error* is retried; a non-zero exit status is not.
+  //
+  // The backoff escalates because the contention is worst during a full-catalog
+  // run, when three hundred freshly compiled executables are handed to the
+  // scanner in a few minutes. A fixed 200ms was enough for a single problem and
+  // demonstrably not enough for the whole set: a full run left nine solutions
+  // reported as failures that all passed when run again, which is the failure
+  // mode this retry exists to prevent in the first place.
   let result = spawnSync(command, args, options);
-  for (let attempt = 0; attempt < 4 && result.error; attempt += 1) {
-    pause(200);
+  for (let attempt = 0; attempt < 8 && result.error; attempt += 1) {
+    pause(200 * 2 ** Math.min(attempt, 4));
     result = spawnSync(command, args, options);
   }
 
