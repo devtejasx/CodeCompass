@@ -3,8 +3,12 @@ import type { SeedProblem } from "../../problems/types";
 import { ARRAY_PROBLEMS } from "./arrays";
 import { BACKTRACKING_PROBLEMS } from "./backtracking";
 import { BINARY_TREE_PROBLEMS } from "./binary-tree";
+import { BIT_MANIPULATION_PROBLEMS } from "./bit-manipulation";
 import { BST_PROBLEMS } from "./bst";
 import { BINARY_SEARCH_PROBLEMS } from "./binary-search";
+import { DP_1D_PROBLEMS } from "./dp-1d";
+import { DP_2D_PROBLEMS } from "./dp-2d";
+import { DP_ADVANCED_PROBLEMS } from "./dp-advanced";
 import { GRAPH_BFS_PROBLEMS } from "./graph-bfs";
 import { GRAPH_DFS_PROBLEMS } from "./graph-dfs";
 import { GREEDY_PROBLEMS } from "./greedy";
@@ -23,6 +27,7 @@ import { STACK_PROBLEMS } from "./stack";
 import { STRING_PROBLEMS } from "./strings";
 import { TOPOLOGICAL_SORT_PROBLEMS } from "./topological-sort";
 import { TREE_PATH_PROBLEMS } from "./tree-paths";
+import { TRIE_PROBLEMS } from "./trie";
 import { TREE_TRAVERSAL_PROBLEMS } from "./tree-traversal";
 import { TWO_POINTER_PROBLEMS } from "./two-pointers";
 import { UNION_FIND_PROBLEMS } from "./union-find";
@@ -86,4 +91,13 @@ export const INTERVIEW_PROBLEMS: SeedProblem[] = [
   ...TOPOLOGICAL_SORT_PROBLEMS,
   ...UNION_FIND_PROBLEMS,
   ...SHORTEST_PATH_PROBLEMS,
+
+  // Specialised structures
+  ...TRIE_PROBLEMS,
+  ...BIT_MANIPULATION_PROBLEMS,
+
+  // Dynamic programming
+  ...DP_1D_PROBLEMS,
+  ...DP_2D_PROBLEMS,
+  ...DP_ADVANCED_PROBLEMS,
 ];
