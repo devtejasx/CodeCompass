@@ -35,11 +35,19 @@ export default async function PracticePage() {
     getRecommendedProblems(user.id),
   ]);
 
+  // Every figure here is counted from the database. Nothing about the size of
+  // the catalog is written down in the interface, so the page cannot drift out
+  // of step with what is actually seeded.
   const summary = [
-    { label: "Problems solved", value: `${stats.solved}`, icon: Sparkles },
+    {
+      label: "Problems solved",
+      value: `${stats.solved} / ${stats.totalProblems}`,
+      icon: Sparkles,
+    },
     { label: "Attempted", value: `${stats.attempted}`, icon: Target },
     { label: "Easy solved", value: `${stats.easySolved}`, icon: Code2 },
     { label: "Medium solved", value: `${stats.mediumSolved}`, icon: Code2 },
+    { label: "Hard solved", value: `${stats.hardSolved}`, icon: Code2 },
   ];
 
   return (
@@ -57,7 +65,7 @@ export default async function PracticePage() {
         </header>
 
         {/* ── Progress ─────────────────────────────────────────── */}
-        <dl className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <dl className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {summary.map((item) => (
             <div
               key={item.label}

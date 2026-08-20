@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import type {
   CodeLanguage,
+  InterviewFrequency,
   ProblemDifficulty,
   ProblemStatus,
 } from "@/generated/prisma/client";
@@ -24,14 +25,37 @@ export interface ProblemCardData {
   attempts?: number;
   languages?: CodeLanguage[];
   topics?: { id: string; title: string }[];
+  interviewFrequency?: InterviewFrequency;
 }
+
+/**
+ * How often this problem's pattern is interviewed, in words rather than a
+ * number. See the InterviewFrequency enum in schema.prisma: there is no company
+ * list and no count, because CodeCompass has verified neither and inventing
+ * either would be worse than saying nothing.
+ *
+ * MEDIUM is the default for problems that exist to practise a lesson rather
+ * than to prepare for a round, so it is shown as nothing at all — a card that
+ * labelled every problem would be labelling none of them.
+ */
+const RELEVANCE_LABEL: Record<InterviewFrequency, string | null> = {
+  VERY_HIGH: "Asked constantly",
+  HIGH: "Often asked",
+  MEDIUM: null,
+};
 
 /**
  * One problem in a list.
  *
  * Solved and attempted are marked, and that is as far as the gamification goes:
  * no points, no streaks, no badges. The signal a learner needs from this card is
- * "have I done this, and is it the right size for me right now".
+ * "have I done this, is it the right size for me right now, and is it worth my
+ * time before an interview".
+ *
+ * The first topic is the *pattern* — Sliding Window, Union Find — because that
+ * is what the problem teaches, while the difficulty is only how hard it is. The
+ * card leads with the pattern for the same reason the catalog is organised by
+ * one.
  */
 export function ProblemCard({
   problem,
@@ -45,6 +69,9 @@ export function ProblemCard({
 }) {
   const solved = problem.status === "SOLVED";
   const attempted = problem.status === "ATTEMPTED";
+  const relevance = problem.interviewFrequency
+    ? RELEVANCE_LABEL[problem.interviewFrequency]
+    : null;
 
   return (
     <Link
@@ -75,6 +102,9 @@ export function ProblemCard({
           <span className="min-w-0 truncate text-xs text-subtle-foreground">
             {problem.topics[0].title}
           </span>
+        ) : null}
+        {relevance ? (
+          <span className="text-xs text-subtle-foreground">{relevance}</span>
         ) : null}
       </div>
 

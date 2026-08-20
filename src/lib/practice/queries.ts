@@ -112,8 +112,20 @@ export async function getProblemExplanation(problemId: string) {
   return row?.explanation ?? null;
 }
 
-/** Every problem in the catalog, with this user's status folded in. */
-export async function listProblems(userId: string) {
+/**
+ * Every problem in the catalog, with this user's status folded in.
+ *
+ * Deliberately *not* the whole problem: no description, no explanation, no
+ * examples and no test cases. At three hundred problems the difference between
+ * this projection and the full row is the difference between a catalog page
+ * that loads and one that ships a book to the browser. The full statement is
+ * fetched only when a learner opens one, by getProblemForPractice.
+ *
+ * Memoised per request because the page renders the catalog and the
+ * recommendation panel from the same data, and Next.js would otherwise run
+ * this twice for one navigation.
+ */
+export const listProblems = cache(async function listProblems(userId: string) {
   const [problems, progress] = await Promise.all([
     db.practiceProblem.findMany({
       orderBy: [{ sortOrder: "asc" }],
@@ -124,6 +136,7 @@ export async function listProblems(userId: string) {
         difficulty: true,
         estimatedTime: true,
         sortOrder: true,
+        interviewFrequency: true,
         languages: { select: { language: true } },
         topics: {
           select: { topic: { select: { id: true, slug: true, title: true } } },
@@ -149,16 +162,26 @@ export async function listProblems(userId: string) {
       solvedAt: row?.solvedAt ?? null,
     };
   });
-}
+});
 
 export type ProblemListItem = Awaited<ReturnType<typeof listProblems>>[number];
 
-/** Solved/attempted counts for the practice dashboard, split by difficulty. */
+/**
+ * Solved/attempted counts for the practice dashboard, split by difficulty.
+ *
+ * `totalProblems` is counted rather than written down anywhere, so the figure
+ * the page prints is whatever the database actually holds. The two reads are
+ * issued together — the count does not depend on the progress rows, and making
+ * it wait for them was a round trip spent on nothing.
+ */
 export async function getPracticeStats(userId: string) {
-  const rows = await db.userProblemProgress.findMany({
-    where: { userId },
-    select: { status: true, problem: { select: { difficulty: true } } },
-  });
+  const [rows, totalProblems] = await Promise.all([
+    db.userProblemProgress.findMany({
+      where: { userId },
+      select: { status: true, problem: { select: { difficulty: true } } },
+    }),
+    db.practiceProblem.count(),
+  ]);
 
   const solved = rows.filter((row) => row.status === "SOLVED");
 
@@ -168,7 +191,7 @@ export async function getPracticeStats(userId: string) {
     easySolved: solved.filter((row) => row.problem.difficulty === "EASY").length,
     mediumSolved: solved.filter((row) => row.problem.difficulty === "MEDIUM").length,
     hardSolved: solved.filter((row) => row.problem.difficulty === "HARD").length,
-    totalProblems: await db.practiceProblem.count(),
+    totalProblems,
   };
 }
 
