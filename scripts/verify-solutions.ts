@@ -11,6 +11,13 @@ import type {
   SeedTestCase,
   ValueType,
 } from "../prisma/seed/problems/types";
+import {
+  classifyFailure,
+  isTimeout,
+  shouldRetrySpawn,
+  type FailureKind,
+  type Verdict,
+} from "./verify/verdicts";
 
 /**
  * Runs every authored reference solution against that problem's own test cases.
@@ -45,41 +52,6 @@ import type {
  * throws if it is ever reached for Java, because the one thing this script must
  * never do is let a language it did not execute appear in the passed column.
  */
-
-/**
- * How a reference solution failed, not merely that it did.
- *
- * A full-catalog run that prints "12 failing solutions" is a list of twelve
- * things to read; the same run split into "1 wrong answer, 11 timeouts" is a
- * diagnosis. The kinds are kept separate because they are acted on
- * differently — a wrong answer means the answer key and the statement disagree
- * and one of them is wrong, a timeout usually means the harness, and a compile
- * error is almost always a missing header rather than a wrong algorithm.
- */
-type FailureKind =
-  | "COMPILE"
-  | "RUNTIME"
-  | "TIMEOUT"
-  | "WRONG_ANSWER"
-  | "OUTPUT"
-  /**
-   * The process never started. On Windows this arrives as an opaque UNKNOWN
-   * from spawnSync when something local — a virus scanner, most likely — holds
-   * a freshly compiled executable closed for a moment. It says nothing about
-   * the solution, and it is kept out of every other bucket for that reason.
-   */
-  | "ENVIRONMENT";
-
-type Verdict =
-  | { ok: true }
-  | {
-      ok: false;
-      kind: FailureKind;
-      reason: string;
-      caseIndex?: number;
-      expected?: string;
-      actual?: string;
-    };
 
 interface Options {
   slug?: string;
@@ -364,28 +336,11 @@ function runProcess(
   // Windows occasionally fails to start a freshly written executable with an
   // opaque UNKNOWN error — a virus scanner or the file system still holding the
   // file it was handed a moment ago. It is not a verdict about the solution, so
-  // a spawn *error* is retried; a non-zero exit status is not.
-  //
-  // The backoff escalates because the contention is worst during a full-catalog
-  // run, when three hundred freshly compiled executables are handed to the
-  // scanner in a few minutes. A fixed 200ms was enough for a single problem and
-  // demonstrably not enough for the whole set: a full run left nine solutions
-  // reported as failures that all passed when run again, which is the failure
-  // mode this retry exists to prevent in the first place.
-  //
-  // A timeout arrives on the same channel and is the opposite kind of event: it
-  // is spawnSync reporting that the process *did* start and then ran past its
-  // limit, which is a verdict about the solution. Retrying it was wrong twice
-  // over — it turned one slow solution into eight sequential minutes of waiting,
-  // and it buried "this never terminates" inside a message about the process
-  // failing to start.
+  // it is worth one more attempt; a non-zero exit status and a timeout are not
+  // retried at all. shouldRetrySpawn owns that rule and is tested on its own.
   let result = spawnSync(command, args, options);
-  for (
-    let attempt = 0;
-    attempt < 8 && result.error && !isTimeout(result);
-    attempt += 1
-  ) {
-    pause(200 * 2 ** Math.min(attempt, 4));
+  for (let attempt = 0; shouldRetrySpawn(result, attempt); attempt += 1) {
+    pause(250);
     result = spawnSync(command, args, options);
   }
 
@@ -411,18 +366,6 @@ function runProcess(
   };
 }
 
-/**
- * Whether spawnSync killed this process for running past `timeout`.
- *
- * Node reports it as an error with code ETIMEDOUT on most platforms, but on
- * Windows the kill can surface only as the signal, so both are accepted. Being
- * wrong in the permissive direction costs one lost retry of a genuine spawn
- * flake; being wrong in the strict direction reinstates the eight-minute wait.
- */
-function isTimeout(result: ReturnType<typeof spawnSync>): boolean {
-  const code = (result.error as NodeJS.ErrnoException | undefined)?.code;
-  return code === "ETIMEDOUT" || (Boolean(result.error) && result.signal !== null);
-}
 
 function parseAndCompare(problem: SeedProblem, stdout: string): Verdict {
   const line = stdout.trim().split("\n").pop() ?? "";
@@ -453,25 +396,8 @@ function verify(problem: SeedProblem, language: SeedLanguage, dir: string): Verd
   const source = renderSource(problem.signature, language, body);
   const stem = `${problem.slug}-${language.toLowerCase()}`;
 
-  /**
-   * A failed process, classified by how it failed rather than that it did.
-   *
-   * `last` picks the useful line out of the stream: Python puts the exception
-   * on the final line under a traceback header, everything else puts it first.
-   */
-  const failed = (
-    run: { stderr: string; timedOut: boolean; spawnFailed: boolean },
-    kind: FailureKind,
-    last = false,
-  ): Verdict => ({
-    ok: false,
-    kind: run.timedOut ? "TIMEOUT" : run.spawnFailed ? "ENVIRONMENT" : kind,
-    reason: run.timedOut
-      ? run.stderr
-      : ((last
-          ? run.stderr.trim().split("\n").pop()
-          : run.stderr.trim().split("\n")[0]) ?? "run failed"),
-  });
+  /** A failed process, named by how it failed rather than that it did. */
+  const failed = classifyFailure;
 
   switch (language) {
     case "JAVASCRIPT": {
