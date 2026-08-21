@@ -67,6 +67,10 @@ export const getProblemForPractice = cache(async function getProblemForPractice(
         select: { language: true, starterCode: true },
       },
       topics: {
+        // Primary first — the problem page's breadcrumb follows topics[0], and
+        // one link per problem is marked primary precisely so that trail is a
+        // decision rather than a row order.
+        orderBy: { isPrimary: "desc" },
         select: {
           topic: {
             select: {
@@ -139,6 +143,12 @@ export const listProblems = cache(async function listProblems(userId: string) {
         interviewFrequency: true,
         languages: { select: { language: true } },
         topics: {
+          // Primary first: the card shows topics[0] as the problem's pattern,
+          // and without this that is whichever row Postgres happened to return
+          // — "Objects" instead of "Hash Maps and Sets" for Two Sum. It has
+          // been right so far only because the seed inserts the primary link
+          // first and nothing has since rewritten the table.
+          orderBy: { isPrimary: "desc" },
           select: { topic: { select: { id: true, slug: true, title: true } } },
         },
       },
