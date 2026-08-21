@@ -6,6 +6,12 @@ import { Search } from "lucide-react";
 import { ProblemCard } from "@/components/practice/problem-card";
 import { cn } from "@/lib/utils";
 import type { ProblemListItem } from "@/lib/practice/queries";
+import {
+  PROBLEM_FILTERS,
+  countByFilter,
+  matchesFilter,
+  type ProblemFilter,
+} from "@/lib/practice/filter";
 
 /**
  * The problem catalog, filtered in the browser.
@@ -13,66 +19,29 @@ import type { ProblemListItem } from "@/lib/practice/queries";
  * Still filtered in memory at three hundred problems, because what is shipped
  * is metadata — a title, a difficulty, a few topic names — and not the
  * statements. See listProblems for what is deliberately left out. Filtering
- * here rather than server-side keeps typing instant; the predicates live in
- * `matches` below so they stay easy to move if the catalog grows again.
+ * here rather than server-side keeps typing instant.
+ *
+ * The rule itself lives in lib/practice/filter, which is what makes it
+ * testable: while it was a local function in this client component, the only
+ * way to assert "the Hard tab shows exactly the Hard problems" was to
+ * reimplement the predicate in the test and watch the copy agree with itself.
+ * This component now owns the two pieces of state and the markup, and nothing
+ * about which problems match.
  *
  * "Hard" joins the difficulty filters now that the catalog has forty of them.
  * It is the same filter the other two already were, not a new kind of control.
  */
 
-type Filter = "ALL" | "EASY" | "MEDIUM" | "HARD" | "SOLVED" | "ATTEMPTED";
-
-const FILTERS: { id: Filter; label: string }[] = [
-  { id: "ALL", label: "All problems" },
-  { id: "EASY", label: "Easy" },
-  { id: "MEDIUM", label: "Medium" },
-  { id: "HARD", label: "Hard" },
-  { id: "SOLVED", label: "Solved" },
-  { id: "ATTEMPTED", label: "Attempted" },
-];
-
-function matches(problem: ProblemListItem, filter: Filter, query: string): boolean {
-  const passesFilter =
-    filter === "ALL" ||
-    (filter === "EASY" && problem.difficulty === "EASY") ||
-    (filter === "MEDIUM" && problem.difficulty === "MEDIUM") ||
-    (filter === "HARD" && problem.difficulty === "HARD") ||
-    (filter === "SOLVED" && problem.status === "SOLVED") ||
-    (filter === "ATTEMPTED" && problem.status === "ATTEMPTED");
-
-  if (!passesFilter) return false;
-  if (query.trim().length === 0) return true;
-
-  // Topic titles are searched as well as problem titles, so "graph", "sliding
-  // window" or "dynamic programming" find a pattern's problems without the
-  // learner having to know any of their names.
-  const needle = query.trim().toLowerCase();
-  return (
-    problem.title.toLowerCase().includes(needle) ||
-    problem.topics.some((topic) => topic.title.toLowerCase().includes(needle))
-  );
-}
-
 export function PracticeBrowser({ problems }: { problems: ProblemListItem[] }) {
-  const [filter, setFilter] = React.useState<Filter>("ALL");
+  const [filter, setFilter] = React.useState<ProblemFilter>("ALL");
   const [query, setQuery] = React.useState("");
 
   const visible = React.useMemo(
-    () => problems.filter((problem) => matches(problem, filter, query)),
+    () => problems.filter((problem) => matchesFilter(problem, filter, query)),
     [problems, filter, query],
   );
 
-  const counts = React.useMemo(
-    () => ({
-      ALL: problems.length,
-      EASY: problems.filter((problem) => problem.difficulty === "EASY").length,
-      MEDIUM: problems.filter((problem) => problem.difficulty === "MEDIUM").length,
-      HARD: problems.filter((problem) => problem.difficulty === "HARD").length,
-      SOLVED: problems.filter((problem) => problem.status === "SOLVED").length,
-      ATTEMPTED: problems.filter((problem) => problem.status === "ATTEMPTED").length,
-    }),
-    [problems],
-  );
+  const counts = React.useMemo(() => countByFilter(problems), [problems]);
 
   return (
     <div>
@@ -82,7 +51,7 @@ export function PracticeBrowser({ problems }: { problems: ProblemListItem[] }) {
           aria-label="Filter problems"
           className="flex flex-wrap gap-1"
         >
-          {FILTERS.map((entry) => {
+          {PROBLEM_FILTERS.map((entry) => {
             const active = filter === entry.id;
             return (
               <button

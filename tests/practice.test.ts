@@ -32,6 +32,7 @@ const { startSubmission, runSubmission, getSubmissionState, getSubmissionCode } 
   await import("@/app/actions/practice");
 
 const { recommendProblems, currentTopicId } = await import("@/lib/practice/recommend");
+const { matchesFilter, countByFilter } = await import("@/lib/practice/filter");
 const { buildFeedback, isTerminal, STATUS_LABEL } =
   await import("@/lib/practice/feedback");
 const {
@@ -592,7 +593,291 @@ describe("problem filtering", () => {
   });
 });
 
+// ── 2b. The catalog's tabs and search box ──────────────────────────────────
+
+/**
+ * The filters and the search box, against the real catalog.
+ *
+ * The previous audit could not click these, and the tests that stood in for
+ * them reimplemented the predicate and then asserted the reimplementation
+ * agreed with itself — which would have passed just as happily if the tab in
+ * the UI were wired to the wrong difficulty. These call the same
+ * `matchesFilter` the page calls, over the same `listProblems` payload the page
+ * receives, with this user's real progress folded in.
+ */
+describe("catalog filters and search", () => {
+  /** Every problem, exactly as the Practice page receives it. */
+  async function catalog(userId: string) {
+    return listProblems(userId);
+  }
+
+  const applyFilter = (
+    problems: Awaited<ReturnType<typeof listProblems>>,
+    filter: Parameters<typeof matchesFilter>[1],
+    query = "",
+  ) => problems.filter((problem) => matchesFilter(problem, filter, query));
+
+  it("shows the whole catalog under All", async () => {
+    const user = await makeUser("filter-all@example.com");
+    const problems = await catalog(user.id);
+
+    expect(applyFilter(problems, "ALL")).toHaveLength(300);
+    expect(countByFilter(problems).ALL).toBe(300);
+  });
+
+  it("gives each difficulty tab exactly the database's problems", async () => {
+    const user = await makeUser("filter-difficulty@example.com");
+    const problems = await catalog(user.id);
+
+    // The expected numbers come from the database rather than from this file,
+    // so authoring a new problem does not make the test lie.
+    for (const difficulty of ["EASY", "MEDIUM", "HARD"] as const) {
+      const expected = await db.practiceProblem.count({ where: { difficulty } });
+      const shown = applyFilter(problems, difficulty);
+
+      expect(shown, difficulty).toHaveLength(expected);
+      expect(shown.every((problem) => problem.difficulty === difficulty)).toBe(true);
+      expect(countByFilter(problems)[difficulty]).toBe(expected);
+    }
+
+    // And the three tabs partition the catalog — nothing is unreachable.
+    const counts = countByFilter(problems);
+    expect(counts.EASY + counts.MEDIUM + counts.HARD).toBe(counts.ALL);
+  });
+
+  it("shows nothing under Solved or Attempted for a learner who has done neither", async () => {
+    const user = await makeUser("filter-fresh@example.com");
+    const problems = await catalog(user.id);
+
+    // Filler here would be worse than an empty list: it would read as progress.
+    expect(applyFilter(problems, "SOLVED")).toEqual([]);
+    expect(applyFilter(problems, "ATTEMPTED")).toEqual([]);
+  });
+
+  it("moves a problem from Attempted to Solved as the learner's real state changes", async () => {
+    const user = await makeUser("filter-progress@example.com");
+    signedInAs(user.id);
+    const problem = await problemBySlug("find-maximum");
+
+    await submit(problem.id, "// @mock:wrong\nfunction findMaximum(n) { return -1; }");
+
+    const afterFailure = await catalog(user.id);
+    expect(applyFilter(afterFailure, "ATTEMPTED").map((entry) => entry.slug)).toEqual([
+      "find-maximum",
+    ]);
+    expect(applyFilter(afterFailure, "SOLVED")).toEqual([]);
+
+    await submit(problem.id, await referenceSolution("find-maximum"));
+
+    // Solved and Attempted are the same ProblemStatus the rest of the app
+    // uses; the tabs read it rather than deciding anything themselves.
+    const afterSuccess = await catalog(user.id);
+    expect(applyFilter(afterSuccess, "SOLVED").map((entry) => entry.slug)).toEqual([
+      "find-maximum",
+    ]);
+    expect(applyFilter(afterSuccess, "ATTEMPTED")).toEqual([]);
+  });
+
+  it("keeps one learner's Solved tab out of another's", async () => {
+    const solver = await makeUser("filter-mine@example.com");
+    signedInAs(solver.id);
+    const problem = await problemBySlug("find-maximum");
+    await submit(problem.id, await referenceSolution("find-maximum"));
+
+    const other = await makeUser("filter-theirs@example.com");
+    expect(applyFilter(await catalog(solver.id), "SOLVED")).toHaveLength(1);
+    expect(applyFilter(await catalog(other.id), "SOLVED")).toEqual([]);
+  });
+
+  it("finds a problem by its exact title, in either case", async () => {
+    const user = await makeUser("search-title@example.com");
+    const problems = await catalog(user.id);
+    const target = problems.find((problem) => problem.title === "Group Anagrams")!;
+    expect(target).toBeTruthy();
+
+    for (const query of [
+      "Group Anagrams",
+      "group anagrams",
+      "GROUP ANAGRAMS",
+      "  Group Anagrams  ",
+    ]) {
+      const found = applyFilter(problems, "ALL", query);
+      expect(found.map((entry) => entry.slug), query).toContain(target.slug);
+    }
+  });
+
+  it("finds a problem from a partial title", async () => {
+    const user = await makeUser("search-partial@example.com");
+    const problems = await catalog(user.id);
+
+    const found = applyFilter(problems, "ALL", "anagram");
+    expect(found.length).toBeGreaterThan(0);
+    expect(
+      found.every((problem) =>
+        `${problem.title} ${problem.topics.map((topic) => topic.title).join(" ")}`
+          .toLowerCase()
+          .includes("anagram"),
+      ),
+    ).toBe(true);
+  });
+
+  it("reaches problems at the far end of the catalog, not just the first page", async () => {
+    const user = await makeUser("search-tail@example.com");
+    const problems = await catalog(user.id);
+
+    // The last problem by catalog order is Hard, in the final DP phase — the
+    // one a search that only looked at a prefix would never return.
+    const last = [...problems].sort((a, b) => b.sortOrder - a.sortOrder)[0];
+    expect(last.difficulty).toBe("HARD");
+
+    const found = applyFilter(problems, "ALL", last.title);
+    expect(found.map((entry) => entry.slug)).toContain(last.slug);
+  });
+
+  it("finds a whole pattern by its topic name", async () => {
+    const user = await makeUser("search-topic@example.com");
+    const problems = await catalog(user.id);
+
+    // Searching a pattern is how somebody who does not know any problem's name
+    // finds the ones they want.
+    for (const pattern of ["Sliding Window", "Two Pointers", "DP", "TRIE", "graph"]) {
+      const found = applyFilter(problems, "ALL", pattern);
+      expect(found.length, pattern).toBeGreaterThan(0);
+    }
+  });
+
+  it("cannot find dynamic programming by that name, and this records why", async () => {
+    const user = await makeUser("search-dp@example.com");
+    const problems = await catalog(user.id);
+
+    /*
+     * A known gap, pinned rather than fixed.
+     *
+     * Search reads problem titles and topic titles. The three DP topics are
+     * titled "One-Dimensional DP", "Two-Dimensional DP" and "Advanced DP", and
+     * the words "Dynamic Programming" appear only on the roadmap *phase* above
+     * them — which listProblems does not select and the browser never receives.
+     * So the catalog holds 31 DP problems and the most natural query for them
+     * returns nothing, while "DP" returns all of them.
+     *
+     * Fixing it means indexing a fourth field and shipping phase titles with
+     * the catalog. That is a change to what search means, not a defect in what
+     * it currently does, so it is written down here instead of made quietly.
+     */
+    expect(applyFilter(problems, "ALL", "dynamic programming")).toEqual([]);
+    expect(applyFilter(problems, "ALL", "DP").length).toBeGreaterThanOrEqual(31);
+  });
+
+  it("combines a tab with the search box rather than replacing it", async () => {
+    const user = await makeUser("search-combined@example.com");
+    const problems = await catalog(user.id);
+
+    const hardGraphs = applyFilter(problems, "HARD", "graph");
+    expect(hardGraphs.length).toBeGreaterThan(0);
+    expect(hardGraphs.every((problem) => problem.difficulty === "HARD")).toBe(true);
+  });
+
+  it("returns nothing for a query that matches nothing", async () => {
+    const user = await makeUser("search-miss@example.com");
+    const problems = await catalog(user.id);
+
+    expect(applyFilter(problems, "ALL", "zzzzzzzz-no-such-problem")).toEqual([]);
+  });
+});
+
 // ── 3. Problem detail ──────────────────────────────────────────────────────
+
+// ── 2c. What a catalog card says ───────────────────────────────────────────
+
+/**
+ * The card's four pieces of metadata, checked against the rows they claim to
+ * come from.
+ *
+ * Nothing on the card is authored in the component — it renders title,
+ * difficulty, pattern, relevance and languages straight off the payload. The
+ * one that needed pinning is the pattern: the card shows `topics[0]` and calls
+ * it the problem's pattern, but a problem has several topics on purpose and
+ * only one of them is marked primary. Until the query said so, "first" meant
+ * whichever row Postgres returned, which was right by accident.
+ */
+describe("catalog card metadata", () => {
+  it("names the primary topic as the pattern, for every problem", async () => {
+    const user = await makeUser("card-pattern@example.com");
+    const problems = await listProblems(user.id);
+
+    const primaryBySlug = new Map(
+      (
+        await db.problemTopic.findMany({
+          where: { isPrimary: true },
+          select: { problem: { select: { slug: true } }, topic: { select: { id: true } } },
+        })
+      ).map((link) => [link.problem.slug, link.topic.id] as const),
+    );
+
+    // Every card, not a sample: a problem whose card shows a career topic
+    // instead of its pattern is mislabelled on the page a learner browses.
+    const mislabelled = problems
+      .filter((problem) => problem.topics[0]?.id !== primaryBySlug.get(problem.slug))
+      .map((problem) => problem.slug);
+
+    expect(mislabelled).toEqual([]);
+  });
+
+  it("puts the pattern first even for a problem that serves three topics", async () => {
+    const user = await makeUser("card-multitopic@example.com");
+    const problems = await listProblems(user.id);
+
+    // Two Sum practises hashing, and also the career roadmap's objects and
+    // data-structures topics — which is exactly the case where an unordered
+    // read picks the wrong label.
+    const twoSum = problems.find((problem) => problem.slug === "two-sum-indices")!;
+    expect(twoSum.topics.length).toBeGreaterThan(1);
+    expect(twoSum.topics[0].slug).toBe("dsa-hashing");
+  });
+
+  it("takes title, difficulty, time and relevance from the problem's own row", async () => {
+    const user = await makeUser("card-fields@example.com");
+    const problems = await listProblems(user.id);
+
+    // One per difficulty, so a hardcoded label anywhere would show up.
+    for (const difficulty of ["EASY", "MEDIUM", "HARD"] as const) {
+      const card = problems.find((problem) => problem.difficulty === difficulty)!;
+      const row = await db.practiceProblem.findUniqueOrThrow({
+        where: { slug: card.slug },
+        select: {
+          title: true,
+          difficulty: true,
+          estimatedTime: true,
+          interviewFrequency: true,
+        },
+      });
+
+      expect(card.title, card.slug).toBe(row.title);
+      expect(card.difficulty, card.slug).toBe(row.difficulty);
+      expect(card.estimatedTime, card.slug).toBe(row.estimatedTime);
+      expect(card.interviewFrequency, card.slug).toBe(row.interviewFrequency);
+    }
+  });
+
+  it("lists exactly the languages the problem is offered in", async () => {
+    const user = await makeUser("card-languages@example.com");
+    const problems = await listProblems(user.id);
+
+    for (const slug of ["two-sum-indices", "merge-sorted-lists"]) {
+      const card = problems.find((problem) => problem.slug === slug)!;
+      const rows = await db.practiceLanguage.findMany({
+        where: { problem: { slug } },
+        select: { language: true },
+      });
+
+      // A language on the card that the problem has no starter code for would
+      // be an offer the workspace cannot honour.
+      expect([...card.languages].sort(), slug).toEqual(
+        rows.map((row) => row.language).sort(),
+      );
+    }
+  });
+});
 
 describe("problem detail", () => {
   it("loads a problem with everything the workspace needs", async () => {
