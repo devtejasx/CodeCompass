@@ -311,7 +311,16 @@ export const MEDIUM_PROBLEMS: SeedProblem[] = [
   // ── 6 ───────────────────────────────────────────────────────────────────
   {
     slug: "rotate-list-right",
-    title: "Rotate a List to the Right",
+    /*
+     * Named for the move it teaches rather than for the operation, because
+     * "Rotate a List to the Right" is also the interview catalog's
+     * rotate-array-right and two identical titles in one list is a coin flip
+     * for the learner. This is the version that arrives at the answer by
+     * taking the tail and putting it in front; the other asks for the same
+     * result at interview scale. Both are worth solving, so both stay — the
+     * title is what changes.
+     */
+    title: "Move the Tail to the Front",
     difficulty: "MEDIUM",
     description:
       "Move every element of a list a given number of places to the right, " +
@@ -435,7 +444,14 @@ export const MEDIUM_PROBLEMS: SeedProblem[] = [
   // ── 8 ───────────────────────────────────────────────────────────────────
   {
     slug: "merge-sorted-lists",
-    title: "Merge Two Sorted Lists",
+    /*
+     * The interview catalog owns "Merge Two Sorted Lists" — that is the name
+     * the problem is known by in a coding round, and renaming *that* one to
+     * resolve the clash would have made it harder to recognise. This is the
+     * arrays-topic version of the same idea, so it takes a plainer name that
+     * says what is being produced.
+     */
+    title: "One Sorted List From Two",
     difficulty: "MEDIUM",
     description:
       "Two lists of numbers are each already sorted from smallest to largest. " +

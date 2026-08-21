@@ -378,6 +378,40 @@ describe("the catalog's finished shape", () => {
     expect(rows.every((row) => row._count === 1)).toBe(true);
   });
 
+  it("gives no two problems the same title", async () => {
+    const rows = await db.practiceProblem.findMany({ select: { title: true } });
+    const seen = new Map<string, number>();
+    for (const row of rows) seen.set(row.title, (seen.get(row.title) ?? 0) + 1);
+
+    // The catalog is one flat list of three hundred cards, so a repeated title
+    // is a coin flip: two cards, same words, and nothing on either to say which
+    // is which. Two pairs collided when the interview catalog landed beside the
+    // original lesson-adjacent one.
+    const repeated = [...seen].filter(([, count]) => count > 1).map(([title]) => title);
+    expect(repeated).toEqual([]);
+  });
+
+  it("keeps both problems in each pair that used to share a title", async () => {
+    // The clash was resolved by renaming, not by deleting: each pair is one
+    // arrays-topic problem and one interview problem with its own constraints,
+    // difficulty and audience. Slugs are untouched, so progress and any link
+    // anybody has saved still resolve.
+    const slugs = [
+      "merge-sorted-lists",
+      "merge-two-sorted-lists",
+      "rotate-list-right",
+      "rotate-array-right",
+    ];
+    const rows = await db.practiceProblem.findMany({
+      where: { slug: { in: slugs } },
+      select: { slug: true, topics: { select: { topicId: true } } },
+    });
+
+    expect(rows.map((row) => row.slug).sort()).toEqual([...slugs].sort());
+    // Renaming must not have cost either of them its topic links.
+    for (const row of rows) expect(row.topics.length, row.slug).toBeGreaterThan(0);
+  });
+
   it("never practises a pattern before the pattern it is built on", () => {
     const inversions: string[] = [];
 
