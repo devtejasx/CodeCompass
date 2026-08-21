@@ -3,18 +3,18 @@ import { Container } from "@/components/shared/container";
 /**
  * What the authenticated shell shows while a page's server component runs.
  *
- * Without this file, Next.js has nothing to render between the click and the
- * server's response, so the browser sits on the *previous* page for the whole
- * round trip. Pages here take roughly 50–400ms warm, which is short enough to
- * feel like nothing happened and long enough that a second click seems
- * reasonable — the worst combination.
+ * Without a loading boundary, Next.js has nothing to render between the click
+ * and the server's response, so the browser sits on the *previous* page for the
+ * whole round trip. Pages here take roughly 50-400ms warm, which is short
+ * enough to feel like nothing happened and long enough that a second click
+ * seems reasonable - the worst combination.
  *
- * A `loading.tsx` in the route group is a Suspense boundary Next.js wires up
- * for every route beneath it, so navigation commits immediately and this is
- * painted while the data loads. Placed on the group rather than per page: the
- * header comes from the layout and stays put, so one skeleton below it is
- * accurate for all of them, and adding a page does not mean remembering to add
- * a loading state.
+ * This lives in components/ rather than being a `loading.tsx` itself because it
+ * is now referenced from several of them. A `loading.tsx` is a Suspense
+ * boundary Next.js wires up for every route *beneath* it, and a boundary above
+ * a page is enough to flush the response - and commit its 200 - before that
+ * page can call `notFound()`. So the boundaries sit at the segments that have
+ * no `notFound()` under them, and each is a one-line re-export of this.
  *
  * Deliberately plain. It reuses the page shell's own spacing and Container so
  * the layout does not shift when the real content replaces it, and it says
