@@ -755,6 +755,11 @@ enum SubmissionStatus {
   WRONG_ANSWER
   TIME_LIMIT
   MEMORY_LIMIT
+  /// A program that printed without stopping. Distinct from RUNTIME_ERROR
+  /// because it is a different mistake with a different fix - a print left
+  /// inside a loop, rather than a crash - and telling a learner their code
+  /// errored when it did not would send them looking for the wrong thing.
+  OUTPUT_LIMIT
   COMPILE_ERROR
   RUNTIME_ERROR
   SYSTEM_ERROR

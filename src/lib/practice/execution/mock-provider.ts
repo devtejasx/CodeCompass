@@ -2,6 +2,7 @@ import type { CodeLanguage } from "@/generated/prisma/client";
 
 import type {
   CodeExecutionService,
+  ExecutionHealth,
   ExecutionRequest,
   ExecutionResult,
   ExecutionStatus,
@@ -36,13 +37,14 @@ import type {
 
 /** Recognised in a comment, in any of the five languages' comment syntaxes. */
 const MARKER =
-  /@mock:(accepted|wrong|timeout|memory|compile-error|runtime-error|system-error)\b/i;
+  /@mock:(accepted|wrong|timeout|memory|output|compile-error|runtime-error|system-error)\b/i;
 
 const MARKER_STATUS: Record<string, ExecutionStatus> = {
   accepted: "ACCEPTED",
   wrong: "WRONG_ANSWER",
   timeout: "TIME_LIMIT",
   memory: "MEMORY_LIMIT",
+  output: "OUTPUT_LIMIT",
   "compile-error": "COMPILE_ERROR",
   "runtime-error": "RUNTIME_ERROR",
   "system-error": "SYSTEM_ERROR",
@@ -53,6 +55,7 @@ const MARKER_MESSAGE: Partial<Record<ExecutionStatus, string>> = {
   RUNTIME_ERROR: "TypeError: cannot read a property of undefined — simulated.",
   MEMORY_LIMIT: "The program used more memory than the limit allows.",
   TIME_LIMIT: "The program was still running when the time limit was reached.",
+  OUTPUT_LIMIT: "The program printed more than the limit allows.",
   SYSTEM_ERROR: "The execution service reported an internal error.",
 };
 
@@ -83,6 +86,17 @@ export class MockExecutionService implements CodeExecutionService {
 
   supportedLanguages(): readonly CodeLanguage[] {
     return ALL_LANGUAGES;
+  }
+
+  /**
+   * Always available, and always honest about why.
+   *
+   * There is nothing behind this provider that could be down. Reporting it as
+   * healthy is correct, and the detail says what kind of healthy it is so that
+   * a deployment check does not read "available" as "grading real code".
+   */
+  async health(): Promise<ExecutionHealth> {
+    return { available: true, detail: "development provider; verdicts are simulated" };
   }
 
   async execute(request: ExecutionRequest): Promise<ExecutionResult> {

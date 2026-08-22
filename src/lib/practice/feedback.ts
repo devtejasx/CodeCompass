@@ -22,6 +22,7 @@ export const STATUS_LABEL: Record<SubmissionStatus, string> = {
   WRONG_ANSWER: "Wrong Answer",
   TIME_LIMIT: "Time Limit Exceeded",
   MEMORY_LIMIT: "Memory Limit Exceeded",
+  OUTPUT_LIMIT: "Output Limit Exceeded",
   COMPILE_ERROR: "Compilation Error",
   RUNTIME_ERROR: "Runtime Error",
   SYSTEM_ERROR: "Execution Unavailable",
@@ -36,6 +37,7 @@ export const STATUS_TONE: Record<SubmissionStatus, StatusTone> = {
   WRONG_ANSWER: "failure",
   TIME_LIMIT: "failure",
   MEMORY_LIMIT: "failure",
+  OUTPUT_LIMIT: "failure",
   COMPILE_ERROR: "failure",
   RUNTIME_ERROR: "failure",
   SYSTEM_ERROR: "neutral",
@@ -120,6 +122,16 @@ export function buildFeedback(
       feedback:
         `Your code used more than ${options.memoryLimitMb}MB of memory and was stopped. ` +
         "Usually that means something is being added to a list or a string on every pass of a loop that never ends, or a copy is being made where the original could have been used.",
+      failure: null,
+    };
+  }
+
+  if (result.status === "OUTPUT_LIMIT") {
+    return {
+      feedback:
+        "Your code printed more than the sandbox allows and was stopped. " +
+        "That is almost always a print or a console.log left inside a loop while debugging - the loop is fine, the printing is not. " +
+        "Note that printing is never how a solution is graded here: the tests read what your function *returns*, so removing the printing cannot break a correct answer.",
       failure: null,
     };
   }

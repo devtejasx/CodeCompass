@@ -101,6 +101,19 @@ export interface ExecutionResult {
   simulated: boolean;
 }
 
+/**
+ * The answer to "could we grade something right now?".
+ *
+ * Deliberately two fields and no more. `detail` is for an operator reading a
+ * deployment check; it is never rendered to a learner, because "the runner
+ * image is missing" describes our infrastructure and "code execution is
+ * temporarily unavailable" is what they can act on.
+ */
+export interface ExecutionHealth {
+  available: boolean;
+  detail: string;
+}
+
 export interface CodeExecutionService {
   /** Short identifier, for logs and the development banner. */
   readonly name: string;
@@ -108,6 +121,18 @@ export interface CodeExecutionService {
   readonly simulated: boolean;
   /** Languages this provider can actually run. Never advertise more. */
   supportedLanguages(): readonly CodeLanguage[];
+  /**
+   * Whether the provider is reachable and ready.
+   *
+   * Must not execute anything to find out. A health check that grades a trivial
+   * submission costs a container every time something polls it, and would make
+   * the answer to "are we up?" depend on the thing being measured.
+   *
+   * Nothing on the problem page calls this. Which languages are offered comes
+   * from supportedLanguages(), which is synchronous and cannot fail, so a slow
+   * or unreachable service delays nobody's page load.
+   */
+  health(): Promise<ExecutionHealth>;
   execute(request: ExecutionRequest): Promise<ExecutionResult>;
 }
 

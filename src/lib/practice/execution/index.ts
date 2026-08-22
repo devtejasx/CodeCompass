@@ -2,7 +2,12 @@ import type { CodeLanguage } from "@/generated/prisma/client";
 
 import { HttpExecutionService } from "./http-provider";
 import { MockExecutionService } from "./mock-provider";
-import type { CodeExecutionService, ExecutionRequest, ExecutionResult } from "./types";
+import type {
+  CodeExecutionService,
+  ExecutionHealth,
+  ExecutionRequest,
+  ExecutionResult,
+} from "./types";
 
 export * from "./types";
 export { normaliseSource } from "./mock-provider";
@@ -17,10 +22,15 @@ export { sanitiseMessage, sanitiseOutput } from "./sanitise";
  * The mock has to be asked for by name, and asking for it in production is
  * refused.
  *
- *   CODE_EXECUTION_PROVIDER = http | mock | none
- *   CODE_EXECUTION_URL      = https://…            (http only, required)
- *   CODE_EXECUTION_TOKEN    = …                    (http only, recommended)
- *   CODE_EXECUTION_LANGUAGES= PYTHON,JAVASCRIPT    (http only, optional)
+ *   CODE_EXECUTION_PROVIDER = sandbox | mock | none
+ *   CODE_EXECUTION_URL      = https://…            (sandbox only, required)
+ *   CODE_EXECUTION_TOKEN    = …                    (sandbox only, required)
+ *   CODE_EXECUTION_LANGUAGES= PYTHON,JAVASCRIPT    (sandbox only, optional)
+ *
+ * `sandbox` and `http` name the same provider. `http` came first and described
+ * the transport; `sandbox` describes what is on the other end of it, which is
+ * the part that matters to whoever is setting the variable. Both are accepted,
+ * so naming it more honestly does not break a deployment that already works.
  */
 
 /** Nothing runs. Every submission comes back as a service error, honestly. */
@@ -32,6 +42,10 @@ class UnavailableExecutionService implements CodeExecutionService {
     // Nothing can run, so nothing is advertised. The problem page reads this
     // and disables Run and Submit rather than offering a button that lies.
     return [];
+  }
+
+  async health(): Promise<ExecutionHealth> {
+    return { available: false, detail: "no execution provider is configured" };
   }
 
   async execute(request: ExecutionRequest): Promise<ExecutionResult> {
@@ -59,11 +73,11 @@ function build(): CodeExecutionService {
   const requested = (process.env.CODE_EXECUTION_PROVIDER ?? "none").toLowerCase();
   const isProduction = process.env.NODE_ENV === "production";
 
-  if (requested === "http") {
+  if (requested === "sandbox" || requested === "http") {
     const url = process.env.CODE_EXECUTION_URL?.trim();
     if (!url) {
       console.error(
-        "[execution] CODE_EXECUTION_PROVIDER=http but CODE_EXECUTION_URL is unset.",
+        `[execution] CODE_EXECUTION_PROVIDER=${requested} but CODE_EXECUTION_URL is unset.`,
       );
       return new UnavailableExecutionService();
     }
@@ -76,7 +90,7 @@ function build(): CodeExecutionService {
       // offering, so this is a refusal rather than a warning.
       console.error(
         "[execution] the mock provider is refused in production. " +
-          "Configure CODE_EXECUTION_PROVIDER=http with a sandboxed service.",
+          "Configure CODE_EXECUTION_PROVIDER=sandbox with an isolated service.",
       );
       return new UnavailableExecutionService();
     }

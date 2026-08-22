@@ -1,0 +1,11 @@
+-- Adds OUTPUT_LIMIT to SubmissionStatus.
+--
+-- Additive only. Existing submissions keep the status they were given, existing
+-- progress is untouched, and no row is rewritten: the verdict did not exist
+-- before this migration, so nothing can already be in it.
+--
+-- Why the enum grew rather than the new case being folded into RUNTIME_ERROR:
+-- a program that prints inside a loop and one that dereferences a null are
+-- different mistakes with different fixes, and the result panel reads this
+-- column to decide which explanation a learner is shown.
+ALTER TYPE "SubmissionStatus" ADD VALUE IF NOT EXISTS 'OUTPUT_LIMIT' AFTER 'MEMORY_LIMIT';

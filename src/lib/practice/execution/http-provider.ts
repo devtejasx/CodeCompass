@@ -6,6 +6,7 @@ import { sanitiseMessage, sanitiseOutput } from "./sanitise";
 import {
   EXECUTION_LIMITS,
   type CodeExecutionService,
+  type ExecutionHealth,
   type ExecutionRequest,
   type ExecutionResult,
 } from "./types";
@@ -35,6 +36,7 @@ const responseSchema = z.object({
     "WRONG_ANSWER",
     "TIME_LIMIT",
     "MEMORY_LIMIT",
+    "OUTPUT_LIMIT",
     "COMPILE_ERROR",
     "RUNTIME_ERROR",
     "SYSTEM_ERROR",
@@ -73,6 +75,41 @@ export class HttpExecutionService implements CodeExecutionService {
 
   supportedLanguages(): readonly CodeLanguage[] {
     return configuredLanguages();
+  }
+
+  /**
+   * Whether the service could grade something right now.
+   *
+   * A GET to the health route beside the execute route, which answers without
+   * running anything - that is the requirement, and it is why this is not
+   * implemented by submitting a trivial program. Asking "are you up?" must not
+   * cost a container, and must never involve executing code to find out.
+   *
+   * Nothing about the answer is shown to a learner. The problem page decides
+   * what to offer from supportedLanguages(), which does not depend on a network
+   * call; this exists for deployment checks and for the operator script.
+   */
+  async health(): Promise<ExecutionHealth> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5_000);
+
+    try {
+      const response = await fetch(healthUrl(this.endpoint), {
+        method: "GET",
+        signal: controller.signal,
+        headers: this.token ? { authorization: `Bearer ${this.token}` } : {},
+      });
+      return response.ok
+        ? { available: true, detail: "execution service responded" }
+        : {
+            available: false,
+            detail: `execution service responded ${response.status}`,
+          };
+    } catch {
+      return { available: false, detail: "execution service unreachable" };
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async execute(request: ExecutionRequest): Promise<ExecutionResult> {
@@ -180,4 +217,23 @@ function systemError(total: number, request: ExecutionRequest): ExecutionResult 
     })),
     simulated: false,
   };
+}
+
+/**
+ * The health route beside the execute route.
+ *
+ * CODE_EXECUTION_URL names the endpoint that grades submissions, because that
+ * is the one the application actually needs; the health route is derived from
+ * it rather than configured separately, so a deployment cannot end up checking
+ * the health of one service while sending work to another.
+ */
+function healthUrl(endpoint: string): string {
+  try {
+    const url = new URL(endpoint);
+    url.pathname = "/health";
+    url.search = "";
+    return url.toString();
+  } catch {
+    return endpoint;
+  }
 }
