@@ -360,7 +360,12 @@ export function ProblemWorkspace({
             <div className="mt-4 flex flex-wrap gap-2">
               {nextProblem ? (
                 <Button asChild size="sm">
-                  <Link href={`/practice/${nextProblem.slug}`}>
+                  {/*
+                    One link, and the one a learner who has just solved
+                    something is most likely to take. Prefetched on sight
+                    because it is exactly one request, not three hundred.
+                  */}
+                  <Link href={`/practice/${nextProblem.slug}`} prefetch>
                     Next: {nextProblem.title}
                     <ArrowRight aria-hidden />
                   </Link>

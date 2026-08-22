@@ -61,11 +61,24 @@ export function ProblemCard({
   problem,
   reason,
   className,
+  prefetch = false,
 }: {
   problem: ProblemCardData;
   /** Optional "because you just finished X" line. */
   reason?: string;
   className?: string;
+  /**
+   * Whether to fetch this problem before it is clicked.
+   *
+   * Off by default, and that default is the point. The catalog renders three
+   * hundred of these; prefetching on sight would ask the server to render three
+   * hundred problem pages so a learner could open one, which is a worse
+   * performance problem than the one prefetching solves. It is turned on only
+   * where the list is short and the intent is strong - the handful of
+   * recommendations, and the next problem after a solve. The catalog instead
+   * prefetches what a learner points at; see PracticeBrowser.
+   */
+  prefetch?: boolean;
 }) {
   const solved = problem.status === "SOLVED";
   const attempted = problem.status === "ATTEMPTED";
@@ -76,6 +89,7 @@ export function ProblemCard({
   return (
     <Link
       href={`/practice/${problem.slug}`}
+      prefetch={prefetch}
       className={cn(
         "surface-interactive group flex flex-col gap-3 rounded-xl p-4",
         solved && "border-emerald-500/20",

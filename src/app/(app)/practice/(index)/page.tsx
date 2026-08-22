@@ -116,6 +116,10 @@ export default async function PracticePage() {
                   <ProblemCard
                     className="w-full"
                     problem={problem}
+                    // Six at most, and the ones a learner is most likely to
+                    // open. Short enough that prefetching them on sight is a
+                    // handful of requests rather than a stampede.
+                    prefetch
                     reason={
                       reason === "CURRENT_TOPIC"
                         ? "For the topic you're on"

@@ -32,9 +32,26 @@ import {
  * It is the same filter the other two already were, not a new kind of control.
  */
 
+/**
+ * How many problems one visit to the catalog may fetch ahead.
+ *
+ * A learner opens one or two problems from a visit; the budget is set well
+ * above that so it never gets in the way of ordinary browsing, and far below
+ * three hundred so that dragging a pointer across the grid cannot turn into a
+ * hundred server renders. When it runs out, links behave exactly as they did
+ * before any of this: fetched on click.
+ */
+const PREFETCH_BUDGET = 24;
+
 export function PracticeBrowser({ problems }: { problems: ProblemListItem[] }) {
   const [filter, setFilter] = React.useState<ProblemFilter>("ALL");
   const [query, setQuery] = React.useState("");
+
+  /*
+   * Shared across the cards, and a ref rather than state because spending a
+   * unit of it must not re-render the list.
+   */
+  const budget = React.useRef(PREFETCH_BUDGET);
 
   const visible = React.useMemo(
     () => problems.filter((problem) => matchesFilter(problem, filter, query)),
@@ -106,12 +123,55 @@ export function PracticeBrowser({ problems }: { problems: ProblemListItem[] }) {
           className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
         >
           {visible.map((problem) => (
-            <li key={problem.slug} className="flex">
-              <ProblemCard problem={problem} className="w-full" />
-            </li>
+            <CatalogCard key={problem.slug} problem={problem} budget={budget} />
           ))}
         </ul>
       )}
     </div>
   );
 }
+
+/**
+ * One catalog card, which fetches its problem when the learner shows interest.
+ *
+ * Three hundred links cannot all be prefetched - that would ask the server to
+ * render three hundred problem pages so that one could be opened instantly,
+ * which is a worse problem than the one prefetching solves. Nor can they be
+ * left alone: `/practice/[slug]` deliberately has no loading.tsx (a Suspense
+ * boundary above a page turns its notFound() into an HTTP 200), and without one
+ * Next.js's default prefetch has nothing to fetch and returns an empty payload.
+ * So the choice is a full prefetch or none, per link.
+ *
+ * Pointer, focus or touch is the earliest honest signal of intent, and it buys
+ * most of the round trip: by the time the click lands the payload is usually
+ * already in the router cache. Intent is held here rather than in the parent so
+ * that hovering one card re-renders one card, not the whole grid.
+ */
+const CatalogCard = React.memo(function CatalogCard({
+  problem,
+  budget,
+}: {
+  problem: ProblemListItem;
+  budget: React.RefObject<number>;
+}) {
+  const [intent, setIntent] = React.useState(false);
+
+  const claim = React.useCallback(() => {
+    if (intent || budget.current <= 0) return;
+    budget.current -= 1;
+    setIntent(true);
+  }, [budget, intent]);
+
+  return (
+    <li
+      className="flex"
+      onMouseEnter={claim}
+      onTouchStart={claim}
+      // Capture, because the focusable element is the link inside the card.
+      // Keyboard browsing should prefetch for the same reason pointing does.
+      onFocusCapture={claim}
+    >
+      <ProblemCard problem={problem} className="w-full" prefetch={intent} />
+    </li>
+  );
+});
