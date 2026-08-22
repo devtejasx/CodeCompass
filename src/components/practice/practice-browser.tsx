@@ -78,7 +78,11 @@ export function PracticeBrowser({ problems }: { problems: ProblemListItem[] }) {
                 aria-selected={active}
                 onClick={() => setFilter(entry.id)}
                 className={cn(
-                  "rounded-lg px-3 py-1.5 text-sm transition-colors duration-200",
+                  // tap-target: the tabs are 32px tall, which is right for the
+                  // density they sit in and about 12px short of a reliable
+                  // thumb. The utility grows the hit area on coarse pointers
+                  // only, leaving the geometry alone. See globals.css.
+                  "tap-target rounded-lg px-3 py-1.5 text-sm transition-colors duration-200",
                   active
                     ? "bg-surface-raised text-foreground"
                     : "text-muted-foreground hover:text-foreground",
@@ -107,7 +111,7 @@ export function PracticeBrowser({ problems }: { problems: ProblemListItem[] }) {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search problems"
-            className="h-9 w-full rounded-lg border border-border bg-surface/60 pl-9 pr-3 text-sm text-foreground placeholder:text-subtle-foreground"
+            className="tap-target h-9 w-full rounded-lg border border-border bg-surface/60 pl-9 pr-3 text-base text-foreground placeholder:text-subtle-foreground sm:text-sm"
           />
         </div>
       </div>

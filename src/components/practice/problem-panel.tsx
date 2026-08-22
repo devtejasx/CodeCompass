@@ -318,7 +318,7 @@ function PractiseElsewhere({ className }: { className?: string }) {
               href={platform.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="surface-interactive inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-muted-foreground"
+              className="tap-target surface-interactive inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-muted-foreground"
               title={platform.note}
             >
               {platform.name}

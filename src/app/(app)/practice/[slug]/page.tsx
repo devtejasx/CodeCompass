@@ -143,7 +143,11 @@ export default async function PracticeProblemPage({
       <Container className="max-w-[100rem]">
         <Link
           href="/practice"
-          className="inline-flex items-center gap-1.5 rounded text-sm text-muted-foreground transition-colors hover:text-foreground"
+          // A standalone navigation control rather than a link inside a
+          // sentence, so it is sized as one. WCAG's target-size rule exempts
+          // links in a block of text precisely because an overlay there would
+          // sit on top of the lines around it; this is not that.
+          className="tap-target inline-flex items-center gap-1.5 rounded text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="size-4" aria-hidden />
           Back to practice

@@ -26,7 +26,11 @@ const buttonVariants = cva(
        */
       size: {
         sm: "tap-target h-8 px-3",
-        md: "h-10 px-4",
+        // 40px, which is four short of the figure both platform guidelines
+        // land on. The utility adds the missing hit area on coarse pointers
+        // and leaves the geometry alone, so Run and Submit are comfortable on
+        // a phone without growing on a desktop. See globals.css.
+        md: "tap-target h-10 px-4",
         lg: "h-11 px-5 text-[0.9375rem]",
         icon: "tap-target size-10",
       },

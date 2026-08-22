@@ -256,7 +256,10 @@ export function ProblemWorkspace({
             id="language-select"
             value={language}
             onChange={(event) => setLanguage(event.target.value as CodeLanguage)}
-            className="h-8 rounded-lg border border-border bg-surface/60 px-2.5 text-sm text-foreground transition-colors hover:bg-surface-raised"
+            // text-base below `sm`, because iOS Safari zooms the whole page
+            // when a control smaller than 16px takes focus — and a page zoomed
+            // by the language picker leaves the editor half off-screen.
+            className="tap-target h-8 rounded-lg border border-border bg-surface/60 px-2.5 text-base text-foreground transition-colors hover:bg-surface-raised sm:text-sm"
           >
             {languages.map((entry) => (
               <option key={entry} value={entry}>
