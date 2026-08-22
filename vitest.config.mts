@@ -1,7 +1,33 @@
 import path from "node:path";
-import { defineConfig } from "vitest/config";
+import { defineConfig, type Plugin } from "vitest/config";
+
+/**
+ * Lets the suite import the execution service's source directly.
+ *
+ * services/execution is a separate Node project: it compiles under NodeNext, so
+ * its own imports carry the .js extension the runtime will need. Vite resolves
+ * paths as written and would look for a .js file that only exists after a
+ * build, which would make `npm test` depend on having compiled the service
+ * first. Rewriting the extension - and only for importers inside that
+ * directory, so nothing in src/ or node_modules is affected - keeps the tests
+ * reading the same source the reviewer is.
+ */
+function executionServiceSource(): Plugin {
+  const root = path.resolve(import.meta.dirname, "./services/execution/src");
+  return {
+    name: "codecompass:execution-service-source",
+    enforce: "pre",
+    resolveId(source, importer) {
+      if (!importer || !source.startsWith(".")) return null;
+      if (!path.resolve(importer).startsWith(root)) return null;
+      if (!source.endsWith(".js")) return null;
+      return path.resolve(path.dirname(importer), `${source.slice(0, -3)}.ts`);
+    },
+  };
+}
 
 export default defineConfig({
+  plugins: [executionServiceSource()],
   test: {
     environment: "node",
     globalSetup: ["./tests/global-setup.ts"],
