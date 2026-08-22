@@ -1,0 +1,20 @@
+{
+  "name": "@codecompass/execution",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Isolated code-execution service for CodeCompass Practice. Runs untrusted learner submissions in throwaway containers and returns verdicts.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsc -p tsconfig.json && node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "image": "docker build -t codecompass-runner:1 runner"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

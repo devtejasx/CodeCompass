@@ -12,7 +12,7 @@
     "vercel-build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p services/execution/tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:migrate": "prisma migrate dev",
@@ -22,7 +22,9 @@
     "db:seed:dev": "prisma db seed",
     "db:studio": "prisma studio",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"*.{ts,json,mjs}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\""
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
+    "exec:build": "docker build -t codecompass-runner:1 services/execution/runner",
+    "exec:dev": "tsc -p services/execution/tsconfig.json && node services/execution/dist/index.js"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",

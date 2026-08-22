@@ -19,5 +19,9 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  // services/ is a separate deployable with its own compiler settings: it
+  // targets Node's own module resolution, not a bundler's, so its imports carry
+  // the .js extension the runtime needs and would not resolve under this
+  // config. `npm run typecheck` runs both projects.
+  "exclude": ["node_modules", "services"]
 }
