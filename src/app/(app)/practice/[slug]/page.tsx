@@ -11,11 +11,11 @@ import { getExecutionService } from "@/lib/practice/execution";
 import { preferredLanguageFor, sortLanguages } from "@/lib/practice/languages";
 import {
   availableLanguages,
+  getNextProblemFor,
+  getPracticeProfile,
   getProblemExplanation,
   getProblemForPractice,
   getProblemProgress,
-  getRecommendedProblems,
-  listProblems,
   listSubmissions,
 } from "@/lib/practice/queries";
 import type { CodeLanguage } from "@/generated/prisma/client";
@@ -64,8 +64,10 @@ export default async function PracticeProblemPage({
    * it at all depends on the attempt count — but that two-step chain now runs
    * *alongside* the other reads instead of after all of them, so it costs
    * nothing extra and an unattempted problem still never loads it.
+   *
+   * The next problem is no longer among them; see below.
    */
-  const [attempt, submissions, profile, savedRows, nextProblem] = await Promise.all([
+  const [attempt, submissions, profile, savedRows] = await Promise.all([
     getProblemProgress(user.id, problem.id).then(async (progress) => ({
       progress,
       // Withheld until they have attempted, so "unlocks after your first
@@ -74,22 +76,43 @@ export default async function PracticeProblemPage({
         (progress?.attempts ?? 0) > 0 ? await getProblemExplanation(problem.id) : null,
     })),
     listSubmissions(user.id, problem.id),
-    db.profile.findUnique({
-      where: { userId: user.id },
-      select: { selectedLanguage: true },
-    }),
+    // Shared with the recommendation below rather than read separately: one
+    // profile row answers both "which language does the editor open in" and
+    // "which career ranks their next problem".
+    getPracticeProfile(user.id),
     // Their last source per language, so returning restores the work rather
     // than resetting it. Only ever this user's own submissions.
+    //
+    // `distinct` rather than a page of history: five languages means at most
+    // five rows are ever used, and taking twenty-five pulled twenty-five whole
+    // source files across the wire to throw twenty of them away.
     db.submission.findMany({
       where: { userId: user.id, problemId: problem.id },
       orderBy: { createdAt: "desc" },
+      distinct: ["language"],
       select: { language: true, code: true },
-      take: 25,
     }),
-    findNextProblem(user.id, problem.id),
   ]);
 
   const { progress, explanation } = attempt;
+  const solved = progress?.status === "SOLVED";
+
+  /*
+   * Where to go next — fetched only when it is going to be shown.
+   *
+   * The "problem solved" card is the only thing on this page that uses it, and
+   * that card appears once the learner has solved the problem. Ranking it on
+   * every visit meant every first-time opener of every problem paid for a
+   * roadmap read and a full catalog scan to produce a link that was never
+   * rendered.
+   *
+   * One consequence, stated because it is a real difference: on the submission
+   * that *first* solves a problem, the card appears immediately from client
+   * state and its "Next: …" button arrives a moment later, with the
+   * router.refresh() the workspace already performs after a SUBMIT. Everything
+   * else about the card is unchanged.
+   */
+  const nextProblem = solved ? await getNextProblemFor(user.id, problem.id) : null;
 
   const problemLanguages = sortLanguages(
     problem.languages.map((entry) => entry.language),
@@ -135,7 +158,7 @@ export default async function PracticeProblemPage({
             initialLanguage={initialLanguage}
             savedCode={savedCode}
             submissions={submissions}
-            solved={progress?.status === "SOLVED"}
+            solved={solved}
             nextProblem={nextProblem}
             executionUnavailable={executionUnavailable}
             executionSimulated={getExecutionService().simulated}
@@ -144,28 +167,4 @@ export default async function PracticeProblemPage({
       </Container>
     </div>
   );
-}
-
-/**
- * Where to go after solving this one: the strongest recommendation that isn't
- * the problem just finished, so the learner stays on what they are studying.
- *
- * Falls back to the next unsolved problem in authored order — a learner who has
- * no career yet still gets somewhere to go rather than a dead end.
- */
-async function findNextProblem(userId: string, currentProblemId: string) {
-  const { recommendations } = await getRecommendedProblems(userId, 5);
-
-  const recommended = recommendations.find(
-    ({ problem }) => problem.id !== currentProblemId,
-  );
-  if (recommended) {
-    return { slug: recommended.problem.slug, title: recommended.problem.title };
-  }
-
-  const problems = await listProblems(userId);
-  const fallback = problems.find(
-    (problem) => problem.id !== currentProblemId && problem.status !== "SOLVED",
-  );
-  return fallback ? { slug: fallback.slug, title: fallback.title } : null;
 }

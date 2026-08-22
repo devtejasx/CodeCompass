@@ -1,7 +1,7 @@
 import { cache } from "react";
 
 import { db } from "@/lib/db";
-import { getActiveRoadmapForCareer } from "@/lib/roadmap/queries";
+import { getRoadmapTopicOrder } from "@/lib/roadmap/queries";
 import type { CodeLanguage } from "@/generated/prisma/client";
 
 import { getExecutionService } from "./execution";
@@ -177,31 +177,98 @@ export const listProblems = cache(async function listProblems(userId: string) {
 export type ProblemListItem = Awaited<ReturnType<typeof listProblems>>[number];
 
 /**
- * Solved/attempted counts for the practice dashboard, split by difficulty.
+ * The problem catalog as the *ranking* needs it, which is far less than the
+ * catalog page needs.
  *
- * `totalProblems` is counted rather than written down anywhere, so the figure
- * the page prints is whatever the database actually holds. The two reads are
- * issued together — the count does not depend on the progress rows, and making
- * it wait for them was a round trip spent on nothing.
+ * No languages, no topic titles, no estimated time, no interview frequency -
+ * recommendProblems reads difficulty, sortOrder, topic ids and status, and the
+ * link it produces needs a slug and a title. Three queries and a few kilobytes
+ * instead of five and a few hundred.
+ *
+ * The catalog page keeps listProblems, because a card genuinely shows all of
+ * that. This exists for the problem page, which ranks without rendering cards.
  */
-export async function getPracticeStats(userId: string) {
-  const [rows, totalProblems] = await Promise.all([
+export const listProblemsForRanking = cache(async function listProblemsForRanking(
+  userId: string,
+) {
+  const [problems, progress] = await Promise.all([
+    db.practiceProblem.findMany({
+      orderBy: [{ sortOrder: "asc" }],
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        difficulty: true,
+        sortOrder: true,
+        topics: { select: { topicId: true } },
+      },
+    }),
     db.userProblemProgress.findMany({
       where: { userId },
-      select: { status: true, problem: { select: { difficulty: true } } },
+      select: { problemId: true, status: true },
     }),
-    db.practiceProblem.count(),
   ]);
 
-  const solved = rows.filter((row) => row.status === "SOLVED");
+  const byProblem = new Map(progress.map((row) => [row.problemId, row.status]));
+
+  return problems.map((problem) => ({
+    id: problem.id,
+    slug: problem.slug,
+    title: problem.title,
+    difficulty: problem.difficulty,
+    sortOrder: problem.sortOrder,
+    topicIds: problem.topics.map((entry) => entry.topicId),
+    status: byProblem.get(problem.id) ?? ("NOT_STARTED" as const),
+  }));
+});
+
+/**
+ * The learner's career, read once per request.
+ *
+ * Three things wanted this row on a practice render - the language the editor
+ * opens in, the recommendation ranking and the practice context - and each
+ * fetched it separately because each selected different columns. One select
+ * covering all three, memoised, is one query instead of three.
+ */
+export const getPracticeProfile = cache(async function getPracticeProfile(
+  userId: string,
+) {
+  return db.profile.findUnique({
+    where: { userId },
+    select: {
+      selectedLanguage: true,
+      chosenCareer: { select: { id: true, name: true } },
+    },
+  });
+});
+
+/**
+ * Solved/attempted counts for the practice dashboard, split by difficulty.
+ *
+ * Counted from the catalog rather than read again. Every figure here - the
+ * status of each problem, its difficulty, and how many problems exist - is
+ * already in what listProblems returns, and the practice page has always
+ * loaded that on the same render. Asking Postgres a second time for a join it
+ * had just answered cost two more queries and a round trip to arrive at the
+ * same numbers.
+ *
+ * listProblems is memoised per request, so on the page this is free; called on
+ * its own it loads the catalog, which is the honest price of the figures.
+ *
+ * `totalProblems` is still counted rather than written down anywhere, so the
+ * page cannot drift out of step with what is actually seeded.
+ */
+export async function getPracticeStats(userId: string) {
+  const problems = await listProblems(userId);
+  const solved = problems.filter((problem) => problem.status === "SOLVED");
 
   return {
     solved: solved.length,
-    attempted: rows.filter((row) => row.status === "ATTEMPTED").length,
-    easySolved: solved.filter((row) => row.problem.difficulty === "EASY").length,
-    mediumSolved: solved.filter((row) => row.problem.difficulty === "MEDIUM").length,
-    hardSolved: solved.filter((row) => row.problem.difficulty === "HARD").length,
-    totalProblems,
+    attempted: problems.filter((problem) => problem.status === "ATTEMPTED").length,
+    easySolved: solved.filter((problem) => problem.difficulty === "EASY").length,
+    mediumSolved: solved.filter((problem) => problem.difficulty === "MEDIUM").length,
+    hardSolved: solved.filter((problem) => problem.difficulty === "HARD").length,
+    totalProblems: problems.length,
   };
 }
 
@@ -215,16 +282,39 @@ export interface PracticeContext {
  * pages need. Returns nulls rather than failing when they have no career yet.
  */
 export async function getPracticeContext(userId: string): Promise<PracticeContext> {
-  const profile = await db.profile.findUnique({
-    where: { userId },
-    select: { chosenCareer: { select: { id: true, name: true } } },
-  });
+  const position = await roadmapPosition(userId);
+  if (!position) return { careerName: null, currentTopic: null };
 
+  return {
+    careerName: position.careerName,
+    currentTopic: position.currentTopic,
+  };
+}
+
+/**
+ * Where the learner is in their roadmap, in the two facts practice needs: the
+ * topic they are on, and the topics they have finished, most recent first.
+ *
+ * Extracted because the recommendation and the context were doing the same
+ * four reads independently, and because it is where the expensive read used to
+ * be: getActiveRoadmapForCareer loads phase descriptions, prerequisite edges
+ * and whether each topic has a lesson, none of which is used to answer "which
+ * topic am I on?". getRoadmapTopicOrder answers exactly that.
+ */
+async function roadmapPosition(userId: string) {
+  const profile = await getPracticeProfile(userId);
   const career = profile?.chosenCareer ?? null;
-  if (!career) return { careerName: null, currentTopic: null };
+  if (!career) return null;
 
-  const roadmap = await getActiveRoadmapForCareer(career.id);
-  if (!roadmap) return { careerName: career.name, currentTopic: null };
+  const roadmap = await getRoadmapTopicOrder(career.id);
+  if (!roadmap) {
+    return {
+      careerName: career.name,
+      currentTopic: null,
+      currentTopicId: null,
+      completedTopicIds: [] as string[],
+    };
+  }
 
   const completed = await db.userTopicProgress.findMany({
     where: { userId, status: "COMPLETED", topic: { phase: { roadmapId: roadmap.id } } },
@@ -232,18 +322,17 @@ export async function getPracticeContext(userId: string): Promise<PracticeContex
     select: { topicId: true },
   });
 
-  const topicsInOrder = roadmap.phases.flatMap((phase) => phase.topics);
-  const currentId = currentTopicId(
-    topicsInOrder,
-    completed.map((row) => row.topicId),
-  );
-  const current = topicsInOrder.find((topic) => topic.id === currentId) ?? null;
+  const completedTopicIds = completed.map((row) => row.topicId);
+  const currentId = currentTopicId(roadmap.topics, completedTopicIds);
+  const current = roadmap.topics.find((topic) => topic.id === currentId) ?? null;
 
   return {
     careerName: career.name,
     currentTopic: current
       ? { id: current.id, slug: current.slug, title: current.title }
       : null,
+    currentTopicId: currentId,
+    completedTopicIds,
   };
 }
 
@@ -254,35 +343,21 @@ export async function getPracticeContext(userId: string): Promise<PracticeContex
  * ./recommend. An empty array means exactly that — no relevant problems yet.
  */
 export async function getRecommendedProblems(userId: string, limit = 6) {
-  const profile = await db.profile.findUnique({
-    where: { userId },
-    select: { chosenCareer: { select: { id: true, name: true } } },
-  });
-
-  const career = profile?.chosenCareer ?? null;
-  if (!career) return { recommendations: [], currentTopic: null, careerName: null };
-
-  const roadmap = await getActiveRoadmapForCareer(career.id);
-  if (!roadmap) {
-    return { recommendations: [], currentTopic: null, careerName: career.name };
+  const position = await roadmapPosition(userId);
+  if (!position) return { recommendations: [], currentTopic: null, careerName: null };
+  if (position.currentTopicId === null && position.completedTopicIds.length === 0) {
+    return {
+      recommendations: [],
+      currentTopic: position.currentTopic,
+      careerName: position.careerName,
+    };
   }
-
-  const completed = await db.userTopicProgress.findMany({
-    where: { userId, status: "COMPLETED", topic: { phase: { roadmapId: roadmap.id } } },
-    orderBy: { completedAt: "desc" },
-    select: { topicId: true },
-  });
-  const completedTopicIds = completed.map((row) => row.topicId);
-
-  const topicsInOrder = roadmap.phases.flatMap((phase) => phase.topics);
-  const currentId = currentTopicId(topicsInOrder, completedTopicIds);
-  const current = topicsInOrder.find((topic) => topic.id === currentId) ?? null;
 
   const problems = await listProblems(userId);
 
   const recommendations = recommendProblems({
-    currentTopicId: currentId,
-    completedTopicIds,
+    currentTopicId: position.currentTopicId,
+    completedTopicIds: position.completedTopicIds,
     problems: problems.map((problem) => ({
       ...problem,
       topicIds: problem.topics.map((topic) => topic.id),
@@ -292,11 +367,43 @@ export async function getRecommendedProblems(userId: string, limit = 6) {
 
   return {
     recommendations,
-    currentTopic: current
-      ? { id: current.id, slug: current.slug, title: current.title }
-      : null,
-    careerName: career.name,
+    currentTopic: position.currentTopic,
+    careerName: position.careerName,
   };
+}
+
+/**
+ * Where a learner goes after solving one problem.
+ *
+ * The strongest recommendation that is not the problem they just finished,
+ * falling back to the next unsolved problem in authored order - which is what
+ * the problem page has always shown, moved here so it can be ranked from the
+ * lean projection instead of the catalog one.
+ *
+ * Called only when the "problem solved" card is actually going to be rendered.
+ * That card is the only thing on the page that uses this, and it appears only
+ * once a learner has solved the problem, so computing it on every visit meant
+ * eight queries and a full catalog read to produce something almost nobody was
+ * shown. See the problem page for the one consequence of the change.
+ */
+export async function getNextProblemFor(userId: string, currentProblemId: string) {
+  const problems = await listProblemsForRanking(userId);
+  const position = await roadmapPosition(userId);
+
+  if (position) {
+    const [best] = recommendProblems({
+      currentTopicId: position.currentTopicId,
+      completedTopicIds: position.completedTopicIds,
+      problems: problems.filter((problem) => problem.id !== currentProblemId),
+      limit: 1,
+    });
+    if (best) return { slug: best.problem.slug, title: best.problem.title };
+  }
+
+  const fallback = problems.find(
+    (problem) => problem.id !== currentProblemId && problem.status !== "SOLVED",
+  );
+  return fallback ? { slug: fallback.slug, title: fallback.title } : null;
 }
 
 /** Problems attached to one topic, for the "practise this topic" card. */
