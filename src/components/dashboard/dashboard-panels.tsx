@@ -124,7 +124,7 @@ export function TodaysPlan({ plan }: { plan: StudyPlan }) {
           <li key={`${item.type}-${index}`}>
             <Link
               href={item.href}
-              className="flex items-baseline justify-between gap-4 rounded-lg px-2 py-2 transition-colors hover:bg-surface"
+              className="tap-target flex items-baseline justify-between gap-4 rounded-lg px-2 py-2 transition-colors hover:bg-surface"
             >
               <span className="flex min-w-0 items-baseline gap-2.5">
                 <span className="font-mono text-xs text-subtle-foreground">

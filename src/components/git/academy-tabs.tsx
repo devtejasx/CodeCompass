@@ -80,7 +80,7 @@ export function AcademyTabs({
               aria-controls={`academy-panel-${entry.id}`}
               onClick={() => setPanel(entry.id)}
               className={cn(
-                "rounded-lg px-3 py-1.5 text-sm transition-colors duration-200",
+                "tap-target rounded-lg px-3 py-1.5 text-sm transition-colors duration-200",
                 active
                   ? "bg-surface-raised text-foreground"
                   : "text-muted-foreground hover:text-foreground",
@@ -146,7 +146,7 @@ export function AcademyTabs({
                         {topic.hasLesson ? (
                           <Link
                             href={`/learn/${topic.slug}`}
-                            className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
+                            className="tap-target flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
                           >
                             {topic.status === "COMPLETED" ? (
                               <CheckCircle2

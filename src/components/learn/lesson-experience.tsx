@@ -147,7 +147,7 @@ export function LessonExperience({
                     onClick={() => toggleSection(section.id)}
                     aria-pressed={isComplete}
                     className={cn(
-                      "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors duration-200",
+                      "tap-target inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors duration-200",
                       isComplete
                         ? "border-emerald-500/30 bg-emerald-500/[0.08] text-emerald-400"
                         : "border-border bg-surface/60 text-muted-foreground hover:text-foreground",

@@ -101,7 +101,7 @@ export default async function LearnTopicPage({
         <header className="pt-10 sm:pt-14">
           <Link
             href={backHref}
-            className="inline-flex items-center gap-1.5 rounded text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className="tap-target inline-flex items-center gap-1.5 rounded text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="size-4" aria-hidden />
             {backLabel}

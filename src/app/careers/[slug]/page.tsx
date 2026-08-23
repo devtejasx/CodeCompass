@@ -83,7 +83,7 @@ export default async function CareerDetailPage({
         <div className="pt-10 sm:pt-14">
           <Link
             href="/careers"
-            className="inline-flex items-center gap-1.5 rounded text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className="tap-target inline-flex items-center gap-1.5 rounded text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="size-4" aria-hidden />
             All careers
@@ -326,7 +326,7 @@ export default async function CareerDetailPage({
             />
             <Link
               href="/careers"
-              className="rounded text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+              className="tap-target rounded text-sm text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
             >
               Not sure yet? Keep exploring
             </Link>

@@ -228,7 +228,7 @@ function CategoryTab({
       aria-selected={active}
       onClick={onSelect}
       className={cn(
-        "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors duration-200",
+        "tap-target flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors duration-200",
         active
           ? "bg-surface-raised text-foreground"
           : "text-muted-foreground hover:text-foreground",
@@ -266,7 +266,7 @@ function Select({
         id={id}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1.5 h-9 rounded-lg border border-border bg-surface/60 px-2.5 text-sm text-foreground"
+        className="tap-target mt-1.5 h-9 rounded-lg border border-border bg-surface/60 px-2.5 text-sm text-foreground"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>

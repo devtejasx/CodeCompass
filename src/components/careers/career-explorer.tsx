@@ -241,7 +241,7 @@ function FilterChip({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "rounded-lg border px-3 py-1.5 text-sm transition-colors duration-200",
+        "tap-target rounded-lg border px-3 py-1.5 text-sm transition-colors duration-200",
         active
           ? "bg-primary/12 border-primary/50 text-foreground"
           : "border-border bg-surface/60 text-muted-foreground hover:border-white/15 hover:text-foreground",
@@ -266,7 +266,7 @@ function CompareToggle({
   return (
     <label
       className={cn(
-        "inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg px-1 py-1 text-xs",
+        "tap-target inline-flex w-fit cursor-pointer items-center gap-2 rounded-lg px-1 py-1 text-xs",
         "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-background",
         disabled && "cursor-not-allowed opacity-40",
         checked ? "text-indigo-300" : "text-subtle-foreground hover:text-foreground",

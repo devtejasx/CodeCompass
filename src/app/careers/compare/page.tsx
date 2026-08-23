@@ -43,7 +43,7 @@ export default async function ComparePage({
       <Container>
         <Link
           href="/careers"
-          className="inline-flex items-center gap-1.5 rounded text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="tap-target inline-flex items-center gap-1.5 rounded text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="size-4" aria-hidden />
           Back to careers

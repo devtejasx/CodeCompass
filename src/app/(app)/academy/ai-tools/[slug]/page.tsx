@@ -74,7 +74,7 @@ export default async function AIToolDetailPage({
       <Container>
         <Link
           href="/academy/ai-tools"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="tap-target inline-flex items-center gap-1.5 rounded text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowRight className="size-3.5 rotate-180" aria-hidden />
           All AI tools

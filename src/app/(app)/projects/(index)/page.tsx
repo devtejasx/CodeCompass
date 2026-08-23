@@ -158,7 +158,7 @@ export default async function ProjectsPage() {
                       <li key={topic.id}>
                         <Link
                           href={`/learn/${topic.slug}`}
-                          className="inline-block rounded-md border border-border bg-surface px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                          className="tap-target inline-block rounded-md border border-border bg-surface px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
                         >
                           {topic.title}
                         </Link>

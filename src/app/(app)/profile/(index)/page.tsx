@@ -285,7 +285,7 @@ export default async function ProfilePage() {
                     <div className="flex items-start justify-between gap-3">
                       <Link
                         href={`/projects/${project.slug}`}
-                        className="text-sm font-medium text-foreground transition-colors hover:text-indigo-300"
+                        className="tap-target text-sm font-medium text-foreground transition-colors hover:text-indigo-300"
                       >
                         {project.title}
                       </Link>
@@ -515,7 +515,7 @@ export default async function ProfilePage() {
               <li key={item.key}>
                 <Link
                   href={item.href}
-                  className="flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-surface"
+                  className="tap-target flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-surface"
                 >
                   {item.done ? (
                     <CheckCircle2

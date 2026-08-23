@@ -46,7 +46,7 @@ export function SiteNav() {
     >
       <Container>
         <div className="flex h-16 items-center justify-between gap-6">
-          <a href="#top" className="rounded-lg" aria-label="CodeCompass — home">
+          <a href="#top" className="tap-target rounded-lg" aria-label="CodeCompass — home">
             <Logo />
           </a>
 
@@ -80,7 +80,7 @@ export function SiteNav() {
             aria-expanded={open}
             aria-controls="mobile-menu"
             aria-label={open ? "Close menu" : "Open menu"}
-            className="grid size-9 place-items-center rounded-lg border border-border bg-surface text-muted-foreground transition-colors hover:text-foreground md:hidden"
+            className="tap-target grid size-9 place-items-center rounded-lg border border-border bg-surface text-muted-foreground transition-colors hover:text-foreground md:hidden"
           >
             {open ? (
               <X className="size-[18px]" aria-hidden />

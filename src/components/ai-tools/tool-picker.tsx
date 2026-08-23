@@ -95,7 +95,7 @@ export function ToolPicker({
                     : `${tool.name} — ${tool.category}`
                 }
                 className={cn(
-                  "rounded-lg border px-3 py-1.5 text-sm transition-colors duration-200",
+                  "tap-target rounded-lg border px-3 py-1.5 text-sm transition-colors duration-200",
                   active
                     ? "border-primary/40 bg-primary/10 text-foreground"
                     : "border-border bg-surface/60 text-muted-foreground hover:text-foreground",

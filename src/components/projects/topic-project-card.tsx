@@ -72,7 +72,7 @@ export function TopicProjectCard({
           <li key={project.slug}>
             <Link
               href={`/projects/${project.slug}`}
-              className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
+              className="tap-target flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-surface hover:text-foreground"
             >
               {project.status === "COMPLETED" ? (
                 <CheckCircle2

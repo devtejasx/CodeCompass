@@ -246,6 +246,35 @@
       width: 100%;
       translate: 0 -50%;
     }
+
+    /*
+     * The same idea for a control that is small on *both* axes.
+     *
+     * A checkbox or a radio renders 14–16px square. Growing only its height
+     * leaves a 16×44 target, which is taller than a thumb needs and still far
+     * narrower than one can aim at — it clears the platform guideline on one
+     * axis and fails WCAG 2.5.8 on the other. This grows whichever axis is
+     * short, from the centre, so the box stays exactly where it is drawn.
+     *
+     * Use it on the control itself only where the label is a sibling. Where a
+     * label *wraps* the input, the label is the target and `tap-target` on it
+     * is the better fit: it covers the words too, which is where a finger goes.
+     */
+    .tap-target-square {
+      position: relative;
+    }
+
+    .tap-target-square::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      min-width: 44px;
+      min-height: 44px;
+      width: 100%;
+      height: 100%;
+      translate: -50% -50%;
+    }
   }
 }
 

@@ -146,7 +146,7 @@ export function MentorChat({
                     type="button"
                     onClick={() => submit(starter)}
                     disabled={pending || !available}
-                    className="rounded-lg border border-border bg-surface/60 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                    className="tap-target rounded-lg border border-border bg-surface/60 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {starter}
                   </button>

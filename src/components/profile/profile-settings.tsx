@@ -112,7 +112,7 @@ export function ProfileSettings({
               placeholder="your-name"
               autoComplete="off"
               spellCheck={false}
-              className="h-9 min-w-0 flex-1 rounded-lg border border-border bg-surface/60 px-3 text-sm text-foreground placeholder:text-subtle-foreground"
+              className="tap-target h-9 min-w-0 flex-1 rounded-lg border border-border bg-surface/60 px-3 text-base text-foreground placeholder:text-subtle-foreground sm:text-sm"
             />
             <Button type="submit" size="sm" disabled={pending || !username.trim()}>
               {savedUsername ? "Update" : "Claim"}
@@ -282,7 +282,7 @@ function Toggle({
         checked={checked}
         disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}
-        className="mt-0.5 size-4 shrink-0 accent-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="tap-target-square mt-0.5 size-4 shrink-0 accent-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
       />
     </div>
   );

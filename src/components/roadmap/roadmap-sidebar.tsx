@@ -150,7 +150,7 @@ export function RoadmapSidebar({
 
           <Link
             href="/academy/ai-tools"
-            className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-indigo-300 transition-colors hover:text-indigo-200"
+            className="tap-target mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-indigo-300 transition-colors hover:text-indigo-200"
           >
             AI Tools Academy
             <ArrowRight className="size-3.5" aria-hidden />
