@@ -257,10 +257,14 @@ deliberately — one gradient headline, two soft glows, blur only on app chrome.
   unfocusable, unclickable and out of the accessibility tree, which is what
   unmounting used to guarantee (verified: 82 focusable elements inside closed
   roadmap panels, none of them reachable)
-- Compact 30–32px controls keep their density and gain a 44px hit area on coarse
-  pointers through `.tap-target`, which grows the target without moving the
-  geometry (verified in a browser at 320, 375, 390 and 430px: no control on
-  either Practice page, or in the header above it, reports under 44px)
+- Compact controls keep their density and gain a 44px hit area on coarse
+  pointers through `.tap-target`, and `.tap-target-square` for a checkbox or
+  radio, which is small on both axes; neither moves the geometry (verified in a
+  browser at 320, 375, 390 and 430px across twenty-one pages: no control
+  reports under 44px, counting the label that activates it)
+- Every interactive control is hit-tested where it is drawn, so a control that
+  is laid out but sitting underneath another is a failure rather than something
+  only a person looking closely at a screenshot would notice
 
 ---
 
@@ -392,20 +396,53 @@ called only from the branch that renders its result.
 
 ### Responsive, verified in a browser
 
-Nine viewports from 320×800 to 1920×1080, both Practice pages, measured rather
-than inspected: horizontal overflow as `scrollWidth` against the viewport, touch
-targets against the rendered box plus whatever the `tap-target` utility adds,
-and every control asked what `elementFromPoint` returns at its own centre —
-because a page can pass an overflow check and still have two flex children
-sliding over each other. All nine pass for Practice. The whole session is then
-driven end to end at 390px and 1280px: search, filter, open, switch language,
-type, Run, Submit, navigate away and back.
+**Twenty-one pages × nine viewports, 320×800 to 1920×1080 — 189 combinations,
+all clean.** Measured rather than inspected, on the production build:
 
-Two findings from that pass were real and are fixed: the app shell's navigation
-button, account button and wordmark rendered 30–42px on a phone and now carry
-`tap-target`, which grows the hit area on coarse pointers without moving
-anything. One finding is real and **not** fixed — see
-[What is deliberately not built](#what-is-deliberately-not-built).
+- horizontal overflow as `scrollWidth` against the viewport;
+- touch targets against the rendered box **unioned with any label that
+  activates the control**, plus whatever the `tap-target` utilities add — a
+  16px radio inside a padded label is a 70px target, and measuring the input
+  alone reports defects that are not there;
+- every control asked what `elementFromPoint` returns at its own centre,
+  because a page can pass an overflow check and still have two flex children
+  sliding over each other;
+- WCAG 2.5.8's "in a sentence or block of text" exemption applied by looking
+  for prose beside the control, not by checking `display: inline` — a link in a
+  flex-wrapped sentence is a block box and no display check will ever call it
+  one.
+
+The whole session is then driven end to end at 390px and 1280px: search, filter,
+open a problem, switch language, type, Run, Submit, navigate away and back.
+
+```bash
+npx tsx scripts/practice-audit.ts --url http://127.0.0.1:3100 --cookie "$(npx tsx scripts/dev-session.ts <userId>)" --only responsive --pages "/,/careers,/dashboard,/practice"
+```
+
+Everything that pass found has been fixed. Two classes of defect, both real:
+
+**Compact controls were below 44px on a phone, nearly everywhere.** `Button` and
+`Input` already grew their hit area on coarse pointers; every control that
+bypassed them — filter chips, academy tabs, selects, search boxes, back-links,
+card rows, the copy and mark-as-read buttons, the marketing and app headers —
+did not. They now carry `tap-target`, which extends the hit area to 44px through
+a pseudo-element on touch devices and leaves geometry, spacing and alignment
+untouched. `tap-target-square` is its companion for a checkbox or radio, which
+is small on *both* axes and would otherwise end up 16px wide and 44px tall —
+clearing the guideline on one axis and failing WCAG 2.5.8 on the other.
+
+**The desktop navigation row fitted at no viewport width.** "Profile" and
+"Explore Careers" spent every render at 1280, 1440 and 1920 underneath the
+account menu: laid out, focusable and impossible to click, on every
+authenticated page. The cause was arithmetic rather than a breakpoint — the
+header sat inside `Container`, so it had 1088px from 1216px up, while the
+wordmark (143), the row (914), the account menu (164) and the gaps need 1261px.
+`AppNav`'s `xl` had been chosen against the viewport instead of against the
+container. Nothing overflowed, so no `scrollWidth` check and no screenshot ever
+caught it. The header is now full-width, which gives the row `viewport − 411px`,
+and the row renders from `2xl` where that clears 914px with 211px to spare;
+below it the disclosure menu already used at 1024px and under carries all nine
+destinations, each verified reachable by hit-testing the open panel.
 
 **The suite pins answers, not durations.** `tests/performance.test.ts` asserts
 that the dashboard's leaner capability count agrees with the profile page's,
@@ -911,21 +948,10 @@ teaching the build to serve its workers, which is a dependency and build change
 rather than a component tweak, and it was left out of the Phase 6 closure pass
 on purpose.
 
-**Two navigation links are unreachable at desktop widths, and the fix is a
-header redesign.** `scripts/practice-audit.ts` finds "Profile" and "Explore
-Careers" sitting underneath the account menu at 1280, 1440 and 1920 — on every
-authenticated page, not only Practice. The cause is arithmetic, not a
-breakpoint: `Container` is `max-w-6xl` with `lg:px-8`, so the header's inner
-width is fixed at **1088px** from 1216px up, while the nine-label row measures
-1105px and the wordmark, account menu and gaps need roughly 340px more. The row
-therefore fits at no viewport width, and `AppNav`'s `xl:block` was chosen
-against the viewport rather than against the container. Nothing overflows, so it
-is invisible to a `scrollWidth` check and to a screenshot; the audit catches it
-by asking `elementFromPoint`. Every honest fix — widening the header past the
-page container, moving the row to `2xl`, dropping the labels, or removing the
-row — changes the desktop navigation, which the Phase 6 brief scoped out. The
-audit reports it separately from Practice's own findings and does not fail on
-it, so it stays visible until somebody decides.
+**No previous/next navigation between practice problems.** The catalog is the
+hub, and the only direct problem-to-problem link is the "Next" button on the
+solved card. That is a deliberate omission, not an oversight: a linear
+previous/next implies an order the recommendation engine does not follow.
 
 On the landing page, where progress, streaks or activity appear, they are a
 **static mockup of the future product**, not live data. The dashboard itself is

@@ -45,10 +45,26 @@ function isActive(pathname: string, href: string) {
  * 1024px alike. Icon-only did not save it: nine icons plus the logo and the
  * account menu still overflow a 375px viewport.
  *
- * So there are two navigations, and only one is ever rendered to the user:
- * the full row from `xl` up, where all nine labels genuinely fit, and a
- * disclosure menu below it. Both are built from the same LINKS array, so they
- * cannot drift apart.
+ * So there are two navigations, and only one is ever rendered to the user: the
+ * full row from `2xl` up, and a disclosure menu below it. Both are built from
+ * the same LINKS array, so they cannot drift apart.
+ *
+ * `2xl` and not `xl`, and the correction is worth recording because the old
+ * breakpoint was chosen against the wrong number. The row is 914px today. What
+ * decides whether it fits is not the viewport but the header's inner width, and
+ * while the header sat inside `Container` that was 1088px at every width from
+ * 1216px up — against 1261px needed once the wordmark, the account menu and the
+ * gaps are counted. So the row overflowed by 173px at 1280px, at 1440px and at
+ * 1920px alike, and "Profile" and "Explore Careers" — the last two, 195px
+ * together — sat underneath the account menu on every desktop render. Nothing
+ * scrolled sideways, so no overflow check and no screenshot ever caught it;
+ * scripts/practice-audit.ts now asks what `elementFromPoint` returns at each
+ * control's own centre, which is the question a click asks.
+ *
+ * The header is full-width now, which gives the row `viewport - 411px`. That
+ * clears 914px from 1325px up, and `2xl` is the first breakpoint above it —
+ * with 211px to spare, rather than the one pixel a snugger fit would have left
+ * for the next label somebody adds.
  *
  * Client-side because it needs the current path to mark the active link.
  */
@@ -57,7 +73,7 @@ export function AppNav({ className }: { className?: string }) {
 
   return (
     <>
-      <nav aria-label="Primary" className={cn("hidden xl:block", className)}>
+      <nav aria-label="Primary" className={cn("hidden 2xl:block", className)}>
         <ul className="flex items-center gap-1">
           {LINKS.map((link) => {
             const active = isActive(pathname, link.href);
@@ -89,7 +105,7 @@ export function AppNav({ className }: { className?: string }) {
 }
 
 /**
- * The compact navigation, below `xl`.
+ * The compact navigation, below `2xl`.
  *
  * A disclosure rather than a scrolling strip: a row you have to swipe hides
  * destinations behind a gesture with nothing to suggest they are there, which
@@ -126,7 +142,7 @@ function MobileNav({ pathname }: { pathname: string }) {
   const current = LINKS.find((link) => isActive(pathname, link.href));
 
   return (
-    <div ref={containerRef} className="relative xl:hidden">
+    <div ref={containerRef} className="relative 2xl:hidden">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -135,7 +151,7 @@ function MobileNav({ pathname }: { pathname: string }) {
         aria-controls="primary-nav-menu"
         aria-label={open ? "Close navigation menu" : "Open navigation menu"}
         className={cn(
-          // tap-target: below `xl` this button is the only way to reach any
+          // tap-target: below `2xl` this button is the only way to reach any
           // other page, and it renders 30px tall — the smallest control in the
           // shell and the one it costs most to miss. The utility grows the hit
           // area on coarse pointers without moving anything. See globals.css.
