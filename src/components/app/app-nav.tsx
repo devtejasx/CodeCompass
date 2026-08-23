@@ -135,7 +135,11 @@ function MobileNav({ pathname }: { pathname: string }) {
         aria-controls="primary-nav-menu"
         aria-label={open ? "Close navigation menu" : "Open navigation menu"}
         className={cn(
-          "flex items-center gap-2 rounded-lg border border-border bg-surface/60 px-2.5 py-1.5",
+          // tap-target: below `xl` this button is the only way to reach any
+          // other page, and it renders 30px tall — the smallest control in the
+          // shell and the one it costs most to miss. The utility grows the hit
+          // area on coarse pointers without moving anything. See globals.css.
+          "tap-target flex items-center gap-2 rounded-lg border border-border bg-surface/60 px-2.5 py-1.5",
           "text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground",
         )}
       >

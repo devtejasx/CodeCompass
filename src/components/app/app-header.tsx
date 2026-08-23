@@ -29,7 +29,10 @@ export function AppHeader({ name, email }: { name: string; email: string }) {
           <div className="flex min-w-0 items-center gap-3 sm:gap-4 xl:gap-6">
             <Link
               href="/dashboard"
-              className="shrink-0 rounded-lg"
+              // tap-target: the wordmark is a link home and is sized by the
+              // 32px mark beside it. A standalone control, not a link inside a
+              // sentence, so WCAG's inline exemption does not cover it.
+              className="tap-target shrink-0 rounded-lg"
               aria-label="CodeCompass"
             >
               <Logo />

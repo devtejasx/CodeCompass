@@ -67,7 +67,10 @@ export function AccountMenu({ name, email }: AccountMenuProps) {
         // accessible name at all. The label carries it at every width.
         aria-label={`Account menu for ${name}`}
         className={cn(
-          "flex items-center gap-2 rounded-lg border border-border bg-surface/60 py-1.5 pl-1.5 pr-2.5",
+          // tap-target: 42px tall, two short of the figure both platform
+          // guidelines land on. The utility grows the hit area on coarse
+          // pointers and leaves the geometry alone — see globals.css.
+          "tap-target flex items-center gap-2 rounded-lg border border-border bg-surface/60 py-1.5 pl-1.5 pr-2.5",
           "text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground",
         )}
       >
