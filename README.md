@@ -21,7 +21,7 @@ The principle the whole product is built around:
 | 3 | Career explorer, comparison, career selection | Complete |
 | 4 | Roadmap engine — phases, topics, prerequisites | Complete |
 | 5 | Learning system — lessons, progress, knowledge checks | Complete |
-| 6 | Coding practice — problems, editor, submissions, progress | Complete\* |
+| 6 | Coding practice — 300 problems, editor, real sandboxed execution, progress | Complete |
 | 7 | Projects — catalog, milestones, submission, self-evaluation | Complete |
 | 8 | Git & GitHub Academy + GitHub integration | Complete |
 | 9 | AI Tools Academy — catalog, workflows, comparison, responsible use | Complete |
@@ -34,9 +34,10 @@ optional**: with no provider configured, every recommendation, plan and summary
 still works and the mentor page says so. See
 [Personalisation & AI guidance](#personalisation--ai-guidance).
 
-\* The practice engine is complete. **Production code execution is not** — it
-ships with a development provider that returns clearly-labelled *simulated*
-verdicts and never runs anything. See [Coding Practice](#coding-practice) and
+Phase 6 is **closed**: 300 problems across 31 DSA topics, five languages, a
+sandboxed execution service that really compiles and runs submissions, and a
+performance and responsive pass measured against the production build. See
+[Coding Practice](#coding-practice) and
 [docs/code-execution.md](docs/code-execution.md).
 
 See [What is deliberately not built](#what-is-deliberately-not-built) below.
@@ -256,6 +257,10 @@ deliberately — one gradient headline, two soft glows, blur only on app chrome.
   unfocusable, unclickable and out of the accessibility tree, which is what
   unmounting used to guarantee (verified: 82 focusable elements inside closed
   roadmap panels, none of them reachable)
+- Compact 30–32px controls keep their density and gain a 44px hit area on coarse
+  pointers through `.tap-target`, which grows the target without moving the
+  geometry (verified in a browser at 320, 375, 390 and 430px: no control on
+  either Practice page, or in the header above it, reports under 44px)
 
 ---
 
@@ -321,14 +326,106 @@ The career's icon now travels with the learner state. The dashboard and the
 profile both render it beside the career name, and both were issuing a second
 `career.findUnique` for one column of a row they had already loaded.
 
+### Opening a problem
+
+The claim worth making about Practice is not that navigation is fast — a route
+can change in 90ms and leave somebody staring at an empty column. So each open
+is measured at four points, and the numbers below come from
+`scripts/practice-audit.ts` driving a real headless Chrome over the **production
+build**, seven problems covering every shape in the catalog (easy array, medium
+hash map, medium tree, hard graph, DP, trie, bit manipulation) plus five more
+pairs on one problem. Milliseconds from the click, on one developer laptop with
+a local Postgres:
+
+| From the click to…              | min | median | p95 | max |
+| ------------------------------- | --: | -----: | --: | --: |
+| statement readable — **cold**   |  99 |    202 | 215 | 215 |
+| statement readable — **warm**   |  49 |     66 |  71 |  71 |
+| editor typeable — **cold**      | 411 |    573 | 700 | 700 |
+| editor typeable — **warm**      | 519 |    530 | 570 | 570 |
+
+*Cold* means the catalog was reloaded as a document and the card was clicked
+without ever being pointed at. *Warm* means a pointer crossed it first, which is
+what a learner's hand does on the way to a click.
+
+Within one document, problem to problem is faster still: 85–109ms to the
+statement and 144–215ms to a typeable editor, because Monaco is already parsed.
+The one direct problem-to-problem link in the product — the "Next" button on the
+solved card — lands in 38ms/105ms. No previous/next navigation was added to
+produce that number.
+
+**Reading and typing are deliberately not the same wait.** The statement, the
+examples and the constraints arrive in well under a quarter-second; the editor
+takes about another third of a second on top. That split is the design: a
+learner reads the problem first, and making the page wait for Monaco so
+everything appeared at once would make the part they need first arrive last.
+
+**Monaco is not served from this origin.** `@monaco-editor/react` resolves the
+editor through `@monaco-editor/loader`, which fetches roughly **1.0 MB from
+`cdn.jsdelivr.net`** on a first visit; our own JavaScript for the same page is
+149 kB and the rendered document plus its data is 17–23 kB. Nothing is bundled,
+so a browser that cannot reach that CDN sits on the loading state and never gets
+an editor. Recorded rather than fixed: self-hosting it is a dependency and build
+change, not a component tweak.
+
+**Nothing reloads and nothing is fetched twice.** `/practice → A → B → C → A` is
+six client navigations in one document, checked by leaving a value on `window`
+and confirming it survives — a full reload cannot preserve it, and no amount of
+visual smoothness can fake it surviving. One cold open issues 43 requests and
+zero duplicates.
+
+**Prefetching is bounded and it is measured, not asserted.** The catalog
+prefetches nothing on sight: three hundred `<Link prefetch>` would ask the
+server to render three hundred problem pages so one could be opened. A card
+fetches its problem when a pointer, a finger or keyboard focus lands on it, and
+a shared budget of 24 per visit stops a pointer dragged across the grid becoming
+a stampede. Dragging one across all 300 produces exactly 24 requests; sitting
+still produces none.
+
+**Queries, counted rather than eyeballed.** `/practice` renders the whole
+catalog, the recommendations and the progress figures in 13 statements;
+`/practice/[slug]` opens a problem in 16. Neither grows with the size of the
+catalog or the number of a problem's examples, test cases or languages, and
+`tests/practice-performance.test.ts` now pins that with an instrumented Prisma
+client rather than with a stopwatch. The ranking read that scans the catalog is
+called only from the branch that renders its result.
+
+### Responsive, verified in a browser
+
+Nine viewports from 320×800 to 1920×1080, both Practice pages, measured rather
+than inspected: horizontal overflow as `scrollWidth` against the viewport, touch
+targets against the rendered box plus whatever the `tap-target` utility adds,
+and every control asked what `elementFromPoint` returns at its own centre —
+because a page can pass an overflow check and still have two flex children
+sliding over each other. All nine pass for Practice. The whole session is then
+driven end to end at 390px and 1280px: search, filter, open, switch language,
+type, Run, Submit, navigate away and back.
+
+Two findings from that pass were real and are fixed: the app shell's navigation
+button, account button and wordmark rendered 30–42px on a phone and now carry
+`tap-target`, which grows the hit area on coarse pointers without moving
+anything. One finding is real and **not** fixed — see
+[What is deliberately not built](#what-is-deliberately-not-built).
+
 **The suite pins answers, not durations.** `tests/performance.test.ts` asserts
 that the dashboard's leaner capability count agrees with the profile page's,
 that request-scoped memoisation stays request-scoped, and that the icon still
 arrives with the state — losing that field would render no icon rather than
 fail. No test asserts a timing; those belong in a profiler, not in a suite that
-has to pass on every machine. `.claude/launch.json` carries a production-server
-entry, because Suspense boundaries and bundle sizes do not behave the same under
-the dev server.
+has to pass on every machine. `tests/practice-performance.test.ts` adds the same
+kind of guard for Practice: query *counts* through an instrumented client, and
+payload *shapes* — a statement appearing in the catalog projection, or an
+explanation in the problem one, fails it, while a machine being 50ms slower does
+not. `.claude/launch.json` carries a production-server entry, because Suspense
+boundaries and bundle sizes do not behave the same under the dev server.
+
+Browser measurements come from `scripts/practice-audit.ts`, which speaks the
+DevTools protocol to a Chrome that is already installed, adds no dependency and
+downloads nothing:
+
+```bash
+npx tsx scripts/practice-audit.ts --url http://127.0.0.1:3100 --cookie "$(npx tsx scripts/dev-session.ts <userId>)"
+```
 
 ---
 
@@ -424,8 +521,9 @@ chain stops — computed from the seeded database rather than tracked by hand.
 ## Coding Practice
 
 `Topic → ProblemTopic → PracticeProblem`, plus per-user progress and a
-submission log. 36 authored problems — 23 easy, 13 medium — across five
-languages.
+submission log. **300 authored problems — 91 easy, 169 medium, 40 hard** —
+across 31 DSA topics and five languages. Every figure here is counted from the
+database by `tests/practice.test.ts`, not written down.
 
 Four of those are the React set in `prisma/seed/problems/react.ts`, which sit
 slightly apart: the engine grades pure functions, so it cannot ask for a
@@ -435,17 +533,30 @@ inverted — starter code is generated from the problem's signature, so a
 "TypeScript problem" would arrive with its types already written and nothing
 about typing would be graded.
 
-> **CodeCompass never executes learner code.** No file in this repository uses
-> `eval`, `new Function`, `vm`, `child_process` or any equivalent to run a
-> submission. Code goes to an external, isolated execution service behind the
+> **The Next.js application never executes learner code.** No file under `src/`
+> uses `eval`, `new Function`, `vm`, `child_process` or any equivalent to run a
+> submission. Code goes to a separate, isolated execution service behind the
 > `CodeExecutionService` interface, and only a verdict comes back.
 >
-> **That service does not exist yet.** The shipped default (`none`) runs
-> nothing and says so; the development provider (`mock`) returns deterministic
-> *simulated* verdicts, is refused when `NODE_ENV=production`, and marks every
-> result it produces so the UI can label it. **A real sandbox is required before
-> production** — [docs/code-execution.md](docs/code-execution.md) specifies
-> exactly what it must guarantee.
+> **That service now exists**, in `services/execution`: a supervisor that holds
+> the queue and drives a container runtime, and a throwaway `codecompass-runner`
+> container — no network, no secrets, read-only, non-root — that the submission
+> actually runs in. The two images are deliberately separate; the sandbox never
+> gets the container runtime. `CODE_EXECUTION_PROVIDER=sandbox` points at it.
+>
+> The other two providers remain, and both are honest about themselves: the
+> shipped default (`none`) runs nothing and the UI disables Run and Submit,
+> while `mock` returns deterministic *simulated* verdicts, is refused when
+> `NODE_ENV=production`, and marks every result so the UI can label it.
+>
+> `tests/execution-sandbox.test.ts` is the proof and it does not run under
+> `npm test`, because CI has no Docker — it skips itself unless pointed at a
+> live service. Against one it exercises 27 cases, including whether a
+> submission can reach the network, read the host filesystem, escalate
+> privileges, exhaust memory or outlive its time limit. Each is written so a
+> sandbox that stopped isolating anything reports what it managed to do rather
+> than passing quietly. Running it is part of the definition of done for a
+> deployment: see [docs/code-execution.md](docs/code-execution.md).
 
 - **Practice is connected to learning, not a problem library.** The recommended
   section reads the learner's current roadmap topic and their completed topics,
@@ -474,9 +585,10 @@ about typing would be graded.
   compiler and runtime messages before they are stored, let alone rendered.
 - **Solved is permanent.** A later failed attempt never un-solves a problem, and
   `solvedAt` keeps the moment they *first* solved it.
-- **Monaco loads only on a problem page**, via `next/dynamic` with `ssr: false`,
-  behind a textarea fallback. No other route pays for it, and it is not in any
-  bundle.
+- **Monaco loads only on a problem page**, via `next/dynamic` with `ssr: false`.
+  No other route pays for it and it is in no bundle. It is also not served from
+  this origin — see [Opening a problem](#opening-a-problem) for what that costs
+  and what it means when the CDN is unreachable.
 
 > **Note on `"use server"` files:** they may export *only* async functions.
 > Re-exporting a constant from one type-checks and builds cleanly, then fails
@@ -789,10 +901,31 @@ Job-search features were removed from the CodeCompass vision deliberately. The
 goal is to make somebody a capable technology professional, not to become a job
 application platform.
 
-Also not implemented, and load-bearing: **a real code-execution sandbox**. The
-interface, the submission lifecycle, the limits and the scrubbing are all in
-place; the thing that safely runs code is not. See
-[docs/code-execution.md](docs/code-execution.md).
+**The code editor is not self-hosted.** `@monaco-editor/react` fetches Monaco
+from `cdn.jsdelivr.net` — about 1.0 MB on a first visit, against 149 kB of our
+own JavaScript for the same page. Where that CDN is unreachable, the problem
+page still renders in full and the statement, examples, constraints and hints
+are all readable; the editor stays on its loading state, so nothing can be
+typed. Self-hosting it means adding `monaco-editor` as a direct dependency and
+teaching the build to serve its workers, which is a dependency and build change
+rather than a component tweak, and it was left out of the Phase 6 closure pass
+on purpose.
+
+**Two navigation links are unreachable at desktop widths, and the fix is a
+header redesign.** `scripts/practice-audit.ts` finds "Profile" and "Explore
+Careers" sitting underneath the account menu at 1280, 1440 and 1920 — on every
+authenticated page, not only Practice. The cause is arithmetic, not a
+breakpoint: `Container` is `max-w-6xl` with `lg:px-8`, so the header's inner
+width is fixed at **1088px** from 1216px up, while the nine-label row measures
+1105px and the wordmark, account menu and gaps need roughly 340px more. The row
+therefore fits at no viewport width, and `AppNav`'s `xl:block` was chosen
+against the viewport rather than against the container. Nothing overflows, so it
+is invisible to a `scrollWidth` check and to a screenshot; the audit catches it
+by asking `elementFromPoint`. Every honest fix — widening the header past the
+page container, moving the row to `2xl`, dropping the labels, or removing the
+row — changes the desktop navigation, which the Phase 6 brief scoped out. The
+audit reports it separately from Practice's own findings and does not fail on
+it, so it stays visible until somebody decides.
 
 On the landing page, where progress, streaks or activity appear, they are a
 **static mockup of the future product**, not live data. The dashboard itself is

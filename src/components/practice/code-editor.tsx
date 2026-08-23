@@ -11,9 +11,19 @@ import type { CodeLanguage } from "@/generated/prisma/client";
  * The code editor.
  *
  * Monaco is loaded with next/dynamic and ssr:false, so it is fetched only when
- * a problem page is opened — no other route pays for it. The `loading` state is
- * a real textarea rather than a spinner: if Monaco is slow, or blocked, a
- * learner can still type and still submit.
+ * a problem page is opened — no other route pays for it. Measured against the
+ * production build, that costs roughly 600–750ms from the click to an editor a
+ * learner can type in, while the statement beside it is readable in well under
+ * 300ms; the split is deliberate, and it is why the editor is not part of what
+ * the page waits for.
+ *
+ * Where Monaco comes *from* is worth knowing and is not our origin:
+ * @monaco-editor/react resolves it through @monaco-editor/loader, which fetches
+ * about 940 kB from cdn.jsdelivr.net on a first visit. Nothing is bundled, so a
+ * browser that cannot reach that CDN gets the loading state below and stays
+ * there. Recorded under "What is deliberately not built" in the README rather
+ * than fixed here, because self-hosting the editor is a dependency and build
+ * change, not a tweak to this component.
  */
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
