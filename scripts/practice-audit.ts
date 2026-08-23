@@ -209,6 +209,44 @@ const MEASURE = `(() => {
   // land on; measured against the rendered box plus whatever the tap-target
   // utility adds, because the utility is the point.
   const controls = [...document.querySelectorAll('button, a[href], select, input, [role="tab"]')];
+
+  /*
+   * How tall the thing a finger may land on actually is.
+   *
+   * A 16px radio inside a padded label is not a 16px target: clicking anywhere
+   * in the label selects it, which is why they are built that way. Measuring
+   * the input alone reported every knowledge-check option and every settings
+   * switch as a defect while the real target was a 70px card. \`el.labels\`
+   * covers both associated forms - a label that wraps the control and one that
+   * points at it with \`for\` - so the union of the two boxes is what the
+   * browser will really accept a tap on, and \`::after\` adds whatever the
+   * tap-target utilities grow it by.
+   */
+  const grownBy = (node) => {
+    const style = getComputedStyle(node, '::after');
+    return style.minHeight && style.minHeight.endsWith('px')
+      ? parseFloat(style.minHeight)
+      : 0;
+  };
+
+  const reach = (el) => {
+    const box = el.getBoundingClientRect();
+    let top = box.top, bottom = box.bottom;
+    // The utility may be on the label rather than on the control - which is
+    // the right place to put it when the label wraps the control, because the
+    // words are where a finger goes. Reading it only off the control reported
+    // twenty already-fixed checkboxes as still broken.
+    let grown = grownBy(el);
+    for (const label of el.labels ? [...el.labels] : []) {
+      const r = label.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      top = Math.min(top, r.top);
+      bottom = Math.max(bottom, r.bottom);
+      grown = Math.max(grown, grownBy(label));
+    }
+    return Math.max(bottom - top, grown);
+  };
+
   const small = controls
     .filter((el) => {
       const r = el.getBoundingClientRect();
@@ -216,20 +254,46 @@ const MEASURE = `(() => {
       // Visually-hidden controls - the skip link, screen-reader affordances -
       // are not tap targets and are collapsed to a pixel on purpose.
       if (r.height < 4 || r.width < 4) return false;
-      // WCAG 2.5.8 exempts a target that is inline in a sentence, and it is
-      // right to: an overlay grown around a word would sit on top of the lines
-      // above and below it, stealing clicks from the text rather than making
-      // the link easier to hit. Anything laid out as a block or a flex item is
-      // a control in its own right and is measured as one.
+      /*
+       * WCAG 2.5.8 exempts a target "in a sentence or block of text", and it
+       * is right to: an overlay grown around a word sits on top of the lines
+       * above and below, stealing clicks from the prose rather than making the
+       * link easier to hit.
+       *
+       * The display check catches most of them and misses the ones that
+       * matter. "Comes after Functions, Arrays" is laid out as a flex row so
+       * the names wrap neatly, which makes each link a flex item and so a
+       * block box - a link in a sentence that no display check will ever call
+       * one. So the test is the sentence itself: does the parent hold text of
+       * its own, outside any control? A toolbar does not. A paragraph does.
+       *
+       * (No backticks in here: this whole probe is a template literal, and one
+       * would end it.)
+       */
       if (getComputedStyle(el).display === 'inline') return false;
-      const after = getComputedStyle(el, '::after').minHeight;
-      const grown = after && after.endsWith('px') ? parseFloat(after) : 0;
-      return Math.max(r.height, grown) < 44;
+      const parent = el.parentElement;
+      if (parent) {
+        let prose = '';
+        for (const node of parent.childNodes) {
+          if (node.nodeType === 3) prose += node.textContent;
+          else if (node.nodeType === 1 && !node.closest('a[href], button')) {
+            // A sibling <span>Comes after</span> is still the sentence; a
+            // sibling control is not.
+            if (!node.querySelector('a[href], button')) prose += node.textContent;
+          }
+        }
+        if (prose.trim().length > 0) return false;
+      }
+      return reach(el) < 44;
     })
     .map((el) => ({
       tag: el.tagName.toLowerCase(),
       label: (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 36),
-      h: Math.round(el.getBoundingClientRect().height),
+      h: Math.round(reach(el)),
+      // Enough of the class list to find the component that owns it. A report
+      // that names a defect without naming where it lives is a report somebody
+      // has to redo.
+      cls: (el.className || '').toString().slice(0, 70),
       // Whether it belongs to the Practice pages or to the application shell
       // around them. The shell is every authenticated page's header and is not
       // this task's to change; separating them keeps the report honest about
@@ -418,10 +482,21 @@ async function main(): Promise<void> {
     }
   };
 
-  const pages = [
-    { name: "/practice", url: `${BASE}/practice` },
-    { name: `/practice/${SLUG}`, url: `${BASE}/practice/${SLUG}` },
-  ];
+  /*
+   * The pages the responsive sweep covers.
+   *
+   * Practice by default, because that is what the rest of this script measures
+   * and what its timings are about. `--pages` takes a comma-separated list of
+   * paths instead, which is how the same overflow, tap-target and covered-
+   * control checks get pointed at the whole site — the layout defects those
+   * find are not Practice-specific and neither is the shell they mostly live
+   * in.
+   */
+  const pages = (arg("pages") ?? `/practice,/practice/${SLUG}`)
+    .split(",")
+    .map((path) => path.trim())
+    .filter(Boolean)
+    .map((path) => ({ name: path, url: `${BASE}${path}` }));
 
   if (SHOTS) mkdirSync(SHOTS, { recursive: true });
 
@@ -438,6 +513,37 @@ async function main(): Promise<void> {
    * wherever it lives.
    */
   const shellFindings = new Set<string>();
+
+  /** The verdict, printed wherever the run happens to stop. */
+  const report = (): void => {
+    console.log(
+      `\n${
+        problems === 0
+          ? "No overflow, no covered controls, no undersized targets, no full reloads, no duplicate requests."
+          : `${problems} findings above.`
+      }`,
+    );
+    if (shellFindings.size > 0) {
+      console.log(
+        `\nThe application shell, which this pass does not change, has ` +
+          `${shellFindings.size} of its own:`,
+      );
+      for (const finding of shellFindings) console.log(`  ${finding}`);
+    }
+    console.log("");
+  };
+
+  /** Closes the browser and takes its profile directory with it. */
+  const finish = async (): Promise<never> => {
+    browser.close();
+    child.kill();
+    try {
+      rmSync(profile, { recursive: true, force: true });
+    } catch {
+      // A locked profile directory is not worth failing the audit over.
+    }
+    process.exit(problems === 0 ? 0 : 1);
+  };
 
   console.log("\n── Responsive audit ───────────────────────────────────────────\n");
   for (const viewport of VIEWPORTS) {
@@ -490,8 +596,8 @@ async function main(): Promise<void> {
         wide: { tag: string; cls: string; right: number }[];
         smallTargets: number;
         smallInShell: number;
-        smallExamples: { tag: string; label: string; h: number }[];
-        shellExamples: { tag: string; label: string; h: number }[];
+        smallExamples: { tag: string; label: string; h: number; cls: string }[];
+        shellExamples: { tag: string; label: string; h: number; cls: string }[];
         editor: { w: number; h: number } | null;
         links: number;
       };
@@ -562,7 +668,9 @@ async function main(): Promise<void> {
       }
       if (coarse) {
         for (const entry of measured.smallExamples) {
-          console.log(`      small: <${entry.tag}> "${entry.label}" ${entry.h}px`);
+          console.log(
+            `      small: <${entry.tag}> "${entry.label}" ${entry.h}px  .${entry.cls}`,
+          );
         }
         for (const entry of measured.shellExamples) {
           console.log(`      shell: <${entry.tag}> "${entry.label}" ${entry.h}px`);
@@ -586,6 +694,19 @@ async function main(): Promise<void> {
     { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false },
     sessionId,
   );
+
+  /*
+   * Everything below this point is about Practice specifically — opening a
+   * problem, prefetching one, the editor becoming typeable. Pointed at a list
+   * of other routes with `--pages`, none of it means anything, so `--only
+   * responsive` stops here rather than spending several minutes measuring
+   * Practice again under a heading that says otherwise.
+   */
+  if (arg("only") === "responsive") {
+    report();
+    await finish();
+    return;
+  }
 
   // ── Loading a page cold ──────────────────────────────────────────────────
 
@@ -1533,30 +1654,8 @@ async function main(): Promise<void> {
 
   problems += reloads;
 
-  console.log(
-    `\n${
-      problems === 0
-        ? "Practice: no overflow, no covered controls, no undersized targets, no full reloads, no duplicate requests."
-        : `Practice: ${problems} findings above.`
-    }`,
-  );
-  if (shellFindings.size > 0) {
-    console.log(
-      `\nThe application shell, which this pass does not change, has ` +
-        `${shellFindings.size} of its own:`,
-    );
-    for (const finding of shellFindings) console.log(`  ${finding}`);
-  }
-  console.log("");
-
-  browser.close();
-  child.kill();
-  try {
-    rmSync(profile, { recursive: true, force: true });
-  } catch {
-    // A locked profile directory is not worth failing the audit over.
-  }
-  process.exit(problems === 0 ? 0 : 1);
+  report();
+  await finish();
 }
 
 void main();
