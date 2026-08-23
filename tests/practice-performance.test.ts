@@ -9,6 +9,8 @@ const {
   getPracticeContext,
   getPracticeProfile,
   getPracticeStats,
+  getProblemForPractice,
+  getProblemProgress,
   getRecommendedProblems,
   listProblems,
   listProblemsForRanking,
@@ -442,5 +444,195 @@ describe("restoring a learner's work", () => {
     });
 
     expect(rows).toEqual([]);
+  });
+});
+
+// ── What the reads cost, counted ───────────────────────────────────────────
+
+/**
+ * Runs a read with every Prisma operation it performs written down.
+ *
+ * `db` is a proxy that resolves `globalThis.prisma` on each property access -
+ * see lib/db - so swapping that global for an instrumented client is enough to
+ * see the queries a module makes without the module knowing, and without a
+ * counting hook living in production code for the sake of a test.
+ *
+ * The original client is put back whatever happens, because everything after
+ * this file would otherwise run through the extension.
+ */
+async function countingQueries<T>(
+  read: () => Promise<T>,
+): Promise<{ result: T; queries: string[] }> {
+  const holder = globalThis as unknown as { prisma?: unknown };
+  // Touch the proxy so the real client exists and is cached on the global.
+  await db.$queryRaw`SELECT 1`;
+  const real = holder.prisma as typeof db;
+
+  const queries: string[] = [];
+  holder.prisma = real.$extends({
+    query: {
+      $allModels: {
+        async $allOperations({ model, operation, args, query }) {
+          queries.push(`${model}.${operation}`);
+          return query(args);
+        },
+      },
+    },
+  });
+
+  try {
+    return { result: await read(), queries };
+  } finally {
+    holder.prisma = real;
+  }
+}
+
+describe("what a practice read costs", () => {
+  /**
+   * The N+1 guard, and the reason it is written against a count rather than a
+   * duration.
+   *
+   * Three hundred problems each carry topic links and language rows. A read
+   * that loaded those per problem would still return the right answer, still
+   * pass every other test in this file, and quietly issue six hundred queries
+   * to render one page. Prisma batches a relation into one query per relation,
+   * so the honest ceiling here is small and fixed - and fixed is the property
+   * worth pinning, because it is the one that breaks silently.
+   */
+  it("reads the whole catalog in a fixed number of queries", async () => {
+    const user = await makeUser("query-count-catalog@example.com");
+    const { result, queries } = await countingQueries(() => listProblems(user.id));
+
+    expect(result.length).toBeGreaterThanOrEqual(300);
+    // A lower bound as well as an upper one. Zero would mean the instrumented
+    // client was never reached, and a ceiling that nothing counts against is a
+    // test that passes by doing nothing.
+    expect(queries.length).toBeGreaterThan(0);
+    // The catalog, its topic links, the topics themselves, the language rows,
+    // and this learner's progress. Nothing per problem.
+    expect(queries.length).toBeLessThanOrEqual(6);
+  });
+
+  it("ranks without paying for what a card renders", async () => {
+    const user = await makeUser("query-count-ranking@example.com");
+    const [catalog, ranking] = await Promise.all([
+      countingQueries(() => listProblems(user.id)),
+      countingQueries(() => listProblemsForRanking(user.id)),
+    ]);
+
+    expect(ranking.result.length).toBe(catalog.result.length);
+    expect(ranking.queries.length).toBeLessThan(catalog.queries.length);
+  });
+
+  /**
+   * One problem, however many examples, test cases, languages and topics it
+   * happens to have.
+   *
+   * The ceiling is per *relation*, not per row, so a problem with nine visible
+   * examples costs exactly what a problem with one does. A read that started
+   * walking rows would blow through this long before anybody noticed the page
+   * had got slower.
+   */
+  it("opens one problem in a fixed number of queries", async () => {
+    const heaviest = await db.practiceProblem.findFirstOrThrow({
+      orderBy: { testCases: { _count: "desc" } },
+      select: { slug: true },
+    });
+
+    const { result, queries } = await countingQueries(() =>
+      getProblemForPractice(heaviest.slug),
+    );
+
+    expect(result).not.toBeNull();
+    expect(queries.length).toBeGreaterThan(0);
+    expect(queries.length).toBeLessThanOrEqual(10);
+  });
+
+  /**
+   * The reason `getNextProblemFor` is called only from the solved branch.
+   *
+   * It ranks, and ranking reads the catalog. Computing it on every visit meant
+   * every first-time opener of every problem paid for a full catalog scan to
+   * produce a link that was not rendered. This pins the cost so the page cannot
+   * quietly start paying it again.
+   */
+  it("only pays for the next problem when there is one to show", async () => {
+    const { user } = await makeLearnerOnACareer("query-count-next@example.com");
+    const problem = await db.practiceProblem.findFirstOrThrow({ select: { id: true } });
+
+    const opening = await countingQueries(() =>
+      getProblemProgress(user.id, problem.id),
+    );
+    const ranking = await countingQueries(() => getNextProblemFor(user.id, problem.id));
+
+    expect(opening.queries.length).toBe(1);
+    expect(ranking.queries.length).toBeGreaterThan(opening.queries.length);
+  });
+});
+
+// ── What the page sends ────────────────────────────────────────────────────
+
+describe("the size of a practice payload", () => {
+  /**
+   * Ceilings, not measurements.
+   *
+   * Every figure below is several times what the read actually returns today,
+   * and that is deliberate: a threshold set just above the current value fails
+   * the first time somebody adds a field, which teaches everyone to raise it.
+   * These fail when a projection changes *shape* - a description arriving in
+   * the catalog, an explanation arriving in the problem - which is the failure
+   * worth being told about.
+   */
+  const bytes = (value: unknown) => JSON.stringify(value).length;
+
+  it("keeps the catalog to metadata", async () => {
+    const user = await makeUser("payload-catalog@example.com");
+    const problems = await listProblems(user.id);
+
+    for (const problem of problems.slice(0, 20)) {
+      expect(problem).not.toHaveProperty("description");
+      expect(problem).not.toHaveProperty("explanation");
+      expect(problem).not.toHaveProperty("examples");
+      expect(problem).not.toHaveProperty("testCases");
+    }
+
+    // Roughly 200 bytes a problem today. A statement in here would be ten
+    // times that, and the catalog would stop being a list and start being a
+    // book.
+    expect(bytes(problems) / problems.length).toBeLessThan(600);
+  });
+
+  it("keeps one problem to what the workspace renders", async () => {
+    const heaviest = await db.practiceProblem.findFirstOrThrow({
+      orderBy: { testCases: { _count: "desc" } },
+      select: { slug: true },
+    });
+    const problem = await getProblemForPractice(heaviest.slug);
+
+    expect(problem).not.toBeNull();
+    // Five starter templates and a statement. The ceiling is the one that
+    // catches an answer key arriving: reference solutions and hidden cases
+    // would roughly double it.
+    expect(bytes(problem)).toBeLessThan(64 * 1024);
+  });
+
+  /**
+   * How many problems one visit may fetch ahead.
+   *
+   * The catalog prefetches nothing on sight - see PracticeBrowser, which
+   * fetches what a pointer lands on and stops at a budget - so the only links
+   * fetched before they are clicked are the recommendations. Six is the
+   * default, and the assertion is that it stays a handful rather than
+   * becoming the catalog.
+   */
+  it("recommends few enough problems to prefetch them all", async () => {
+    const { user } = await makeLearnerOnACareer("payload-prefetch@example.com");
+    const [recommended, catalog] = await Promise.all([
+      getRecommendedProblems(user.id),
+      listProblems(user.id),
+    ]);
+
+    expect(recommended.recommendations.length).toBeLessThanOrEqual(6);
+    expect(recommended.recommendations.length).toBeLessThan(catalog.length / 10);
   });
 });
