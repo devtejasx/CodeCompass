@@ -1117,20 +1117,16 @@ describe("public profile", () => {
     }
   });
 
-  it("publishes no activity, conversations or personalization internals", async () => {
+  it("publishes no activity or personalization internals", async () => {
     const user = await makeUser();
     await db.userActivity.create({
       data: { userId: user.id, type: "PROBLEM_SOLVED", label: "PRIVATE-ACTIVITY-LABEL" },
-    });
-    await db.mentorConversation.create({
-      data: { userId: user.id, title: "PRIVATE-CONVERSATION-TITLE" },
     });
 
     await publish(user.id, "internals-check");
     const serialised = JSON.stringify(await getPublicProfile("internals-check"));
 
     expect(serialised).not.toContain("PRIVATE-ACTIVITY-LABEL");
-    expect(serialised).not.toContain("PRIVATE-CONVERSATION-TITLE");
     expect(serialised).not.toContain("gaps");
     expect(serialised).not.toContain("recommendation");
   });

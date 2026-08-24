@@ -206,7 +206,6 @@ function fakeState(overrides: Record<string, unknown> = {}) {
     experienceLevel: null,
     language: null,
     studyTime: null,
-    mentorSolutionPolicy: "HINTS_ONLY",
     roadmap: { id: "r1", title: "Frontend", estimatedDuration: "8 months" },
     currentTopic: {
       id: "t2",
@@ -1175,10 +1174,5 @@ describe("learner data isolation", () => {
   it("redirects an unauthenticated visitor away from the dashboard", async () => {
     auth.mockResolvedValue(null);
     await expect(requireUser("/dashboard")).rejects.toThrow(/REDIRECT:\/login/);
-  });
-
-  it("redirects an unauthenticated visitor away from the mentor", async () => {
-    auth.mockResolvedValue(null);
-    await expect(requireUser("/mentor")).rejects.toThrow(/REDIRECT:\/login/);
   });
 });

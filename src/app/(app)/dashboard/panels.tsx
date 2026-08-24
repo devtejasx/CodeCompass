@@ -1,10 +1,8 @@
 import {
-  MentorCard,
   ProfileSummary,
   RecentActivity,
   WeekInReview,
 } from "@/components/dashboard/dashboard-panels";
-import { aiAvailability } from "@/lib/ai/provider";
 import { getGuidance, getWeeklySummary } from "@/lib/personalization/service";
 import { listRecentActivity } from "@/lib/personalization/activity";
 import { countEarnedCapabilities } from "@/lib/profile/capabilities";
@@ -63,11 +61,6 @@ export async function ProfilePanel({ userId }: { userId: string }) {
       careerName={state.career?.name ?? null}
     />
   );
-}
-
-/** No data of its own — only whether a provider is configured. */
-export function MentorPanel() {
-  return <MentorCard available={aiAvailability().configured} />;
 }
 
 /**

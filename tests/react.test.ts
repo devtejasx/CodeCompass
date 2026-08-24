@@ -11,7 +11,6 @@ const { submitKnowledgeCheck, markTopicUnderstood, startTopic } = await import(
 const { getGuidance, getNextAction } = await import(
   "@/lib/personalization/service"
 );
-const { buildContext } = await import("@/lib/ai/mentor");
 const { db } = await import("@/lib/db");
 const { LESSONS } = await import("../prisma/seed/lessons");
 const { measureLesson, DEPTH_FLOOR } = await import(
@@ -721,11 +720,10 @@ describe("what CodeCompass recommends around React", () => {
 
     expect(guidance.state.currentTopic?.slug).toBe("react-fundamentals");
 
-    // The mentor is grounded in the same derived state as the dashboard, so
-    // this is what it is told rather than something it works out itself.
-    const context = buildContext({ guidance, firstName: "Sam" });
-    expect(context).toContain("React fundamentals");
-    expect(context).toContain("Current phase: React & Component Thinking");
+    // The phase is carried on the derived state, so every surface that names
+    // where a learner is reads it from here rather than working it out again.
+    expect(guidance.state.currentTopic?.title).toBe("React fundamentals");
+    expect(guidance.state.currentTopic?.phaseTitle).toBe("React & Component Thinking");
   });
 
   it("moves to the next incomplete React topic partway through the phase", async () => {
@@ -755,8 +753,7 @@ describe("what CodeCompass recommends around React", () => {
     expect(guidance.state.currentTopic).not.toBeNull();
     expect(REACT_SLUGS).not.toContain(guidance.state.currentTopic!.slug);
 
-    const context = buildContext({ guidance, firstName: "Sam" });
-    expect(context).toContain("Current phase:");
+    expect(guidance.state.currentTopic!.phaseTitle).not.toBe("");
   });
 
   it("counts React topics towards the roadmap rather than in a category of their own", async () => {

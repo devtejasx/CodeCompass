@@ -215,7 +215,7 @@ export function ProfileSettings({
           {[
             "Your email address and anything about your account",
             "Your GitHub access token, private repositories or granted scopes",
-            "Your activity, your conversations with the mentor, and how many attempts anything took",
+            "Your activity, and how many attempts anything took",
             "Projects you have not completed, and any repository or demo link",
             "Where CodeCompass thinks you are struggling",
           ].map((item) => (

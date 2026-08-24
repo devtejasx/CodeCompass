@@ -8,10 +8,8 @@ import { splitInline } from "@/lib/learn/inline";
  * src/lib/learn/inline.ts for why it is deliberately this small.
  *
  * It lives at the top of components/ rather than inside components/learn/
- * because two very different surfaces need it and they must not drift: lesson
- * sections, where an author wrote the asterisks, and the mentor transcript,
- * where a language model did. A learner reading `**Components**` with the
- * punctuation showing does not care which of those produced it.
+ * because nothing about it is lesson-specific: it is the same three rules
+ * wherever inline text is rendered.
  *
  * No hooks and no state, so it renders in a server component and a client one
  * alike.

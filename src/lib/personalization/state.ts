@@ -10,7 +10,6 @@ import { GIT_EXERCISE_SLUGS } from "@/lib/git/exercises";
 import type {
   DailyLearningTime,
   ExperienceLevel,
-  MentorSolutionPolicy,
   ProgrammingLanguage,
 } from "@/generated/prisma/client";
 
@@ -19,9 +18,9 @@ import type {
  * knows.
  *
  * This is the one object every Phase 10 feature reads: the recommendation
- * engine, the study plan, the weekly summary and the AI mentor's context all
- * start here. Building it in one place is what stops the dashboard and the
- * mentor disagreeing about what topic somebody is on.
+ * engine, the study plan and the weekly summary all start here. Building it in
+ * one place is what stops two surfaces disagreeing about what topic somebody
+ * is on.
  *
  * It is **derived, never stored**. Every field comes from a table that Phases 3
  * to 9 already maintain, so there is no summary row to keep in sync and no way
@@ -65,15 +64,14 @@ export interface LearnerState {
   experienceLevel: ExperienceLevel | null;
   language: ProgrammingLanguage | null;
   studyTime: DailyLearningTime | null;
-  mentorSolutionPolicy: MentorSolutionPolicy;
 
   /** Null when the learner has no career, or their career has no roadmap yet. */
   roadmap: { id: string; title: string; estimatedDuration: string } | null;
 
   /**
    * The first required topic, in roadmap order, that is not complete. This is
-   * the single definition of "where you are" — the roadmap page, the practice
-   * recommendation and the mentor all resolve it the same way.
+   * the single definition of "where you are" — the roadmap page and the
+   * practice recommendation resolve it the same way.
    */
   currentTopic: LearnerTopic | null;
   /** In progress but not finished, if any. Beats currentTopic for "resume". */
@@ -157,7 +155,6 @@ export const getLearnerState = cache(async function getLearnerState(
       experienceLevel: true,
       selectedLanguage: true,
       dailyLearningTime: true,
-      mentorSolutionPolicy: true,
       chosenCareer: { select: { id: true, slug: true, name: true, icon: true } },
     },
   });
@@ -286,8 +283,8 @@ export const getLearnerState = cache(async function getLearnerState(
 
   // Delegated topics (the Git ones, taught in the Academy) have no progress row
   // of their own, so they are folded in here from the Academy work behind them.
-  // Doing it at the state level means the dashboard, the study plan and the
-  // mentor's context all agree without each re-deriving it.
+  // Doing it at the state level means the dashboard and the study plan agree
+  // without each re-deriving it.
   const delegatedComplete = await satisfiedDelegatedTopicIds(
     userId,
     roadmap.phases.flatMap((phase) =>
@@ -394,7 +391,6 @@ export const getLearnerState = cache(async function getLearnerState(
     experienceLevel: profile?.experienceLevel ?? null,
     language: profile?.selectedLanguage ?? null,
     studyTime: profile?.dailyLearningTime ?? null,
-    mentorSolutionPolicy: profile?.mentorSolutionPolicy ?? "HINTS_ONLY",
     roadmap: {
       id: roadmap.id,
       title: roadmap.title,
@@ -483,7 +479,6 @@ function emptyRoadmapState({
     experienceLevel: ExperienceLevel | null;
     selectedLanguage: ProgrammingLanguage | null;
     dailyLearningTime: DailyLearningTime | null;
-    mentorSolutionPolicy: MentorSolutionPolicy;
   } | null;
   career: LearnerState["career"];
   roadmap: LearnerState["roadmap"];
@@ -499,7 +494,6 @@ function emptyRoadmapState({
     experienceLevel: profile?.experienceLevel ?? null,
     language: profile?.selectedLanguage ?? null,
     studyTime: profile?.dailyLearningTime ?? null,
-    mentorSolutionPolicy: profile?.mentorSolutionPolicy ?? "HINTS_ONLY",
     roadmap,
     currentTopic: null,
     resumeTopic: null,

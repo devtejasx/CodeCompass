@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   ArrowRight,
-  Bot,
   Code2,
   GitBranch,
   Hammer,
@@ -316,36 +315,6 @@ export function ProfileSummary({
         <Button variant="secondary" size="sm" asChild>
           <Link href="/profile">
             View profile
-            <ArrowRight aria-hidden />
-          </Link>
-        </Button>
-      </div>
-    </section>
-  );
-}
-
-/** A quiet entry point to the mentor. Present whether or not AI is configured. */
-export function MentorCard({ available }: { available: boolean }) {
-  return (
-    <section aria-labelledby="mentor-heading" className="surface rounded-xl p-6">
-      <h2
-        id="mentor-heading"
-        className="flex items-center gap-2 text-xs font-medium uppercase tracking-label text-subtle-foreground"
-      >
-        <Bot className="size-3.5 text-indigo-400" aria-hidden />
-        AI mentor
-      </h2>
-
-      <p className="pretty mt-3 text-sm leading-relaxed text-muted-foreground">
-        {available
-          ? "Ask why something is recommended, get a concept explained differently, or work out what to do when you are stuck. It reads your progress — it does not decide it."
-          : "Not configured on this deployment. Your next step, your roadmap and every recommendation on this page are calculated by CodeCompass itself, so nothing here depends on it."}
-      </p>
-
-      <div className="mt-5">
-        <Button variant="secondary" size="sm" asChild>
-          <Link href="/mentor">
-            {available ? "Ask your mentor" : "About the mentor"}
             <ArrowRight aria-hidden />
           </Link>
         </Button>

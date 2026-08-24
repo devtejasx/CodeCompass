@@ -2,9 +2,8 @@
  * The vocabulary Phase 10 speaks in.
  *
  * Kept in its own module because the recommendation rules, the queries that
- * feed them, the React components that render them and the AI mentor that
- * explains them all need these types, and none of them should import each
- * other to get them.
+ * feed them and the React components that render them all need these types,
+ * and none of them should import each other to get them.
  */
 
 /**

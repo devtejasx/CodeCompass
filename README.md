@@ -25,14 +25,9 @@ The principle the whole product is built around:
 | 7 | Projects — catalog, milestones, submission, self-evaluation | Complete |
 | 8 | Git & GitHub Academy + GitHub integration | Complete |
 | 9 | AI Tools Academy — catalog, workflows, comparison, responsible use | Complete |
-| 10 | Personalisation engine + AI mentor — "never wonder what to learn next" | Complete\*\* |
+| 10 | Personalisation engine — "never wonder what to learn next" | Complete |
 | 11 | Techie Profile — evidence-based capabilities, public profile, export | Complete |
 | 12 | Advanced developer growth | Not started |
-
-\*\* The personalisation engine is complete and needs no AI. The **AI mentor is
-optional**: with no provider configured, every recommendation, plan and summary
-still works and the mentor page says so. See
-[Personalisation & AI guidance](#personalisation--ai-guidance).
 
 Phase 6 is **closed**: 300 problems across 31 DSA topics, five languages, a
 sandboxed execution service that really compiles and runs submissions, and a
@@ -142,8 +137,7 @@ DATABASE_URL="<production connection string>" npm run db:seed
 Required variables in Vercel → Settings → Environment Variables:
 `DATABASE_URL` and `AUTH_SECRET`. Optional, per feature: `AUTH_URL`/`APP_URL`
 (needed on a custom domain), `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET`/
-`GITHUB_TOKEN_ENCRYPTION_KEY`, `AI_PROVIDER`/`ANTHROPIC_API_KEY`,
-`CODE_EXECUTION_*`, and `DB_POOL_MAX`.
+`GITHUB_TOKEN_ENCRYPTION_KEY`, `CODE_EXECUTION_*`, and `DB_POOL_MAX`.
 
 ---
 
@@ -772,26 +766,17 @@ independent counter.
 
 ---
 
-## Personalisation & AI guidance
+## Personalisation
 
 The phase that connects the other nine. The dashboard is rebuilt around one
 question — **what should I do next?** — answered from the learner's real
 progress, with the reasoning shown.
 
-**The split that defines this phase.** Deterministic rules decide *what* to
-recommend; AI only ever explains it.
-
-| Deterministic — always | AI — optional |
-| --- | --- |
-| Roadmap ordering, prerequisites, eligibility | Explaining a recommendation |
-| What is next, and its priority | Answering "why am I learning this?" |
-| Completion, progress, percentages | Re-explaining a concept another way |
-| The study plan and the weekly summary | Reflecting on progress |
-
-Asking a language model to re-derive facts the application already knows would
-trade a correct answer for a plausible one. **With `AI_PROVIDER` unset the
-entire product works** — the mentor page says it is unavailable, and every
-number on the dashboard is unchanged.
+**Every recommendation is computed, not generated.** Roadmap ordering,
+prerequisites and eligibility, what is next and why, completion percentages,
+the study plan and the weekly summary are all deterministic functions of the
+learner's own progress. Asking a language model to re-derive facts the
+application already knows would trade a correct answer for a plausible one.
 
 - **`LearnerState` is derived, never stored.** Career, current topic, completed
   topics, practice, projects, Git and AI progress are assembled on read from the
@@ -819,29 +804,6 @@ number on the dashboard is unchanged.
   that things are complete, not the order they happened in. It stores a type, a
   subject, a label and a time, and deliberately has no free-form metadata blob,
   which is how activity logs quietly become the most sensitive table in an app.
-
-**The mentor is grounded or it is nothing.**
-
-- **The context is an allowlist**, written line by line. There is no serialiser,
-  because `JSON.stringify(state)` would work today and leak whatever is added
-  tomorrow. It carries a first name and a learning position — never an email,
-  a password hash, a GitHub token, submitted code or a user id. A test asserts
-  each of those by name.
-- **The system prompt forbids inventing progress**, requires "I don't have
-  enough information" over a guess, and treats learner messages as questions
-  rather than instructions.
-- **Solutions are policy, not vibes.** `HINTS_ONLY` by default; a learner can
-  opt into full solutions. The mentor is told which, and never writes a project.
-- **The key is an ECMAScript `#private` field**, not a TypeScript `private` one.
-  The difference is the guarantee: TS `private` is erased, so the key would
-  serialise into any log line or error dump. There is a test asserting
-  `JSON.stringify(provider)` does not contain it.
-- **Every call passes through one function** which checks provider → rate limit
-  → input size, then records what it cost. Failures are recorded too, so a
-  provider outage cannot become an unlimited retry loop.
-- **A failed call is a normal outcome**, returning a typed result rather than
-  throwing — and it leaves the learner's question saved, so retrying does not
-  mean retyping.
 
 ---
 
@@ -925,14 +887,10 @@ collected inside CodeCompass and makes no claim about employability. There are
 no certificates, no badge wall, and the public profile says so in its own
 footer.
 
-**The AI never decides anything.** It explains recommendations the rules
-engine produced; it cannot reorder a roadmap, mark work complete, grade a
-submission, or invent a path. The mentor is optional and the product is whole
-without it.
-
-The **AI Tools Academy (Phase 9) still calls no model API**: it teaches *about*
-these tools. The only model call in the codebase is the mentor's, behind one
-provider interface, and it is off by default.
+**No AI decides anything, because there is no model call to make.**
+CodeCompass calls no model API at all: every recommendation, percentage, plan
+and summary is produced by the rules engine from recorded progress. The **AI
+Tools Academy (Phase 9)** teaches *about* these tools rather than calling them.
 
 Job-search features were removed from the CodeCompass vision deliberately. The
 goal is to make somebody a capable technology professional, not to become a job

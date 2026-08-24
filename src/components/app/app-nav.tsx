@@ -4,7 +4,6 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Bot,
   Code2,
   Compass,
   GitBranch,
@@ -26,7 +25,6 @@ const LINKS = [
   { href: "/projects", label: "Projects", icon: Hammer },
   { href: "/academy/git", label: "Git & GitHub", icon: GitBranch },
   { href: "/academy/ai-tools", label: "AI Tools", icon: Sparkles },
-  { href: "/mentor", label: "Mentor", icon: Bot },
   { href: "/profile", label: "Profile", icon: UserRound },
   { href: "/careers", label: "Explore Careers", icon: Compass },
 ];
