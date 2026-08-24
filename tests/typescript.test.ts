@@ -9,7 +9,6 @@ const { submitKnowledgeCheck, markTopicUnderstood, startTopic } = await import(
   "@/app/actions/learn"
 );
 const { getGuidance } = await import("@/lib/personalization/service");
-const { buildContext } = await import("@/lib/ai/mentor");
 const { db } = await import("@/lib/db");
 const { LESSONS } = await import("../prisma/seed/lessons");
 const { measureLesson, DEPTH_FLOOR } = await import(
@@ -530,8 +529,7 @@ describe("what CodeCompass recommends around TypeScript", () => {
     const guidance = await getGuidance(user.id);
     expect(guidance.state.currentTopic?.slug).toBe("ts-types");
 
-    const context = buildContext({ guidance, firstName: "Sam" });
-    expect(context).toContain("Current phase: TypeScript");
+    expect(guidance.state.currentTopic?.phaseTitle).toBe("TypeScript");
   });
 
   it("moves to the next incomplete topic partway through the phase", async () => {

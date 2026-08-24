@@ -11,7 +11,7 @@ import { getCapabilities } from "./capabilities";
  * moment somebody adds a field upstream.
  *
  * Never included: password hash, email, session data, GitHub access tokens or
- * scopes, mentor conversations, AI usage, knowledge gaps, or any internal id.
+ * scopes, knowledge gaps, or any internal id.
  * Content is identified by slug — the identifier that is already public in
  * every URL — so the file is useful without carrying database keys.
  */

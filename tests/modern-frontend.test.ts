@@ -9,7 +9,6 @@ const { submitKnowledgeCheck, markTopicUnderstood, startTopic } = await import(
   "@/app/actions/learn"
 );
 const { getGuidance } = await import("@/lib/personalization/service");
-const { buildContext } = await import("@/lib/ai/mentor");
 const { db } = await import("@/lib/db");
 const { LESSONS } = await import("../prisma/seed/lessons");
 const { measureLesson, DEPTH_FLOOR } = await import(
@@ -572,8 +571,7 @@ describe("what CodeCompass recommends around Modern Frontend", () => {
     const guidance = await getGuidance(user.id);
     expect(guidance.state.currentTopic?.slug).toBe("nextjs");
 
-    const context = buildContext({ guidance, firstName: "Sam" });
-    expect(context).toContain("Current phase: Modern Frontend");
+    expect(guidance.state.currentTopic?.phaseTitle).toBe("Modern Frontend");
   });
 
   it("moves to the next incomplete topic partway through the phase", async () => {

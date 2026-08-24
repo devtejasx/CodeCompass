@@ -104,10 +104,8 @@ model User {
   aiToolProgress     UserAIToolProgress[]
   aiWorkflowProgress UserAIWorkflowProgress[]
 
-  /// Personalization & AI guidance (Phase 10).
-  activities    UserActivity[]
-  conversations MentorConversation[]
-  aiUsage       AIUsage[]
+  /// Personalization (Phase 10).
+  activities UserActivity[]
 
   @@map("users")
 }
@@ -138,10 +136,6 @@ model Profile {
   /// nothing writes this yet. Kept nullable so a later step can fill it in
   /// without a destructive migration.
   primaryGoal String?
-
-  /// How much help the AI mentor gives on a problem the learner is actively
-  /// solving (Phase 10). Defaults to the conservative setting.
-  mentorSolutionPolicy MentorSolutionPolicy @default(HINTS_ONLY)
 
   // ── Public profile (Phase 11) ─────────────────────────────────────────
   //
@@ -1899,11 +1893,9 @@ model UserAIWorkflowProgress {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Personalization & AI Guidance (Phase 10)
+// Personalization (Phase 10)
 //
-//   UserActivity                    — what happened, for summaries and recency
-//   MentorConversation → MentorMessage — the AI mentor's stored chats
-//   AIUsage                         — one row per AI call, for rate limiting
+//   UserActivity — what happened, for summaries and recency
 //
 // The important thing about this block is how little of it there is.
 //
@@ -1973,100 +1965,6 @@ model UserActivity {
   @@index([userId, createdAt])
   @@index([userId, type, createdAt])
   @@map("user_activities")
-}
-
-/// How much help the mentor gives on a problem the learner is actively solving.
-///
-/// Configurable because the right answer genuinely differs: somebody working
-/// through their first loops is served by a hint, and somebody unblocking a
-/// side project at midnight is not. The default is the conservative one.
-enum MentorSolutionPolicy {
-  /// Concepts, approaches and progressively stronger hints. Never the answer.
-  HINTS_ONLY
-  /// Full solutions on request, after the learner has attempted the problem.
-  ALLOW_SOLUTIONS
-}
-
-model MentorConversation {
-  id     String @id @default(cuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  /// Derived from the first message, for the conversation list.
-  title String?
-
-  messages MentorMessage[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId, updatedAt])
-  @@map("mentor_conversations")
-}
-
-enum MentorRole {
-  USER
-  ASSISTANT
-}
-
-/// One turn.
-///
-/// Only the role and the text. No token counts, no model name, no provider
-/// metadata and no request ids — those belong to AIUsage, which is queried for
-/// rate limiting and never rendered. Keeping them apart means the table that
-/// feeds a page holds nothing but the conversation.
-model MentorMessage {
-  id             String             @id @default(cuid())
-  conversationId String
-  conversation   MentorConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  role    MentorRole
-  content String
-
-  createdAt DateTime @default(now())
-
-  @@index([conversationId, createdAt])
-  @@map("mentor_messages")
-}
-
-enum AIRequestKind {
-  MENTOR
-  GUIDANCE
-  EXPLANATION
-  STUDY_PLAN
-}
-
-/// One AI call, for rate limiting and cost visibility.
-///
-/// Counting rows in a time window is the whole rate limiter. That is slower
-/// than an in-memory counter and correct across restarts and multiple
-/// instances, which for a per-learner limit measured in requests per hour is
-/// the right trade.
-///
-/// Token counts are the provider's own figures where it reports them, and an
-/// estimate otherwise — the column name says which. Nothing from the prompt or
-/// the response is stored here.
-model AIUsage {
-  id     String @id @default(cuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  kind     AIRequestKind
-  /// Adapter name, e.g. "anthropic" or "mock". Never a key or an endpoint.
-  provider String
-  model    String
-
-  inputTokens  Int @default(0)
-  outputTokens Int @default(0)
-
-  /// False for a refusal, a timeout or a provider error. Failures are recorded
-  /// so a broken provider cannot be retried without limit.
-  ok Boolean @default(true)
-
-  createdAt DateTime @default(now())
-
-  @@index([userId, createdAt])
-  @@map("ai_usage")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

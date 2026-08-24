@@ -19,8 +19,8 @@ import type { CapabilityCategory, CapabilityLevel } from "@/generated/prisma/cli
  * cannot be leaked by a rendering mistake either.
  *
  * Never included, at any setting: email, password hash, user id, activity,
- * mentor conversations, AI usage, GitHub tokens, private repository details,
- * knowledge gaps, or anything from the personalization engine.
+ * GitHub tokens, private repository details, knowledge gaps, or anything from
+ * the personalization engine.
  */
 
 export interface PublicCapability {

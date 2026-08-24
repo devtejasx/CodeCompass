@@ -56,9 +56,8 @@ export interface Guidance {
 /**
  * The whole picture, in one call.
  *
- * The dashboard needs all of it and the mentor needs most of it, so computing
- * it once and passing it down beats each component asking for its own slice and
- * re-running the rules. Memoised per request so that "computing it once" holds
+ * The dashboard needs all of it, so computing it once and passing it down
+ * beats each component asking for its own slice and re-running the rules. Memoised per request so that "computing it once" holds
  * even when two callers in the same render both ask — the profile page and the
  * streamed dashboard panels do exactly that.
  */

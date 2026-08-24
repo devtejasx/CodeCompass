@@ -11,7 +11,6 @@ import { ProgressOverview } from "@/components/dashboard/progress-overview";
 import { TodaysPlan, TrackPanels } from "@/components/dashboard/dashboard-panels";
 import {
   ActivityPanel,
-  MentorPanel,
   PanelSkeleton,
   ProfilePanel,
   WeeklyPanel,
@@ -38,8 +37,7 @@ export const metadata: Metadata = {
  * logic reaches the browser, and none of it lives in a component.
  *
  * This page never depends on AI. Every recommendation, percentage and plan item
- * is computed by the deterministic engine; the mentor card is an entry point,
- * not a source.
+ * is computed by the deterministic engine.
  */
 export default async function DashboardPage() {
   const user = await requireOnboardedUser();
@@ -150,11 +148,10 @@ export default async function DashboardPage() {
             </Suspense>
           </div>
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div className="mt-4">
             <Suspense fallback={<PanelSkeleton label="your profile" rows={2} />}>
               <ProfilePanel userId={user.id} />
             </Suspense>
-            <MentorPanel />
           </div>
 
           {/* ── Path controls ──────────────────────────────────── */}

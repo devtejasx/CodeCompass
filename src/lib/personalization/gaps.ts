@@ -51,8 +51,8 @@ export interface TopicAttemptEvidence {
  * Turns recorded attempts into gaps worth surfacing.
  *
  * Only STRONG gaps ever produce a primary recommendation; WEAK ones are
- * available to the mentor as context but are not put in front of the learner
- * as an instruction, because one bad afternoon is not a knowledge gap.
+ * recorded but not put in front of the learner as an instruction, because one
+ * bad afternoon is not a knowledge gap.
  *
  * Ordered strongest first so a caller can take the head without re-sorting.
  */
@@ -96,7 +96,7 @@ export function detectGaps(evidence: TopicAttemptEvidence[]): KnowledgeGap[] {
       continue;
     }
 
-    // Enough to mention to the mentor, not enough to redirect the learner.
+    // Enough to record, not enough to redirect the learner.
     if (row.unsolvedProblems >= 1 && row.problemAttempts >= 2) {
       gaps.push({
         topicId: row.topicId,

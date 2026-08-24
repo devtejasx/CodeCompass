@@ -34,7 +34,6 @@ export const RESERVED_USERNAMES = new Set([
   "help",
   "login",
   "logout",
-  "mentor",
   "moderator",
   "new",
   "official",
